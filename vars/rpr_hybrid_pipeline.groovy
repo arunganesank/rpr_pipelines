@@ -453,7 +453,8 @@ def executeBuildWindows(Map options) {
         }
     }
 
-    hybrid_vs_northstar_pipeline.createHybridBranch(options)
+    // Hybrid vs NS auto is disabled
+    //hybrid_vs_northstar_pipeline.createHybridBranch(options)
 }
 
 
