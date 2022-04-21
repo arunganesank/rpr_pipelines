@@ -344,7 +344,7 @@ def executeTests(String osName, String asicName, Map options)
                         }
 
                         println("Stashing test results to : ${options.testResultsName}")
-                        utils.stashTestData(this, options, options.storeOnNAS, "**/rpr_export_scenes/**")
+                        utils.stashTestData(this, options, options.storeOnNAS, "**/rpr_export_scenes/**,**/cache/**")
 
                         // deinstalling broken addon
                         // if test group is fully errored or number of test cases is equal to zero
