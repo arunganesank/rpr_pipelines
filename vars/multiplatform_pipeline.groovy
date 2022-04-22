@@ -438,9 +438,13 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
-                if (jobsViews.contains('Autojobs')) {
-                    currentBuild.displayName = "${currentBuild.displayName} (Priority: 20)"
-                } else if (jobsViews.contains('Large_autojobs') || jobsViews.contains('Plugins Weekly')) {
+                if (jobsViews.endsWith('Auto')) {
+                    if (env.JOB_NAME.contains("USDViewer") || env.JOB_NAME.contains("InventorPluginInstaller")) {
+                        currentBuild.displayName = "${currentBuild.displayName} (Priority: 20)"
+                    } else {
+                        currentBuild.displayName = "${currentBuild.displayName} (Priority: 30)"
+                    }
+                } else if (env.JOB_NAME.contains("Weekly")) {
                     currentBuild.displayName = "${currentBuild.displayName} (Priority: 30)"
                 } else {
                     currentBuild.displayName = "${currentBuild.displayName} (Priority: 40)"
