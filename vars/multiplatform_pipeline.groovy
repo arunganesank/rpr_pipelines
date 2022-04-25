@@ -438,7 +438,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
-                if (env.JOB_NAME.endsWith('Auto') || env.JOB_NAME.endsWith('-Hybrid')) {
+                if (env.JOB_NAME.contains('Auto/') || env.JOB_NAME.contains('-Hybrid/')) {
                     if (env.JOB_NAME.contains("USDViewer") || env.JOB_NAME.contains("InventorPluginInstaller")) {
                         currentBuild.displayName = "${currentBuild.displayName} (Priority: 20)"
                     } else if (env.JOB_NAME.contains("Core")) {
