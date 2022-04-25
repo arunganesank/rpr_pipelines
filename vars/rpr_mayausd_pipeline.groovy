@@ -494,7 +494,8 @@ def executePreBuild(Map options) {
             println "Branch name: ${options.branchName}"
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
-                options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=')
+                // Temporary hardcode version due to different formats of version in master and PR-8
+                options.pluginVersion = "0.1.0"
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -507,7 +508,9 @@ def executePreBuild(Map options) {
                     
                     if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
 
-                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                        // Do not have permissions to make a new commit
+
+/*                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
 
                         def new_version = version_inc(options.pluginVersion, 3)
@@ -517,16 +520,16 @@ def executePreBuild(Map options) {
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=')
                         println "[INFO] Updated build version: ${options.pluginVersion}"
 
-                        // bat """
-                        //  git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
-                        //  git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                        //  git push origin HEAD:develop
-                        // """
+                        bat """
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
+                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
+                            git push origin HEAD:develop
+                        """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                         options.projectBranch = options.commitSHA
-                        println "[INFO] Project branch hash: ${options.projectBranch}"
+                        println "[INFO] Project branch hash: ${options.projectBranch}"*/
                     } else {
                         if (options.commitMessage.contains("CIS:BUILD")) {
                             options['executeBuild'] = true
