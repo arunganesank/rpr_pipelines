@@ -106,9 +106,14 @@ def executeTestCommand(String osName, Map options) {
             break
         default:
             dir('Launcher') {
-                sh """
-                    ./run.sh "Correlation" >> ../${STAGE_NAME}.log 2>&1
-                """
+                try {
+                    sh """
+                        ./run.sh "Correlation" >> ../${STAGE_NAME}.log 2>&1
+                    """
+                } catch (e) {
+                    println("[ERROR] Run.sh script returned non-zero exit code")
+                    println(e)
+                }
             }
     }
 }
