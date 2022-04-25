@@ -384,7 +384,7 @@ def executeBuildWindows(Map options) {
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_Setup* RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
