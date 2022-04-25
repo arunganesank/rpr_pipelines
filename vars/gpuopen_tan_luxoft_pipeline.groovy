@@ -734,7 +734,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
     String testsBranch = "RA_testing",
-    String platforms = 'Windows:AMD_RadeonVII;Ubuntu20:AMD_RadeonVII;OSX:AMD_RXVEGA',
+    String platforms = 'Windows:AMD_RX6600XT;Ubuntu20:AMD_RX6600XT',
     String buildConfiguration = "release",
     String IPP = "off",
     String OMP = "off",
