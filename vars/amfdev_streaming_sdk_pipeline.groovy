@@ -1263,7 +1263,7 @@ def executePreBuild(Map options) {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
-            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.join("").contains(it) } || options.testsPackage == "regression.json")) {
+            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.join("").contains(it) } || options.testsPackage == "regression.json~")) {
                 println(options.platforms)
                 options.platforms = options.platforms + ";Android"
                 println(options.platforms)
