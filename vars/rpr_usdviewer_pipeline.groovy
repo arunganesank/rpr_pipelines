@@ -249,7 +249,7 @@ def executeTests(String osName, String asicName, Map options) {
             
 
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE_DIRT) {                        
-                    timeout(time: "10", unit: "MINUTES") {
+                    timeout(time: "15", unit: "MINUTES") {
                         try {
                             buildRenderCache(osName, options, false)
                         } catch (e) {
@@ -285,7 +285,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE_CUSTOM_PATH) {                        
-                    timeout(time: "10", unit: "MINUTES") {
+                    timeout(time: "15", unit: "MINUTES") {
                         try {
                             buildRenderCache(osName, options, true, true)
                         } catch (e) {
@@ -319,7 +319,7 @@ def executeTests(String osName, String asicName, Map options) {
         }
     
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE_CLEAN) {                        
-            timeout(time: "10", unit: "MINUTES") {
+            timeout(time: "15", unit: "MINUTES") {
                 try {
                     buildRenderCache(osName, options, true)
                 } catch (e) {
