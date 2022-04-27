@@ -182,7 +182,8 @@ public class NotificationConfiguration {
             "AnyTool": false,
             "Tools": [
                 "USDViewer": ["Windows"],
-                "StandaloneUSDViewer": ["Windows"]
+                "StandaloneUSDViewer": ["Windows"],
+                "RPRMayaUSD": ["Windows"]
             ]
         ]
     ]
