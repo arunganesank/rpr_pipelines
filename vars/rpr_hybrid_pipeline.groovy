@@ -151,6 +151,16 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
         if (options.testsQuality) {
             println("Exception during [${options.RENDER_QUALITY}] quality tests execution")
             try {
+                if (options['updateRefs']) {
+                    currentBuild.description += "<span style='color: #b03a2e'>References weren't updated for ${asicName}-${osName}-{options.RENDER_QUALITY} due to non-zero exit code returned by RprTest tool</span><br/>"
+                }
+
+                if (options['updateRefs']) {
+                    println "Updating Reference Images"
+                    executeGenTestRefCommand(asicName, osName, options)
+                    uploadFiles('./BaikalNext/RprTest/ReferenceImages/', REF_PATH_PROFILE)
+                }
+
                 dir('HTML_Report') {
                     checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
                     python3("-m pip install --user -r requirements.txt")
@@ -171,6 +181,10 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
         } else {
             println("Exception during tests execution")
             try {
+                if (options['updateRefs']) {
+                    currentBuild.description += "<span style='color: #b03a2e'>References weren't updated for ${asicName}-${osName} due to non-zero exit code returned by RprTest tool</span><br/>"
+                }
+
                 dir('HTML_Report') {
                     checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
                     python3("-m pip install -r requirements.txt")
@@ -773,6 +787,8 @@ def call(String projectBranch = "",
     println "[INFO] Performance tests which will be executed: ${scenarios}"
 
     Map successfulTests = ["unit": true, "perf": true, "cliff_detected": false, "unexpected_acceleration": false]
+
+    currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy,
                            [platforms:platforms,
