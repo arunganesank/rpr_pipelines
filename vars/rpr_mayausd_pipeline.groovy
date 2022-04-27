@@ -368,7 +368,8 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     dir('RPRMayaUSD') {
-        withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;C:\\Program Files (x86)\\Inno Setup 6\\;${PATH}"]) {
+        // Temporary remove system python from PATH (otherwise it can affect building of plugin)
+        withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
             outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
 
             // vcvars64.bat sets VS/msbuild env
