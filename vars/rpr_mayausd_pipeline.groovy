@@ -368,35 +368,68 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     dir('RPRMayaUSD') {
-        // Temporary remove system python from PATH (otherwise it can affect building of plugin)
-        withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
-            outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-8") {
+            // Temporary remove system python from PATH (otherwise it can affect building of plugin)
+            withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
+                outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
 
-            // vcvars64.bat sets VS/msbuild env
-            withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
-
-                    build.bat >> ..\\${STAGE_NAME}.log 2>&1
-                """
-            }
-            dir('installation') {
-                bat """
-                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
-                """
-
-                makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
-
-                if (options.branch_postfix) {
+                // vcvars64.bat sets VS/msbuild env
+                withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build.bat > ..\\${STAGE_NAME}.log 2>&1
                     """
                 }
+                dir('installation') {
+                    bat """
+                        rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
+                    """
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup.exe"
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
 
-                GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    }
+
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup.exe"
+                    String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+                    GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+                }
+            }
+        } else {
+            withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;C:\\Program Files (x86)\\Inno Setup 6\\;${PATH}"]) {
+                outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
+
+                // vcvars64.bat sets VS/msbuild env
+                withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build.bat > ..\\${STAGE_NAME}.log 2>&1
+                    """
+                }
+                dir('installation') {
+                    bat """
+                        rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
+                    """
+
+                    makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    }
+
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup.exe"
+                    String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+                    GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+                }
             }
         }
     }
