@@ -320,64 +320,66 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(String osName, Map options) {
-    clearBinariesWin()
+    withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
+        clearBinariesWin()
 
-    if (options.rebuildUSD) {
-        dir ("USD") {
-            bat """
-                set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
-                
-                if exist USDgen rmdir /s/q USDgen
-                if exist USDinst rmdir /s/q USDinst
+        if (options.rebuildUSD) {
+            dir ("USD") {
+                bat """
+                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
+                    
+                    if exist USDgen rmdir /s/q USDgen
+                    if exist USDinst rmdir /s/q USDinst
 
-                python build_scripts\\build_usd.py -v --build USDgen/build --src USDgen/src USDinst >> ${STAGE_NAME}_USD.log 2>&1
-            """
-        }
-    }
-
-    dir ("RadeonProRenderUSD") {
-        GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
-        
-        String additionalKeys = ""
-
-        if (options.houdiniVersion.startsWith("18.5.")) {
-            additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
-        }
-
-        if (options.buildType == "Houdini") {
-            options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.houdiniVersion}"
-            bat """
-                mkdir build
-                set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                set HFS=${options.win_tool_path}
-                python --version >> ..\\${STAGE_NAME}.log 2>&1
-                python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
-            """
-        } else {
-            bat """
-                mkdir build
-                set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                python --version >> ..\\${STAGE_NAME}.log 2>&1
-                python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" --cmake_options " -Dpxr_DIR=../USD/USDinst ${additionalKeys}" >> ..\\${STAGE_NAME}.log 2>&1
-            """
-        } 
-
-        dir("build") {
-            if (options.buildType == "Houdini") {
-                options.win_build_name = "hdRpr-${options.pluginVersion}-Houdini-${options.houdiniVersion}-${osName}"
-            } else if (options.buildType == "USD") {
-                options.win_build_name = "hdRpr-${options.pluginVersion}-USD-${osName}"
+                    python build_scripts\\build_usd.py -v --build USDgen/build --src USDgen/src USDinst >> ${STAGE_NAME}_USD.log 2>&1
+                """
             }
+        }
+
+        dir ("RadeonProRenderUSD") {
+            GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
             
-            bat "rename hdRpr* ${options.win_build_name}.tar.gz"
+            String additionalKeys = ""
 
-            String ARTIFACT_NAME = "${options.win_build_name}.tar.gz"
-            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            if (options.houdiniVersion.startsWith("18.5.")) {
+                additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
+            }
 
-            bat "rename hdRpr* hdRpr_${osName}.tar.gz"
-            makeStash(includes: "hdRpr_${osName}.tar.gz", name: "app${osName}", preZip: false, storeOnNAS: options.storeOnNAS)
-            GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+            if (options.buildType == "Houdini") {
+                options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.houdiniVersion}"
+                bat """
+                    mkdir build
+                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+                    set HFS=${options.win_tool_path}
+                    python --version >> ..\\${STAGE_NAME}.log 2>&1
+                    python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
+                """
+            } else {
+                bat """
+                    mkdir build
+                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+                    python --version >> ..\\${STAGE_NAME}.log 2>&1
+                    python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" --cmake_options " -Dpxr_DIR=../USD/USDinst ${additionalKeys}" >> ..\\${STAGE_NAME}.log 2>&1
+                """
+            } 
+
+            dir("build") {
+                if (options.buildType == "Houdini") {
+                    options.win_build_name = "hdRpr-${options.pluginVersion}-Houdini-${options.houdiniVersion}-${osName}"
+                } else if (options.buildType == "USD") {
+                    options.win_build_name = "hdRpr-${options.pluginVersion}-USD-${osName}"
+                }
+                
+                bat "rename hdRpr* ${options.win_build_name}.tar.gz"
+
+                String ARTIFACT_NAME = "${options.win_build_name}.tar.gz"
+                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+                bat "rename hdRpr* hdRpr_${osName}.tar.gz"
+                makeStash(includes: "hdRpr_${osName}.tar.gz", name: "app${osName}", preZip: false, storeOnNAS: options.storeOnNAS)
+                GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+            }
         }
     }
 }
