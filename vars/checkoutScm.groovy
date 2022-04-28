@@ -17,6 +17,7 @@ import hudson.AbortException
  *     useLFS - enable Git LFS option (Large File Storage)
  *     prRepoName - PR repository url for mergePR function (option for manual jobs)
  *     prBranchName - PR braanch name for mergePR function (option for manual jobs)
+ *     cleanCheckout - clear all untracked files or not (default - true)
  */
 
 def call(Map checkoutOptions) {
@@ -34,9 +35,11 @@ def call(Map checkoutOptions) {
     checkoutOptions['prBranchName'] = checkoutOptions['prBranchName'] ?: ''
     checkoutOptions['prRepoName'] = checkoutOptions['prRepoName'] ?: ''
 
+    Boolean cleanCheckout = checkoutOptions.containsKey('cleanCheckout') ? checkoutOptions['cleanCheckout'] : true 
+
     try {
         if (checkoutOptions['checkoutClass'] == 'GitSCM') {
-            checkoutGitScm(checkoutOptions)
+            checkoutGitScm(checkoutOptions, cleanCheckout)
         } else if (checkoutOptions['checkoutClass'] == 'SubversionSCM') {
             checkoutSubversionScm(checkoutOptions)
         }
@@ -44,20 +47,25 @@ def call(Map checkoutOptions) {
         println "[INFO] Task was aborted during checkout"
         throw e
     } catch (e) {
-        println "[ERROR] Failed to checkout git on ${env.NODE_NAME}. Cleaning workspace and try again."
-        println(e.toString())
-        println(e.getMessage())
-        cleanWS()
-        if (checkoutOptions['checkoutClass'] == 'GitSCM') {
-            checkoutGitScm(checkoutOptions)
-        } else if (checkoutOptions['checkoutClass'] == 'SubversionSCM') {
-            checkoutSubversionScm(checkoutOptions)
+        if (cleanCheckout) {
+            println "[ERROR] Failed to checkout git on ${env.NODE_NAME}. Cleaning workspace and try again."
+            println(e.toString())
+            println(e.getMessage())
+            cleanWS()
+            if (checkoutOptions['checkoutClass'] == 'GitSCM') {
+                checkoutGitScm(checkoutOptions, true)
+            } else if (checkoutOptions['checkoutClass'] == 'SubversionSCM') {
+                checkoutSubversionScm(checkoutOptions)
+            }
+        } else {
+            // non-clean checkout failed
+            throw e
         }
     }
 }
 
 
-def checkoutGitScm(Map checkoutOptions) {
+def checkoutGitScm(Map checkoutOptions, Boolean cleanCheckout=true) {
 
     // Use SCM if checkoutOptions['branchName'] is '', else use checkoutOptions['branchName'] in speacial format
     def repositoryBranch = checkoutOptions['branchName'] ? [[name: checkoutOptions['branchName']]] : scm.branches
@@ -75,8 +83,6 @@ def checkoutGitScm(Map checkoutOptions) {
     List configs = [[credentialsId: checkoutOptions['credentialsId'], url: checkoutOptions['repositoryUrl']]]
     def checkoutExtensions = [
             [$class: 'PruneStaleBranch'],
-            [$class: 'CleanBeforeCheckout'],
-            [$class: 'CleanCheckout', deleteUntrackedNestedRepositories: true],
             [$class: 'CheckoutOption', timeout: 30],
             [$class: 'AuthorInChangelog'],
             [$class: 'CloneOption', timeout: 120, noTags: false],
@@ -84,6 +90,11 @@ def checkoutGitScm(Map checkoutOptions) {
              parentCredentials: true, recursiveSubmodules: checkoutOptions['recursiveSubmodules'], shallow: true, 
              depth: checkoutOptions['submoduleDepth'], timeout: 60, reference: '', trackingSubmodules: false],
     ]
+
+    if (cleanCheckout) {
+        checkoutExtensions.add([$class: 'CleanBeforeCheckout'])
+        checkoutExtensions.add([$class: 'CleanCheckout', deleteUntrackedNestedRepositories: true])
+    }
 
     if (checkoutOptions['prBranchName']) {
         if (checkoutOptions['prRepoName'] && checkoutOptions['repositoryUrl'] != checkoutOptions['prRepoName']) {
