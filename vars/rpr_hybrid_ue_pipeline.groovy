@@ -26,6 +26,12 @@ def getPreparedUE(Map options, String projectName) {
         dir("RPRHybrid-UE") {
             checkoutScm(branchName: options.ueBranch, repositoryUrl: options.ueRepo, cleanCheckout: options.cleanBuild)
         }
+
+        // start script which presses enter to register UE file types
+        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\register_ue_file_types.py && exit 0\"")
+        bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
+
+        println("[INFO] Prepared UE is ready.")
     } else if (!fileExists(targetFolderPath)) {
         println("[INFO] UnrealEngine will be downloaded and configured")
 
