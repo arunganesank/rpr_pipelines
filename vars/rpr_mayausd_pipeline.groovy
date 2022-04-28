@@ -368,7 +368,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     dir('RPRMayaUSD') {
-        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-8") {
+        if (env.BRANCH_NAME && (env.BRANCH_NAME == "PR-8" || env.BRANCH_NAME == "PR-9")) {
             // Temporary remove system python from PATH (otherwise it can affect building of plugin)
             withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
                 outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
