@@ -20,7 +20,13 @@ import groovy.transform.Field
 def getPreparedUE(Map options, String projectName) {
     String targetFolderPath = "${CIS_TOOLS}\\..\\PreparedUE\\${options.ueSha}"
 
-    if (!fileExists(targetFolderPath)) {
+    if (!options.cleanBuild) {
+        println("[INFO] Do incremental build")
+
+        dir("RPRHybrid-UE") {
+            checkoutScm(branchName: options.ueBranch, repositoryUrl: options.ueRepo, cleanCheckout: options.cleanBuild)
+        }
+    } else if (!fileExists(targetFolderPath)) {
         println("[INFO] UnrealEngine will be downloaded and configured")
 
         println("[INFO] Clear prepared UnrealEngine directories")
@@ -107,7 +113,7 @@ def executeBuildWindows(String projectName, Map options) {
     }
 
     dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
     }
 
     // download build scripts
@@ -190,7 +196,7 @@ def executeBuild(String osName, Map options) {
 
 def executePreBuild(Map options) {
     dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true, cleanCheckout: options.cleanBuild)
     
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
@@ -223,7 +229,8 @@ def call(String projectBranch = "",
          String ueBranch = "rpr_material_serialization_particles",
          String platforms = "Windows",
          String projects = "ShooterGame,ToyShop",
-         Boolean saveEngine = false
+         Boolean saveEngine = false,
+         Boolean cleanBuild = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -254,7 +261,8 @@ def call(String projectBranch = "",
                                 storeOnNAS: true,
                                 projects: projects.split(","),
                                 problemMessageManager: problemMessageManager,
-                                saveEngine:saveEngine])
+                                saveEngine:saveEngine,
+                                cleanBuild:cleanBuild])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
