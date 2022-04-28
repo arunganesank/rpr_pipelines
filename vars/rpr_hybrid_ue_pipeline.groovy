@@ -100,8 +100,9 @@ def executeBuildWindows(String projectName, Map options) {
     String targetDir = projectsInfo[projectName]["targetDir"]
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
+    bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
+
     if (options.cleanBuild) {
-        bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
         bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
     }
 
