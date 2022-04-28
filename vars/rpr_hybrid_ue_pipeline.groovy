@@ -14,17 +14,20 @@ import groovy.transform.Field
 
 @Field finishedProjects = []
 
-@Field MAX_PREPARED_UE = 2
 
+def getUE(Map options, String projectName) {
+    if (!options.cleanBuild) {
+        println("[INFO] Do incremental build")
 
-def getPreparedUE(Map options, String projectName) {
-    String targetFolderPath = "${CIS_TOOLS}\\..\\PreparedUE\\${options.ueSha}"
+        dir("RPRHybrid-UE") {
+            checkoutScm(branchName: options.ueBranch, repositoryUrl: options.ueRepo, cleanCheckout: options.cleanBuild)
+        }
 
-    if (!fileExists(targetFolderPath)) {
+        // start script which presses enter to register UE file types
+        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\register_ue_file_types.py && exit 0\"")
+        bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
+    } else {
         println("[INFO] UnrealEngine will be downloaded and configured")
-
-        println("[INFO] Clear prepared UnrealEngine directories")
-        clearPreparedUE(options)
 
         dir("RPRHybrid-UE") {
             checkoutScm(branchName: options.ueBranch, repositoryUrl: options.ueRepo)
@@ -33,46 +36,9 @@ def getPreparedUE(Map options, String projectName) {
         // start script which presses enter to register UE file types
         bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\register_ue_file_types.py && exit 0\"")
         bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
-
-        println("[INFO] Prepared UE is ready. Saving it for use in future builds...")
-
-        bat """
-            xcopy /s/y/i RPRHybrid-UE ${targetFolderPath} >> nul
-        """
-    } else {
-        println("[INFO] Prepared UnrealEngine found. Copying it...")
-
-        dir("RPRHybrid-UE") {
-            bat """
-                xcopy /s/y/i ${targetFolderPath} . >> nul
-            """
-        }
     }
-}
 
-
-def clearPreparedUE(Map options) {
-    String preparedUEFolredPath = "${CIS_TOOLS}\\..\\PreparedUE"
-
-    dir(preparedUEFolredPath) {
-        def files = findFiles()
-
-        if (files.size() >= MAX_PREPARED_UE) {
-            def oldestCommit = files[0].lastModified
-            def fileToDelete = files[0]
-
-            for (file in files) {
-                if (oldestCommit > file.lastModified) {
-                    oldestCommit = file.lastModified
-                    fileToDelete = file
-                }
-            }
-
-            bat """
-                rmdir /Q /S \"${preparedUEFolredPath}\\${fileToDelete.name}\"
-            """
-        }
-    }
+    println("[INFO] Prepared UE is ready.")
 }
 
 
@@ -89,7 +55,10 @@ def executeBuildWindows(String projectName, Map options) {
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
     bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
-    bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
+
+    if (options.cleanBuild) {
+        bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
+    }
 
     utils.removeFile(this, "Windows", "*.log")
 
@@ -107,14 +76,14 @@ def executeBuildWindows(String projectName, Map options) {
     }
 
     dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
     }
 
     // download build scripts
     downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
 
-    // copy prepared UE if it exists
-    getPreparedUE(options, projectName)
+    // prepare UE
+    getUE(options, projectName)
 
     // download textures
     downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
@@ -190,7 +159,7 @@ def executeBuild(String osName, Map options) {
 
 def executePreBuild(Map options) {
     dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true, cleanCheckout: options.cleanBuild)
     
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
@@ -223,7 +192,8 @@ def call(String projectBranch = "",
          String ueBranch = "rpr_material_serialization_particles",
          String platforms = "Windows",
          String projects = "ShooterGame,ToyShop",
-         Boolean saveEngine = false
+         Boolean saveEngine = false,
+         Boolean cleanBuild = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -254,7 +224,8 @@ def call(String projectBranch = "",
                                 storeOnNAS: true,
                                 projects: projects.split(","),
                                 problemMessageManager: problemMessageManager,
-                                saveEngine:saveEngine])
+                                saveEngine:saveEngine,
+                                cleanBuild:cleanBuild])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
