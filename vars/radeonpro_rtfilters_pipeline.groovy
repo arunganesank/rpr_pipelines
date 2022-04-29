@@ -147,7 +147,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 }
 
 def call(String projectBranch = "", 
-         String platforms = 'Windows:AMD_RXVEGA,AMD_WX9100',
+         String platforms = 'Windows:AMD_WX9100',
          String PRJ_ROOT='rpr-core',
          String PRJ_NAME='RadeonProRTFilters',
          String projectRepo='git@github.com:Radeon-Pro/RadeonProRTFilters.git',

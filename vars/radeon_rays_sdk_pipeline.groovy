@@ -115,7 +115,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 
 def call(String projectBranch = "", 
          String projectRepo = 'git@github.com:GPUOpen-LibrariesAndSDKs/RadeonRays_SDK.git',
-         String platforms = 'Windows:AMD_RXVEGA,AMD_WX9100;OSX:AMD_RXVEGA',
+         String platforms = 'Windows:AMD_WX9100;OSX:AMD_RXVEGA',
          String PRJ_NAME="RadeonRays_SDK",
          Boolean enableNotifications = true) {
 
