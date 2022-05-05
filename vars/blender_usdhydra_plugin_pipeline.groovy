@@ -310,7 +310,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
     try {
-        def additionalKeys = options.additionalKeys ? "--prman --prman-location \"C:\\Program Files\\Pixar\\RenderManProServer-24.3\"" : ""
+        def additionalKeys = "--prman --prman-location \"C:\\Program Files\\Pixar\\RenderManProServer-24.3\""
         dir('BlenderUSDHydraAddon') {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
             def paths = ["c:\\python${pyVersion.replace(".","")}\\",
@@ -383,7 +383,7 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
     try {
-        def additionalKeys = options.additionalKeys ? "--prman --prman-location \"/opt/pixar/RenderManProServer-24.3\"" : ""
+        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.3\""
         dir('BlenderUSDHydraAddon') {
             GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
             if (options.rebuildDeps) {
@@ -552,14 +552,6 @@ def executePreBuild(Map options)
             options['executeTests'] = true
             options['testsPackage'] = "regression.json"
         }
-    }
-
-    //Delete this code after BLEN-44 merge
-    if (options.projectBranch == "BLEN-44" || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-234")) {
-        println("[DEBUG] Additional args has added")
-        options.additionalKeys = true
-        options.toolVersion = "3.0"
-        options.engines.add("HdPrmanLoaderRendererPlugin")
     }
 
     // branch postfix
