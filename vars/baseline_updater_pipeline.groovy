@@ -13,7 +13,8 @@ import groovy.json.JsonSlurperClassic
     "core": "rpr_core_autotests",
     "blender_usd_hydra": "usd_blender_autotests",
     "inventor": "usd_inventor_autotests",
-    "USD": "rpr_usdplugin_autotests"
+    "USD": "rpr_usdplugin_autotests",
+    "maya_usd": "usd_maya_autotests"
 ]
 
 @Field final Map PROJECT_MAPPING = [
@@ -23,7 +24,8 @@ import groovy.json.JsonSlurperClassic
     "core": "Core",
     "blender_usd_hydra": "Blender USD Hydra",
     "inventor": "Inventor",
-    "USD": "Houdini"
+    "USD": "Houdini",
+    "maya_usd": "Maya USD"
 ]
 
 @Field final Map ENGINE_REPORT_MAPPING = [
