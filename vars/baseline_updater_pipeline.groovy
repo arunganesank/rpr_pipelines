@@ -13,6 +13,7 @@ import groovy.json.JsonSlurperClassic
     "core": "rpr_core_autotests",
     "blender_usd_hydra": "usd_blender_autotests",
     "inventor": "usd_inventor_autotests",
+    "usd_viewer": "usd_rprviewer_autotests"
     "USD": "rpr_usdplugin_autotests",
     "maya_usd": "usd_maya_autotests",
     "anari": "rpr_anari_autotests"
@@ -90,6 +91,11 @@ def call(String jobName,
 
                 try {
                     cleanWS()
+
+                    // duck tape for one autotests repository for two projects
+                    if (toolName == "inventor" && jobName.contains("USDViewer")) {
+                        toolName = "usd_viewer"
+                    }
 
                     toolName = toolName.toLowerCase()
                     baselineDirName = BASELINE_DIR_MAPPING[toolName]
