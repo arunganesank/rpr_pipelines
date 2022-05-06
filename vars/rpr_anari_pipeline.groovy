@@ -78,13 +78,40 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
-            if (osName == "MacOS" || osName == "MacOS_ARM") {
-                sh("brew install glfw3")
-            } else if (osName == "Windows") {
-                downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/VS_dlls/*", "Anari")
-            }
+            if (osName == "Ubuntu20") {
+                // Anari for Ubuntu should be build from source to test Anari device installation
+                dir("AnariSDK") {
+                    checkoutScm(branchName: options.anariSdkBranch, repositoryUrl: options.anariSdkRepo)
+                }
+                dir("RadeonProRenderAnari") {
+                    checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: RPR_ANARI_REPO)
+                }
 
-            getProduct(osName, options, "Anari", false)
+                sh("sudo " + '$CIS_TOOLS' + "/uninstall_anari_sdk.sh")
+
+                dir("AnariSDK/build") {
+                    sh """
+                        export BUILD_TESTING=ON
+                        $CMAKE_PATH -DBUILD_VIEWER=ON .. >> ../../${STAGE_NAME}.log 2>&1
+                        sudo $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}.log 2>&1
+                    """
+                }
+
+                dir("RadeonProRenderAnari/build") {
+                    sh """
+                        $CMAKE_PATH .. >> ../../${STAGE_NAME}.log 2>&1
+                        $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}.log 2>&1
+                    """
+                }
+            } else {
+                if (osName == "MacOS" || osName == "MacOS_ARM") {
+                    sh("brew install glfw3")
+                } else if (osName == "Windows") {
+                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/VS_dlls/*", "Anari")
+                }
+
+                getProduct(osName, options, "Anari", false)
+            }
         }
 
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_anari_autotests/${asicName}-${osName}"
