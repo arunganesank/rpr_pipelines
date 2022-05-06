@@ -78,7 +78,16 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
-            if (osName == "Ubuntu20") {
+            if (osName == "MacOS" || osName == "MacOS_ARM") {
+                sh("brew install glfw3")
+            } else if (osName == "Windows") {
+                downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/VS_dlls/*", "Anari")
+            } else {
+                sh """
+                    sudo apt-get install libgl1-mesa-dev -y
+                    sudo apt-get install libglfw3-dev -y
+                """
+
                 // Anari for Ubuntu should be build from source to test Anari device installation
                 dir("AnariSDK") {
                     checkoutScm(branchName: options.anariSdkBranch, repositoryUrl: options.anariSdkRepo)
@@ -92,25 +101,28 @@ def executeTests(String osName, String asicName, Map options) {
                 dir("AnariSDK/build") {
                     sh """
                         export BUILD_TESTING=ON
-                        $CMAKE_PATH -DBUILD_VIEWER=ON .. >> ../../${STAGE_NAME}.log 2>&1
-                        sudo $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}.log 2>&1
+                        $CMAKE_PATH -DBUILD_VIEWER=ON .. >> ../../${STAGE_NAME}_${options.currentTry}.log 2>&1
+                        sudo $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}_${options.currentTry}.log 2>&1
                     """
                 }
 
                 dir("RadeonProRenderAnari/build") {
                     sh """
-                        $CMAKE_PATH .. >> ../../${STAGE_NAME}.log 2>&1
-                        $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}.log 2>&1
+                        $CMAKE_PATH .. >> ../../${STAGE_NAME}_${options.currentTry}.log 2>&1
+                        sudo $CMAKE_PATH --build . -t install >> ../../${STAGE_NAME}_${options.currentTry}.log 2>&1
                     """
                 }
-            } else {
-                if (osName == "MacOS" || osName == "MacOS_ARM") {
-                    sh("brew install glfw3")
-                } else if (osName == "Windows") {
-                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/VS_dlls/*", "Anari")
-                }
+            }
 
-                getProduct(osName, options, "Anari", false)
+            getProduct(osName, options, "Anari", false)
+
+            if (osName == "Ubuntu20") {
+                dir("Anari") {
+                    // remove all RPR .so files to test RPR device installation
+                    sh """
+                        rm libRadeonProRender64.so libNorthstar64.so HybridPro.so
+                    """
+                }
             }
         }
 
@@ -170,6 +182,11 @@ def executeTests(String osName, String asicName, Map options) {
     } finally {
         if (osName == "MacOS" || osName == "MacOS_ARM") {
             sh("brew uninstall glfw3")
+        } else if (osName == "Ubuntu20") {
+            sh """
+                sudo apt-get purge libgl1-mesa-dev -y
+                sudo apt-get purge libglfw3-dev -y
+            """
         }
 
         try {
