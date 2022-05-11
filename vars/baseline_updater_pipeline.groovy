@@ -13,7 +13,7 @@ import groovy.json.JsonSlurperClassic
     "core": "rpr_core_autotests",
     "blender_usd_hydra": "usd_blender_autotests",
     "inventor": "usd_inventor_autotests",
-    "usd_viewer": "usd_rprviewer_autotests"
+    "usd_viewer": "usd_rprviewer_autotests",
     "USD": "rpr_usdplugin_autotests",
     "maya_usd": "usd_maya_autotests",
     "anari": "rpr_anari_autotests"
