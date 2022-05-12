@@ -607,10 +607,12 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(Map options) {
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "weekly.json"))
+    
     if (options["isPreBuilt"]) {
-        return """USDViewer "PreBuilt" "PreBuilt" "PreBuilt" """
+        return """USDViewer "PreBuilt" "PreBuilt" "PreBuilt" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     } else {
-        return """USDViewer ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\""""
+        return """USDViewer ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     }
 }
 
@@ -887,6 +889,14 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 println "[ERROR] Can't generate number of lost tests"
             }
             
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "weekly.json"))
+            boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderUSDViewer"
+
+            if (useTrackedMetrics) {
+                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+            }
+
             try {
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
@@ -897,6 +907,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                         }
                         bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(options)}"
                     }
+                }
+                if (saveTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch (e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
