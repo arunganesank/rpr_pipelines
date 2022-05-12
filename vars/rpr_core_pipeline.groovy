@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
 )
 
 Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName == "AMD_RX6800"))
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName == "AMD_RX6800"))
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) 
