@@ -15,6 +15,9 @@ import java.util.concurrent.atomic.AtomicInteger
     artifactNameBase: "binCore"
 )
 
+Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
+    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName == "AMD_RX6800"))
+}
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) 
 {
@@ -489,6 +492,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+
+                        if (hybridProFilter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                            return
+                        }
+
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -797,7 +805,8 @@ def call(String projectBranch = "",
                         splitTestsExecution: false,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        useHIP: useHIP
+                        useHIP: useHIP,
+                        skipCallback: this.&hybridProFilter
                         ]
         }
 
