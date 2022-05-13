@@ -514,10 +514,12 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String engineName, Map options) {
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+
     if (options["isPreBuilt"]) {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\""""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     } else {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\""""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     }
 }
 
@@ -828,7 +830,14 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+            boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/BlenderUSDHydraPluginManual/${engine}"
 
+            if (useTrackedMetrics) {
+                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+            }
+            
             try {
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
@@ -865,6 +874,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                             }
                         }
                     }
+                }
+                if (saveTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
@@ -1146,7 +1158,8 @@ def call(String projectRepo = PROJECT_REPO,
                         storeOnNAS:true,
                         flexibleUpdates: true,
                         skipCallback: this.&filterTests,
-                        forceReinstall: true
+                        forceReinstall: true,
+                        testsPackageOriginal: testsPackage
                         ]
         }
 
