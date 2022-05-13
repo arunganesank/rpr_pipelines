@@ -131,8 +131,12 @@ def executeTests(String osName, String asicName, Map options) {
         outputEnvironmentInfo(osName, "", options.currentTry)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
-            timeout(time: "20", unit: "MINUTES") {
-                buildRenderCache(osName, options.stageName, options.currentTry)
+            try{
+                timeout(time: "10", unit: "MINUTES") {
+                    buildRenderCache(osName, options.stageName, options.currentTry)
+                }
+            } catch (e) {
+                // FIXME: ignore any problems for now
             }
         }
 
