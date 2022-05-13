@@ -88,6 +88,9 @@ def executeTests(String osName, String asicName, Map options) {
                     sudo apt-get install libglfw3-dev -y
                 """
 
+                // Clear Anari build directory as root
+                sh("sudo rm -rf AnariSDK")
+
                 // Anari for Ubuntu should be build from source to test Anari device installation
                 dir("AnariSDK") {
                     checkoutScm(branchName: options.anariSdkBranch, repositoryUrl: options.anariSdkRepo)
