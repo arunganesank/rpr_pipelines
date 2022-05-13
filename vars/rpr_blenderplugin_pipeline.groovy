@@ -39,16 +39,22 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete)
     }
 }
 
-def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine)
+def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine, Boolean useHIP)
 {
     try {
         dir("scripts") {
             switch(osName) {
                 case 'Windows':
-                    bat "build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1"
+                    bat """
+                        set TH_FORCE_HIP=${useHIP ? '1' : '0'}
+                        build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                    """
                     break
                 default:
-                    sh "./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1"        
+                    sh """
+                        export TH_FORCE_HIP=${useHIP ? '1' : '0'}
+                        ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                    """
             }
         }
     } catch (e) {
@@ -83,6 +89,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             case 'Windows':
                 dir('scripts') {
                     bat """
+                        set TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
                         run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -91,6 +98,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             default:
                 dir("scripts") {
                     sh """
+                        export TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
                         ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
                     """
                 }
@@ -163,7 +171,7 @@ def executeTests(String osName, String asicName, Map options)
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
                 if (newPluginInstalled) {                         
                     timeout(time: "12", unit: "MINUTES") {
-                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine)
+                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine, options.useHIP)
                         String cacheImgPath = "./Work/Results/Blender/cache_building.jpg"
                         if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
@@ -1004,6 +1012,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String customBuildLinkMacOSARM = "",
     String enginesNames = "Northstar,HybridPro",
     String tester_tag = "Blender",
+    Boolean useHIP = false,
     String toolVersion = "3.1",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
@@ -1096,6 +1105,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
             println "Tests package: ${testsPackage}"
             println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
+            println "Use HIP: ${useHIP}"
 
             String prRepoName = ""
             String prBranchName = ""
@@ -1152,7 +1162,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&hybridProFilter
+                        skipCallback: this.&hybridProFilter,
+                        useHIP: useHIP
                         ]
         }
 

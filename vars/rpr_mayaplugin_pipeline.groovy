@@ -36,7 +36,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete)
     }
 }
 
-def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine)
+def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine, Boolean useHIP)
 {
     def maxCBTries = 3
     def currentCBTry = 0
@@ -47,10 +47,16 @@ def buildRenderCache(String osName, String toolVersion, String log_name, Integer
                 dir("scripts") {
                     switch(osName) {
                         case 'Windows':
-                            bat "build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1"
+                            bat """
+                                set TH_FORCE_HIP=${useHIP ? '1' : '0'}
+                                build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                            """
                             break
                         case 'OSX':
-                            sh "./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1"
+                            sh """
+                                export TH_FORCE_HIP=${useHIP ? '1' : '0'}
+                                ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                            """
                             break
                         default:
                             println "[WARNING] ${osName} is not supported"
@@ -104,6 +110,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             case 'Windows':
                 dir('scripts') {
                     bat """
+                        set TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
                         run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -111,6 +118,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             case 'OSX':
                 dir('scripts') {
                     sh """
+                        export TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
                         ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
                     """
                 }
@@ -196,7 +204,7 @@ def executeTests(String osName, String asicName, Map options)
                     timeout(time: "20", unit: "MINUTES") {
                         String cacheImgPath = "./Work/Results/Maya/cache_building.jpg"
                         utils.removeFile(this, osName, cacheImgPath)
-                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine)
+                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine, options.useHIP)
                         if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
                         } else {
@@ -979,6 +987,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String customBuildLinkOSX = "",
         String enginesNames = "Northstar",
         String tester_tag = 'Maya',
+        Boolean useHIP = false,
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5)
@@ -1059,6 +1068,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
             println "Tests package: ${testsPackage}"
             println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
+            println "Use HIP: ${useHIP}"
 
             String prRepoName = ""
             String prBranchName = ""
@@ -1114,7 +1124,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
-                        flexibleUpdates: true
+                        flexibleUpdates: true,
+                        useHIP: useHIP
                         ]
         }
 
