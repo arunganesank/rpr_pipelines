@@ -1158,7 +1158,8 @@ def call(String projectRepo = PROJECT_REPO,
                         storeOnNAS:true,
                         flexibleUpdates: true,
                         skipCallback: this.&filterTests,
-                        forceReinstall: true
+                        forceReinstall: true,
+                        testsPackageOriginal: testsPackage
                         ]
         }
 
