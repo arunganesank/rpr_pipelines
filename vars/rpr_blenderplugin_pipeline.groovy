@@ -45,16 +45,28 @@ def buildRenderCache(String osName, String toolVersion, String log_name, Integer
         dir("scripts") {
             switch(osName) {
                 case 'Windows':
-                    bat """
-                        set TH_FORCE_HIP=${useHIP ? '1' : '0'}
-                        build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
-                    """
+                    if (useHIP) {
+                        bat """
+                            set TH_FORCE_HIP=1
+                            build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                        """
+                    } else {
+                        bat """
+                            build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                        """
+                    }
                     break
                 default:
-                    sh """
-                        export TH_FORCE_HIP=${useHIP ? '1' : '0'}
-                        ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
-                    """
+                    if (useHIP) {
+                        sh """
+                            export TH_FORCE_HIP=1
+                            ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                        """
+                    } else {
+                        sh """
+                            ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                        """
+                    }
             }
         }
     } catch (e) {
@@ -88,19 +100,31 @@ def executeTestCommand(String osName, String asicName, Map options)
         switch(osName) {
             case 'Windows':
                 dir('scripts') {
-                    bat """
-                        set TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
+                    if (options.useHIP) {
+                        bat """
+                            set TH_FORCE_HIP=1
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    } else {
+                        bat """
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
                 }
                 break
             // OSX & Ubuntu20
             default:
                 dir("scripts") {
-                    sh """
-                        export TH_FORCE_HIP=${options.useHIP ? '1' : '0'}
-                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                    """
+                    if (options.useHIP) {
+                        sh """
+                            export TH_FORCE_HIP=1
+                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        """
+                    } else {
+                        sh """
+                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
                 }
         }
     }
