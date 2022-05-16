@@ -889,7 +889,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 println "[ERROR] Can't generate number of lost tests"
             }
             
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "weekly.json"))
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && (options.testsPackageOriginal == "weekly.json" || options.testsPackageOriginal == "Full.json")))
             boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
             String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderUSDViewer"
 
