@@ -137,10 +137,10 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
         if (options['updateRefs']) {
             println "Updating Reference Images"
             executeGenTestRefCommand(asicName, osName, options, apiValue)
-            uploadFiles("./BaikalNext/RprTest/ReferenceImages/${apiValue}/", REF_PATH_PROFILE)
+            uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
         } else {
             println "Execute Tests"
-            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/${apiValue}/")
+            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
             executeTestCommand(asicName, osName, options, apiValue)
         }
     } catch (e) {
@@ -188,16 +188,16 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
                 dir('HTML_Report') {
                     checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
                     python3("-m pip install -r requirements.txt")
-                    python3("hybrid_report.py --xml_path ../${STAGE_NAME}_${apiValue}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-${${apiValue}}-Failures")
+                    python3("hybrid_report.py --xml_path ../${STAGE_NAME}_${apiValue}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-${apiValue}-Failures")
                 }
 
                 if (!options.storeOnNAS) {
                     makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
                 }
 
-                utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
-                options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + ${apiValue)
+                options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
             } catch (err) {
                 println("[ERROR] Failed to publish HTML report.")
                 println(err.getMessage())
@@ -790,11 +790,11 @@ def call(String projectBranch = "",
         isLegacyBranch = true
     }
 
-    List apiList = apiValues.split() as List
+    List apiList = apiValues.split(",") as List
 
     println "Test quality: ${testsQuality}"
     println "[INFO] Performance tests which will be executed: ${scenarios}"
-    println "[INFO] Testing APIs: ${apiValues}"
+    println "[INFO] Testing APIs: ${apiList}"
 
     Map successfulTests = ["unit": true, "perf": true, "cliff_detected": false, "unexpected_acceleration": false]
 
