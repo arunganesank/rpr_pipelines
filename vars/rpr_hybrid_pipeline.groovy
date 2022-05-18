@@ -37,19 +37,19 @@ def executeGenTestRefCommand(String asicName, String osName, Map options, String
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
@@ -89,19 +89,19 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
@@ -685,7 +685,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             try {
                 String reportFiles = ""
                 dir("SummaryReport") {
-                        testResultList.each() { apiValue ->
+                    options['testsQuality'].split(",").each() { quality ->
+                        testResultList.each() {
                             options["apiValues"].each() {
                             try {
                                 if (!options.storeOnNAS) {
