@@ -4,7 +4,7 @@ import net.sf.json.JsonConfig
 import java.util.concurrent.ConcurrentHashMap
 
 
-def executeGenTestRefCommand(String asicName, String osName, Map options) {
+def executeGenTestRefCommand(String asicName, String osName, Map options, String apiValue = "vulkan") {
     dir('BaikalNext/RprTest') {
         if (options.testsQuality) {
             switch(osName) {
@@ -37,26 +37,26 @@ def executeGenTestRefCommand(String asicName, String osName, Map options) {
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} -genref 1 --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ..\\..\\${STAGE_NAME}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} -genref 1 --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} -genref 1 --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
     }
 }
 
-def executeTestCommand(String asicName, String osName, Map options) {
+def executeTestCommand(String asicName, String osName, Map options, String apiValue = "vulkan") {
     dir('BaikalNext/RprTest') {
         if (options.testsQuality) {
             switch(osName) {
@@ -89,19 +89,19 @@ def executeTestCommand(String asicName, String osName, Map options) {
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ..\\..\\${STAGE_NAME}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --gtest_output=xml:../../${STAGE_NAME}.gtest.xml >> ../../${STAGE_NAME}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
@@ -109,7 +109,7 @@ def executeTestCommand(String asicName, String osName, Map options) {
 }
 
 
-def executeTestsCustomQuality(String osName, String asicName, Map options) {
+def executeTestsCustomQuality(String osName, String asicName, Map options, String apiValue = "vulkan") {
     validateDriver(osName, asicName, ["Ubuntu-NVIDIA": "510.54"], options)
        
     cleanWS(osName)
@@ -120,7 +120,7 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
         REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${options.RENDER_QUALITY}/${asicName}-${osName}"
         outputEnvironmentInfo(osName, "${STAGE_NAME}.${options.RENDER_QUALITY}")
     } else {
-        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${asicName}-${osName}"
+        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/${asicName}-${osName}"
         outputEnvironmentInfo(osName, "${STAGE_NAME}")
     }
     
@@ -136,12 +136,12 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
 
         if (options['updateRefs']) {
             println "Updating Reference Images"
-            executeGenTestRefCommand(asicName, osName, options)
-            uploadFiles('./BaikalNext/RprTest/ReferenceImages/', REF_PATH_PROFILE)
+            executeGenTestRefCommand(asicName, osName, options, apiValue)
+            uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
         } else {
             println "Execute Tests"
             downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
-            executeTestCommand(asicName, osName, options)
+            executeTestCommand(asicName, osName, options, apiValue)
         }
     } catch (e) {
         println(e.getMessage())
@@ -182,22 +182,22 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
             println("Exception during tests execution")
             try {
                 if (options['updateRefs']) {
-                    currentBuild.description += "<span style='color: #b03a2e'>References weren't updated for ${asicName}-${osName} due to non-zero exit code returned by RprTest tool</span><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e'>References weren't updated for ${asicName}-${osName}-${apiValue} due to non-zero exit code returned by RprTest tool</span><br/>"
                 }
 
                 dir('HTML_Report') {
                     checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
                     python3("-m pip install -r requirements.txt")
-                    python3("hybrid_report.py --xml_path ../${STAGE_NAME}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-Failures")
+                    python3("hybrid_report.py --xml_path ../${STAGE_NAME}_${apiValue}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-${apiValue}-Failures")
                 }
 
                 if (!options.storeOnNAS) {
-                    makeStash(includes: "${asicName}-${osName}-Failures/**/*", name: "testResult-${asicName}-${osName}", allowEmpty: true)
+                    makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
                 }
 
-                utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-Failures", "report.html", "${STAGE_NAME}_Failures", "${STAGE_NAME}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
-                options["failedConfigurations"].add("testResult-" + asicName + "-" + osName)
+                options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
             } catch (err) {
                 println("[ERROR] Failed to publish HTML report.")
                 println(err.getMessage())
@@ -216,10 +216,10 @@ def executeTestsCustomQuality(String osName, String asicName, Map options) {
             GithubNotificator.updateStatus('Test', title, status, options, description, url)
 
         } else {
-            String title = "${asicName}-${osName}"
+            String title = "${asicName}-${osName}-${apiValue}"
             String description = error_message ? "Testing finished with error message: ${error_message}" : "Testing finished"
             String status = error_message ? "action_required" : "success"
-            String url = error_message ? "${env.BUILD_URL}/${STAGE_NAME}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}.log"
+            String url = error_message ? "${env.BUILD_URL}/${STAGE_NAME}_${apiValue}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}_${apiValue}.log"
             GithubNotificator.updateStatus('Test', title, status, options, description, url)
         }
 
@@ -418,12 +418,14 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
     } else {
-        try {
-            executeTestsCustomQuality(osName, asicName, options)
-        } catch (e) {
-            someStageFail = true
-            println(e.toString())
-            println(e.getMessage())
+        options["apiValues"].each() { apiValue ->
+            try {
+                executeTestsCustomQuality(osName, asicName, options, apiValue)
+            } catch (e) {
+                someStageFail = true
+                println(e.toString())
+                println(e.getMessage())
+            }
         }
 
         if (options.scenarios) {
@@ -632,8 +634,10 @@ def executePreBuild(Map options) {
                             GithubNotificator.createStatus('Test', "${gpuName}-${osName}-${testQuality}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
                         }
                     } else {
-                        // Statuses for tests
-                        GithubNotificator.createStatus('Test', "${gpuName}-${osName}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+                        options["apiValues"].each() { apiValue ->
+                            // Statuses for tests
+                            GithubNotificator.createStatus('Test', "${gpuName}-${osName}-${apiValue}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+                        }
                     }
                     if (options.scenarios) {
                         // Statuses for performance tests
@@ -681,19 +685,21 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             try {
                 String reportFiles = ""
                 dir("SummaryReport") {
-                    testResultList.each() {
-                        try {
-                            if (!options.storeOnNAS) {
-                                makeUnstash(name: "${it}", storeOnNAS: options.storeOnNAS)
-                                reportFiles += ", ${it}-Failures/report.html".replace("testResult-", "")
-                            } else if (options["failedConfigurations"].contains(it)) {
-                                reportFiles += ",../${it}_Failures/report.html".replace("testResult-", "Test-")
+                    options["apiValues"].each() { apiValue ->
+                        testResultList.each() {
+                            try {
+                                if (!options.storeOnNAS) {
+                                    makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
+                                    reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
+                                } else if (options["failedConfigurations"].contains(it + "-" + apiValue)) {
+                                    reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
+                                    println(reportFiles)
+                                }
+                            } catch(e) {
+                                println("[ERROR] Can't unstash ${it}")
+                                println(e.toString())
+                                println(e.getMessage())
                             }
-                        }
-                        catch(e) {
-                            println("[ERROR] Can't unstash ${it}")
-                            println(e.toString())
-                            println(e.getMessage())
                         }
                     }
                 }
@@ -768,7 +774,8 @@ def call(String projectBranch = "",
          Boolean updateRefs = false,
          Boolean updateRefsPerf = false,
          Boolean enableNotifications = true,
-         String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON") {
+         String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON",
+         String apiValues = "vulkan,d3d12") {
 
     Boolean isLegacyBranch = false
 
@@ -783,8 +790,11 @@ def call(String projectBranch = "",
         isLegacyBranch = true
     }
 
+    List apiList = apiValues.split(",") as List
+
     println "Test quality: ${testsQuality}"
     println "[INFO] Performance tests which will be executed: ${scenarios}"
+    println "[INFO] Testing APIs: ${apiList}"
 
     Map successfulTests = ["unit": true, "perf": true, "cliff_detected": false, "unexpected_acceleration": false]
 
@@ -814,5 +824,6 @@ def call(String projectBranch = "",
                             isLegacyBranch:isLegacyBranch,
                             failedConfigurations: [],
                             storeOnNAS: true,
-                            finishedBuildStages: new ConcurrentHashMap()])
+                            finishedBuildStages: new ConcurrentHashMap(),
+                            apiValues: apiList])
 }
