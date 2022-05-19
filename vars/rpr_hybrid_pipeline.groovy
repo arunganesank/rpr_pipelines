@@ -691,8 +691,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                                 if (!options.storeOnNAS) {
                                     makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
                                     reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
-                                } else if (options["failedConfigurations"].contains(it)) {
+                                } else if (options["failedConfigurations"].contains(it + "-" + apiValue)) {
                                     reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
+                                    println(reportFiles)
                                 }
                             } catch(e) {
                                 println("[ERROR] Can't unstash ${it}")
