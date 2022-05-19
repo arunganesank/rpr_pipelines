@@ -687,19 +687,20 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 dir("SummaryReport") {
                     options['testsQuality'].split(",").each() { quality ->
                         testResultList.each() {
-                            options["apiValues"].each() {
-                            try {
-                                if (!options.storeOnNAS) {
-                                    makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
-                                    reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
-                                } else if (options["failedConfigurations"].contains(it)) {
-                                    reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
+                                options["apiValues"].each() {
+                                try {
+                                    if (!options.storeOnNAS) {
+                                        makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
+                                        reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
+                                    } else if (options["failedConfigurations"].contains(it)) {
+                                        reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
+                                    }
                                 }
-                            }
-                            catch(e) {
-                                println("[ERROR] Can't unstash ${it}")
-                                println(e.toString())
-                                println(e.getMessage())
+                                catch(e) {
+                                    println("[ERROR] Can't unstash ${it}")
+                                    println(e.toString())
+                                    println(e.getMessage())
+                                }
                             }
                         }
                     }
