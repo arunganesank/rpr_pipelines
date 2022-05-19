@@ -381,7 +381,7 @@ def executeBuildWindows(Map options)
         GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
         bat """
             cd ..
-            build.cmd >> ../../${STAGE_NAME}.log  2>&1
+            build.cmd >> ../${STAGE_NAME}.log  2>&1
         """
         python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
 
