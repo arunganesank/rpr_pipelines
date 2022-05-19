@@ -420,7 +420,9 @@ def executeTests(String osName, String asicName, Map options) {
     } else {
         options["apiValues"].each() { apiValue ->
             try {
-                executeTestsCustomQuality(osName, asicName, options, apiValue)
+                // run in parallel to display api value in UI of JUnit plugin
+                Map stages = ["${apiValue}" : { executeTestsCustomQuality(osName, asicName, options, apiValue) }]
+                parallel stages
             } catch (e) {
                 someStageFail = true
                 println(e.toString())
