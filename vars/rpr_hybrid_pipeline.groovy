@@ -685,22 +685,19 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             try {
                 String reportFiles = ""
                 dir("SummaryReport") {
-                    options['testsQuality'].split(",").each() { quality ->
+                    options["apiValues"].each() { apiValue ->
                         testResultList.each() {
-                                options["apiValues"].each() {
-                                try {
-                                    if (!options.storeOnNAS) {
-                                        makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
-                                        reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
-                                    } else if (options["failedConfigurations"].contains(it)) {
-                                        reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
-                                    }
+                            try {
+                                if (!options.storeOnNAS) {
+                                    makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
+                                    reportFiles += ", ${it}-${apiValue}-Failures/report.html".replace("testResult-", "")
+                                } else if (options["failedConfigurations"].contains(it)) {
+                                    reportFiles += ",../${it}_${apiValue}_Failures/report.html".replace("testResult-", "Test-")
                                 }
-                                catch(e) {
-                                    println("[ERROR] Can't unstash ${it}")
-                                    println(e.toString())
-                                    println(e.getMessage())
-                                }
+                            } catch(e) {
+                                println("[ERROR] Can't unstash ${it}")
+                                println(e.toString())
+                                println(e.getMessage())
                             }
                         }
                     }
