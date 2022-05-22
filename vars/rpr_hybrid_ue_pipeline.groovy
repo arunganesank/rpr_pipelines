@@ -126,7 +126,7 @@ def executeBuildWindows(String projectName, Map options) {
                          "-MovieQuality=75",
                          "-VSync",
                          "-MovieWarmUpFrames=100"]
-
+            /* Debug .. delete comments
             dir(svnRepoName){
                 bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
                 bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
@@ -136,6 +136,7 @@ def executeBuildWindows(String projectName, Map options) {
                     makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
                 }
             }
+            */
         }
 
         if (it == "Default"){
