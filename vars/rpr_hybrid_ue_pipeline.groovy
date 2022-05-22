@@ -137,7 +137,7 @@ def executeBuildWindows(String projectName, Map options) {
                 }
             }
         }
-        
+
         if (it == "Default"){
             dir("${targetDir}\\WindowsNoEditor") {
                 String ARTIFACT_NAME = "${projectName}.zip"
@@ -266,7 +266,8 @@ def call(String projectBranch = "",
                                 projects: projects.split(","),
                                 problemMessageManager: problemMessageManager,
                                 saveEngine:saveEngine,
-                                cleanBuild:cleanBuild])
+                                cleanBuild:cleanBuild,
+                                recordVideo:recordVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
