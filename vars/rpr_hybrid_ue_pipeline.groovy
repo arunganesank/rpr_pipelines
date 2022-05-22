@@ -54,70 +54,110 @@ def executeBuildWindows(String projectName, Map options) {
     String targetDir = projectsInfo[projectName]["targetDir"]
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
-    bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
-
-    if (options.cleanBuild) {
-        bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
+    // DEBUG return "Default"
+    def stages = []
+    if (options.videoRecording){
+        stages << "VideoRecording"
     }
 
-    utils.removeFile(this, "Windows", "*.log")
+    stages.each(){
+        bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
-    dir(svnRepoName) {
-        withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
-            String paragonGameURL = "svn://" + ART_NAS_IP + "/${svnRepoName}"
-            checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+        if (options.cleanBuild) {
+            bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
         }
 
-        if (projectName == "ToyShop") {
-            dir("Config") {
-                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
+        utils.removeFile(this, "Windows", "*.log")
+
+        dir(svnRepoName) {
+            withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
+                String paragonGameURL = "svn://" + ART_NAS_IP + "/${svnRepoName}"
+                checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+            }
+
+            if (projectName == "ToyShop") {
+                dir("Config") {
+                    switch(it){
+                        case "Default" :
+                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
+                            break
+                        case "VideoRecording":
+                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
+                            break
+                    }
+                }
             }
         }
-    }
 
-    dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
-    }
+        dir("RPRHybrid") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
+        }
 
-    // download build scripts
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
+        // download build scripts
+        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
 
-    // prepare UE
-    getUE(options, projectName)
+        // prepare UE
+        getUE(options, projectName)
 
-    // download textures
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
+        // download textures
+        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
 
-    bat("mkdir ${targetDir}")
+        bat("mkdir ${targetDir}")
 
-    bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
-    bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
-    bat("3_UpdateUE4.bat > \"3_UpdateUE4_${projectName}.log\" 2>&1")
+        bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
+        bat("3_UpdateUE4.bat > \"3_UpdateUE4_${projectName}.log\" 2>&1")
 
-    // the last script can return non-zero exit code, but build can be ok
-    try {
-        bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
-    } catch (e) {
-        println(e.getMessage())
-    }
+        // the last script can return non-zero exit code, but build can be ok
+        try {
+            bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
+        } catch (e) {
+            println(e.getMessage())
+        }
 
-    dir("${targetDir}\\WindowsNoEditor") {
-        String ARTIFACT_NAME = "${projectName}.zip"
-        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
-        makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-    }
+        if (it == "VideoRecording" && projectName == "ToyShop"){
+            def params = ["-ExecCmds=\"rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0\"", 
+                         "-game",
+                         "-MovieSceneCaptureType=\"/Script/MovieSceneCapture.AutomatedLevelSequenceCapture\"",
+                         "-LevelSequence=\"/Game/SCENE/SimpleOverview\"",
+                         "-NoLoadingScreen -MovieName=\"render_name\"",
+                         "-MovieCinematicMode=no",
+                         "-NoScreenMessages",
+                         "-MovieQuality=75",
+                         "-VSync",
+                         "-MovieWarmUpFrames=100"]
 
-    if (options.saveEngine) {
-        dir("RPRHybrid-UE") {
-            String ARTIFACT_NAME = "${projectName}_editor.zip"
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" . -xr!*.obj -xr!*.pdb -xr!*.vs -xr!*.git -xr!*@tmp*")
-            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-            utils.removeFile(this, "Windows", ARTIFACT_NAME)
+            dir(svnRepoName){
+                bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
 
-            ARTIFACT_NAME = "${projectName}_debug.zip"
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
-            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-            utils.removeFile(this, "Windows", ARTIFACT_NAME)
+                dir("Saved\\VideoCaptures"){
+                    String ARTIFACT_NAME = "render_name.avi"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
+        }
+        
+        if (it == "Default"){
+            dir("${targetDir}\\WindowsNoEditor") {
+                String ARTIFACT_NAME = "${projectName}.zip"
+                bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
+                makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            }
+
+            if (options.saveEngine) {
+                dir("RPRHybrid-UE") {
+                    String ARTIFACT_NAME = "${projectName}_editor.zip"
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" . -xr!*.obj -xr!*.pdb -xr!*.vs -xr!*.git -xr!*@tmp*")
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
+
+                    ARTIFACT_NAME = "${projectName}_debug.zip"
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
+                }
+            }
         }
     }
 }
@@ -193,7 +233,8 @@ def call(String projectBranch = "",
          String platforms = "Windows",
          String projects = "ShooterGame,ToyShop",
          Boolean saveEngine = false,
-         Boolean cleanBuild = false
+         Boolean cleanBuild = false,
+         Boolean recordVideo = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
