@@ -234,7 +234,7 @@ def call(String projectBranch = "",
          String projects = "ShooterGame,ToyShop",
          Boolean saveEngine = false,
          Boolean cleanBuild = false,
-         Boolean recordVideo = false
+         Boolean videoRecording = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -267,7 +267,7 @@ def call(String projectBranch = "",
                                 problemMessageManager: problemMessageManager,
                                 saveEngine:saveEngine,
                                 cleanBuild:cleanBuild,
-                                recordVideo:recordVideo])
+                                videoRecording:videoRecording])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
