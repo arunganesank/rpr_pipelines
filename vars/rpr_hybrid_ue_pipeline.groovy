@@ -54,8 +54,7 @@ def executeBuildWindows(String projectName, Map options) {
     String targetDir = projectsInfo[projectName]["targetDir"]
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
-    // DEBUG return "Default"
-    def stages = []
+    def stages = ["Default"]
     if (options.videoRecording){
         stages << "VideoRecording"
     }
