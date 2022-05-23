@@ -60,7 +60,7 @@ def executeBuildWindows(String projectName, Map options) {
         stages << "VideoRecording"
     }
 
-    stages.each(){
+    stages.each(){ 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
         if (options.cleanBuild) {
@@ -126,17 +126,25 @@ def executeBuildWindows(String projectName, Map options) {
                          "-MovieQuality=75",
                          "-VSync",
                          "-MovieWarmUpFrames=100"]
-            /* Debug .. delete comments
-            dir(svnRepoName){
-                bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
 
-                dir("Saved\\VideoCaptures"){
-                    String ARTIFACT_NAME = "render_name.avi"
-                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            dir(svnRepoName){
+                try {
+                    timeout(time: "20", unit: 'MINUTES'){
+                        bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
+                        bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+
+                        dir("Saved\\VideoCaptures"){
+                            String ARTIFACT_NAME = "render_name.avi"
+                            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                        }
+                    }
+                } catch (e) {
+                    println(e.toString())
+                    println(e.getMessage())
+                    options.failureMessage = "Video recording stopped due to timeout"
+                    options.failureError = e.getMessage()
                 }
             }
-            */
         }
 
         if (it == "Default"){
