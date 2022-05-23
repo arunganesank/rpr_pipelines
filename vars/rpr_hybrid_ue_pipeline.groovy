@@ -42,6 +42,39 @@ def getUE(Map options, String projectName) {
 }
 
 
+def executeVideoRecording(String svnRepoName, Map options) {
+    def params = ["-ExecCmds=\"rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0\"", 
+                    "-game",
+                    "-MovieSceneCaptureType=\"/Script/MovieSceneCapture.AutomatedLevelSequenceCapture\"",
+                    "-LevelSequence=\"/Game/SCENE/SimpleOverview\"",
+                    "-NoLoadingScreen -MovieName=\"render_name\"",
+                    "-MovieCinematicMode=no",
+                    "-NoScreenMessages",
+                    "-MovieQuality=75",
+                    "-VSync",
+                    "-MovieWarmUpFrames=100"]
+
+    dir(svnRepoName) {
+        try {
+            timeout(time: "15", unit: 'MINUTES') {
+                bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+
+                dir("Saved\\VideoCaptures") {
+                    String ARTIFACT_NAME = "render_name.avi"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
+        } catch (e) {
+            println(e.toString())
+            println(e.getMessage())
+            options.failureMessage = "Video recording stopped due to timeout"
+            options.failureError = e.getMessage()
+        }
+    }
+}
+
+
 def executeBuildWindows(String projectName, Map options) {
     // clear unused directories (Hybrid UE workspace takes a lot of disk space)
     String unusedWorkspacePath = env.WORKSPACE.contains("@") ? env.WORKSPACE.split('@')[0] : env.WORKSPACE + "@2"
@@ -55,11 +88,11 @@ def executeBuildWindows(String projectName, Map options) {
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
     def stages = ["Default"]
-    if (options.videoRecording){
+    if (options.videoRecording) {
         stages << "VideoRecording"
     }
 
-    stages.each(){ 
+    stages.each() { 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
         if (options.cleanBuild) {
@@ -76,7 +109,7 @@ def executeBuildWindows(String projectName, Map options) {
 
             if (projectName == "ToyShop") {
                 dir("Config") {
-                    switch(it){
+                    switch(it) {
                         case "Default" :
                             downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
                             break
@@ -114,39 +147,11 @@ def executeBuildWindows(String projectName, Map options) {
             println(e.getMessage())
         }
 
-        if (it == "VideoRecording" && projectName == "ToyShop"){
-            def params = ["-ExecCmds=\"rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0\"", 
-                         "-game",
-                         "-MovieSceneCaptureType=\"/Script/MovieSceneCapture.AutomatedLevelSequenceCapture\"",
-                         "-LevelSequence=\"/Game/SCENE/SimpleOverview\"",
-                         "-NoLoadingScreen -MovieName=\"render_name\"",
-                         "-MovieCinematicMode=no",
-                         "-NoScreenMessages",
-                         "-MovieQuality=75",
-                         "-VSync",
-                         "-MovieWarmUpFrames=100"]
-
-            dir(svnRepoName){
-                try {
-                    timeout(time: "20", unit: 'MINUTES'){
-                        bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                        bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
-
-                        dir("Saved\\VideoCaptures"){
-                            String ARTIFACT_NAME = "render_name.avi"
-                            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                        }
-                    }
-                } catch (e) {
-                    println(e.toString())
-                    println(e.getMessage())
-                    options.failureMessage = "Video recording stopped due to timeout"
-                    options.failureError = e.getMessage()
-                }
-            }
+        if (it == "VideoRecording" && projectName == "ToyShop") {
+            executeVideoRecording(svnRepoName, options)
         }
 
-        if (it == "Default"){
+        if (it == "Default") {
             dir("${targetDir}\\WindowsNoEditor") {
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
@@ -268,7 +273,7 @@ def call(String projectBranch = "",
                                 executeTests:true,
                                 // TODO: ignore timeout in run_with_retries func. Need to implement more correct solution
                                 BUILD_TIMEOUT: 3000,
-                                PROJECT_BUILD_TIMEOUT: 360,
+                                PROJECT_BUILD_TIMEOUT: 720,
                                 retriesForTestStage:1,
                                 storeOnNAS: true,
                                 projects: projects.split(","),
