@@ -149,6 +149,16 @@ def executeTests(String osName, String asicName, Map options)
             }
         }
 
+        // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
+        if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
+            if (options.parsedTests.contains("Smoke") || options.parsedTests.contains("regression.2")) {
+                throw new ExpectedExceptionWrapper(
+                    "System doesn't support Smoke group", 
+                    new Exception("System doesn't support Smoke group")
+                )
+            }
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {
                 cleanWS(osName)
