@@ -420,6 +420,11 @@ def executeTests(String osName, String asicName, Map options) {
     } else {
         options["apiValues"].each() { apiValue ->
             try {
+                if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
+                    // DX12 tests are supported only on Windows
+                    return
+                }
+
                 // run in parallel to display api value in UI of JUnit plugin
                 Map stages = ["${apiValue}" : { executeTestsCustomQuality(osName, asicName, options, apiValue) }]
                 parallel stages
@@ -637,6 +642,11 @@ def executePreBuild(Map options) {
                         }
                     } else {
                         options["apiValues"].each() { apiValue ->
+                            if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
+                                // DX12 tests are supported only on Windows
+                                return
+                            }
+
                             // Statuses for tests
                             GithubNotificator.createStatus('Test', "${gpuName}-${osName}-${apiValue}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
                         }
@@ -689,6 +699,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 dir("SummaryReport") {
                     options["apiValues"].each() { apiValue ->
                         testResultList.each() {
+                            if (apiValue == "d3d12" && testResultList.contains("Ubuntu")) {
+                                // DX12 tests are supported only on Windows
+                                return
+                            }
+
                             try {
                                 if (!options.storeOnNAS) {
                                     makeUnstash(name: "${it}_${apiValue}", storeOnNAS: options.storeOnNAS)
