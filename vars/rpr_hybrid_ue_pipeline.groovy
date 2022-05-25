@@ -96,6 +96,15 @@ def executeBuildWindows(String projectName, Map options) {
         }
     }
 
+    // download build scripts
+    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
+
+    // prepare UE
+    getUE(options, projectName)
+
+    // download textures
+    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
+
     stages.each() { 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
@@ -128,15 +137,6 @@ def executeBuildWindows(String projectName, Map options) {
         dir("RPRHybrid") {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
         }
-
-        // download build scripts
-        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
-
-        // prepare UE
-        getUE(options, projectName)
-
-        // download textures
-        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
 
         bat("mkdir ${targetDir}")
 
