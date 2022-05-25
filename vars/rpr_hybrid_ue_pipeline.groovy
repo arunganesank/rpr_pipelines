@@ -43,14 +43,14 @@ def getUE(Map options, String projectName) {
 
 
 def executeVideoRecording(String svnRepoName, Map options) {
-    def params = ["-ExecCmds=\"rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0\"", 
+    def params = ["-ExecCmds=\"${options.execCmds}\"", 
                     "-game",
                     "-MovieSceneCaptureType=\"/Script/MovieSceneCapture.AutomatedLevelSequenceCapture\"",
-                    "-LevelSequence=\"/Game/SCENE/SimpleOverview\"",
+                    "-LevelSequence=\"${options.levelSequence}\"",
                     "-NoLoadingScreen -MovieName=\"render_name\"",
                     "-MovieCinematicMode=no",
                     "-NoScreenMessages",
-                    "-MovieQuality=75",
+                    "-MovieQuality=${options.movieQuality}",
                     "-VSync",
                     "-MovieWarmUpFrames=100"]
 
@@ -95,7 +95,7 @@ def executeBuildWindows(String projectName, Map options) {
     stages.each() { 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
-        if (options.cleanBuild) {
+        if (options.cleanBuild && it == "Default") {
             bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
         }
 
@@ -247,7 +247,10 @@ def call(String projectBranch = "",
          String projects = "ShooterGame,ToyShop",
          Boolean saveEngine = false,
          Boolean cleanBuild = false,
-         Boolean videoRecording = false
+         Boolean videoRecording = false,
+         String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
+         String levelSequence = "/Game/SCENE/SimpleOverview",
+         String movieQuality = "75"
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -273,14 +276,17 @@ def call(String projectBranch = "",
                                 executeTests:true,
                                 // TODO: ignore timeout in run_with_retries func. Need to implement more correct solution
                                 BUILD_TIMEOUT: 3000,
-                                PROJECT_BUILD_TIMEOUT: 720,
+                                PROJECT_BUILD_TIMEOUT:400,
                                 retriesForTestStage:1,
                                 storeOnNAS: true,
                                 projects: projects.split(","),
                                 problemMessageManager: problemMessageManager,
                                 saveEngine:saveEngine,
                                 cleanBuild:cleanBuild,
-                                videoRecording:videoRecording])
+                                videoRecording:videoRecording,
+                                execCmds:execCmds,
+                                levelSequence:levelSequence,
+                                movieQuality:movieQuality])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
