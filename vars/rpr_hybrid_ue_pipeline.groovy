@@ -88,8 +88,12 @@ def executeBuildWindows(String projectName, Map options) {
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
     def stages = ["Default"]
+    
     if (options.videoRecording) {
         stages << "VideoRecording"
+        if (options.onlyVideo){
+            stages.remove("Default")
+        }
     }
 
     stages.each() { 
@@ -250,7 +254,8 @@ def call(String projectBranch = "",
          Boolean videoRecording = false,
          String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
          String levelSequence = "/Game/SCENE/SimpleOverview",
-         String movieQuality = "75"
+         String movieQuality = "75",
+         String onlyVideo = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -286,7 +291,8 @@ def call(String projectBranch = "",
                                 videoRecording:videoRecording,
                                 execCmds:execCmds,
                                 levelSequence:levelSequence,
-                                movieQuality:movieQuality])
+                                movieQuality:movieQuality,
+                                onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
