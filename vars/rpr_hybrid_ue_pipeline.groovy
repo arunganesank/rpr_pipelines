@@ -88,7 +88,7 @@ def executeBuildWindows(String projectName, Map options) {
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
     def stages = ["Default"]
-    
+
     if (options.videoRecording) {
         stages << "VideoRecording"
         if (options.onlyVideo){
@@ -255,7 +255,7 @@ def call(String projectBranch = "",
          String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
          String levelSequence = "/Game/SCENE/SimpleOverview",
          String movieQuality = "75",
-         String onlyVideo = false
+         Boolean onlyVideo = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
