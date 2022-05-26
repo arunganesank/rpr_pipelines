@@ -33,8 +33,8 @@ public class ReportUpdater {
     def init(def buildArgsFunc) {
         String remotePath = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/".replace(" ", "_")
 
-        context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
-            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST%' + " ${remotePath} ${options.testRepo} ${options.testsBranch}")
+        context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"), context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${options.testRepo} ${options.testsBranch} ")
         }
 
         String locations = ""
@@ -152,11 +152,11 @@ public class ReportUpdater {
             if (locks[lockKey].compareAndSet(false, true)) {
                 String scriptName = engine ? "update_report_${engine}.sh" : "update_report.sh"
 
-                context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
+                context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"), context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
                     if (context.isUnix()) {
-                        context.sh(script: '$CIS_TOOLS/update_report.sh' + ' $REMOTE_HOST' + " ${remotePath} ${scriptName}")
+                        context.sh(script: '$CIS_TOOLS/update_report.sh' + ' $REMOTE_HOST $SSH_PORT' + " ${remotePath} ${scriptName}")
                     } else {
-                        context.bat(script: '%CIS_TOOLS%\\update_report.bat' + ' %REMOTE_HOST%' + " ${remotePath} ${scriptName}")
+                        context.bat(script: '%CIS_TOOLS%\\update_report.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${scriptName}")
                     }
                 }
 
