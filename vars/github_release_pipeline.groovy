@@ -173,7 +173,7 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
                 String[] nasFileNames
 
                 withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: 'nasSSHPort', variable: 'SSH_PORT')]) {
-                    nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
+                    nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
                 }
 
                 println(nasFileNames)
