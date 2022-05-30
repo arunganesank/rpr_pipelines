@@ -2,9 +2,9 @@ def call(Map options){
     try{
         dir ('WebUsdWebServer') {
             filename = "webusd.env.${options.deployEnvironment}"
-            downloadFiles("/volume1/CIS/WebUSD/Additional/$filename", ".", "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/$filename", ".", "--quiet")
             sh """ chmod -R 775 $filename"""
-            
+
             switch(options.osName) {
                 case 'Windows':
                     bat " "
