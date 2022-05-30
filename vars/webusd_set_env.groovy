@@ -1,13 +1,16 @@
 def call(Map options){
     try{
         dir ('WebUsdWebServer') {
-            filename = "/home/user/JN/.envs/webusd.env.${options.deployEnvironment}"
+            filename = "webusd.env.${options.deployEnvironment}"
+            downloadFiles("/volume1/CIS/WebUSD/Additional/$filename", ".", "--quiet")
+            sh """ chmod -R 775 $filename"""
+            
             switch(options.osName) {
                 case 'Windows':
                     bat " "
                     break
                 case 'Ubuntu20':
-                    sh "cp $filename .env.production"
+                    sh "mv $filename .env.production"
                     break
                 default:
                     println "[WARNING] ${osName} is not supported"

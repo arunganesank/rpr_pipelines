@@ -162,11 +162,13 @@ def executeDeploy(Map options, List platformList, List testResultList)
     failure = false
     try{
         println "[INFO] Send deploy command"
-        res = sh(
-            script: "curl --insecure https://172.31.0.91/deploy?configuration=${options.deployEnvironment}",
-            returnStdout: true,
-            returnStatus: true
-        )
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+            res = sh(
+                script: "curl --insecure https://${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                returnStdout: true,
+                returnStatus: true
+            )
+        }
         println ("RES - ${res}")
         if (res == 0){
             println "[INFO] Successfully sended"
