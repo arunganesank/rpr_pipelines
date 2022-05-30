@@ -78,12 +78,12 @@ def executeBuildLinux(Map options)
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
             String deployArgs = "-ba -da"
             sh """
-                    export WEBUSD_BUILD_REMOTE_HOST=$remoteHost
-                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=$remoteHost:$remotePort/live
-                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=$remoteHost:$remotePort/route
-                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=$remoteHost:$remotePort/storage
-                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=$remoteHost:$remotePort/stream
-                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=$remoteHost:$remotePort/web
+                    export WEBUSD_BUILD_REMOTE_HOST=webusd.stvcis.com
+                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=webusd.stvcis.com/live
+                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=webusd.stvcis.com/route
+                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=webusd.stvcis.com/storage
+                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=webusd.stvcis.com/stream
+                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=webusd.stvcis.com/web
                     python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment
             """
         }
@@ -164,7 +164,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
         println "[INFO] Send deploy command"
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
             res = sh(
-                script: "curl --insecure https://${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                script: "curl --insecure https://webusd.stvcis.com/deploy?configuration=${options.deployEnvironment}",
                 returnStdout: true,
                 returnStatus: true
             )
