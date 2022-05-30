@@ -83,7 +83,7 @@ def executeBuildLinux(Map options)
                     export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=docker.webusd.stvcis.com/route
                     export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=docker.webusd.stvcis.com/storage
                     export WEBUSD_BUILD_STREAM_CONTAINER_NAME=docker.webusd.stvcis.com/stream
-                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.webusd.stvcis.com//web
+                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.webusd.stvcis.com/web
                     python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment
             """
         }
