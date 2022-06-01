@@ -387,7 +387,7 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
     try {
-        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.3\""
+        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.4\""
         dir('BlenderUSDHydraAddon') {
             GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
             if (options.rebuildDeps) {
