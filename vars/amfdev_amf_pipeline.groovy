@@ -771,7 +771,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
     String projectRepo = "git@github.com:luxteam/AMF.git",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX5700XT,NVIDIA_RTX2080TI;OSX:AMD_RXVEGA',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX5700XT,NVIDIA_RTX3070;OSX:AMD_RXVEGA',
     String buildConfiguration = "release",
     String winVisualStudioVersion = "2017,2019",
     String winLibraryType = "static",
