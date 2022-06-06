@@ -134,8 +134,8 @@ def executeTestCommand(String osName, String asicName, Map options)
 def cloneTestsRepository(Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
-    dir("RadeonProRenderSDK") {
-        if (options.parsedTests.contains("RPR_Export")) {
+    if (options.parsedTests.contains("RPR_Export")) {
+        dir("RadeonProRenderSDK") {
             checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
         }
     }
