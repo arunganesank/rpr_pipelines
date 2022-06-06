@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicInteger
     artifactNameBase: "binCore"
 )
 
+@Field final RPR_SDK_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
+
 Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
     return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
