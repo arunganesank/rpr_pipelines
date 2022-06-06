@@ -439,9 +439,9 @@ def call(String testsBranch = "master",
                 if (hipConfiguration == "AMD_HIP_CPU") {
                     platforms = platforms.replace("Windows", "Windows:AMD_RX6800XT")
                 } else if (hipConfiguration == "Nvidia_CUDA_CPU") {
-                    platforms = platforms.replace("Windows", "Windows:NVIDIA_RTX3070")
+                    platforms = platforms.replace("Windows", "Windows:NVIDIA_RTX3080TI")
                 } else if (hipConfiguration == "HIP_CUDA") {
-                    platforms = platforms.replace("Windows", "Windows:AMD_RX6800XT,NVIDIA_RTX3070")
+                    platforms = platforms.replace("Windows", "Windows:AMD_RX6800XT,NVIDIA_RTX3080TI")
                 }
             }
 
