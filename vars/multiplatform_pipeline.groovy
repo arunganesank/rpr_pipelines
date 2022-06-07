@@ -609,9 +609,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
 
                         tasks[stageName] = {
                             if (testsLeft[engine] != null) {
-                                while (testsLeft[engine] != 0) {
-                                    sleep(120)
-                                }
+                                waitUntil({testsLeft[engine] == 0}, quiet: true)
                                 makeDeploy(options, engine)
                             }
                         }
