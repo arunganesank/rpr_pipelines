@@ -42,6 +42,39 @@ def getUE(Map options, String projectName) {
 }
 
 
+def executeVideoRecording(String svnRepoName, Map options) {
+    def params = ["-ExecCmds=\"${options.execCmds}\"", 
+                    "-game",
+                    "-MovieSceneCaptureType=\"/Script/MovieSceneCapture.AutomatedLevelSequenceCapture\"",
+                    "-LevelSequence=\"${options.levelSequence}\"",
+                    "-NoLoadingScreen -MovieName=\"render_name\"",
+                    "-MovieCinematicMode=no",
+                    "-NoScreenMessages",
+                    "-MovieQuality=${options.movieQuality}",
+                    "-VSync",
+                    "-MovieWarmUpFrames=100"]
+
+    dir(svnRepoName) {
+        try {
+            timeout(time: "15", unit: 'MINUTES') {
+                bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+
+                dir("Saved\\VideoCaptures") {
+                    String ARTIFACT_NAME = "render_name.avi"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
+        } catch (e) {
+            println(e.toString())
+            println(e.getMessage())
+            options.failureMessage = "Video recording stopped due to timeout"
+            options.failureError = e.getMessage()
+        }
+    }
+}
+
+
 def executeBuildWindows(String projectName, Map options) {
     // clear unused directories (Hybrid UE workspace takes a lot of disk space)
     String unusedWorkspacePath = env.WORKSPACE.contains("@") ? env.WORKSPACE.split('@')[0] : env.WORKSPACE + "@2"
@@ -54,29 +87,13 @@ def executeBuildWindows(String projectName, Map options) {
     String targetDir = projectsInfo[projectName]["targetDir"]
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
 
-    bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
+    def stages = ["Default"]
 
-    if (options.cleanBuild) {
-        bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
-    }
-
-    utils.removeFile(this, "Windows", "*.log")
-
-    dir(svnRepoName) {
-        withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
-            String paragonGameURL = "svn://" + ART_NAS_IP + "/${svnRepoName}"
-            checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+    if (options.videoRecording) {
+        stages << "VideoRecording"
+        if (options.onlyVideo){
+            stages.remove("Default")
         }
-
-        if (projectName == "ToyShop") {
-            dir("Config") {
-                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
-            }
-        }
-    }
-
-    dir("RPRHybrid") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
     }
 
     // download build scripts
@@ -88,36 +105,76 @@ def executeBuildWindows(String projectName, Map options) {
     // download textures
     downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
 
-    bat("mkdir ${targetDir}")
+    stages.each() { 
+        bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
-    bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
-    bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
-    bat("3_UpdateUE4.bat > \"3_UpdateUE4_${projectName}.log\" 2>&1")
+        if (options.cleanBuild && it == "Default") {
+            bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
+        }
 
-    // the last script can return non-zero exit code, but build can be ok
-    try {
-        bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
-    } catch (e) {
-        println(e.getMessage())
-    }
+        utils.removeFile(this, "Windows", "*.log")
 
-    dir("${targetDir}\\WindowsNoEditor") {
-        String ARTIFACT_NAME = "${projectName}.zip"
-        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
-        makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-    }
+        dir(svnRepoName) {
+            withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
+                String paragonGameURL = "svn://" + ART_NAS_IP + "/${svnRepoName}"
+                checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+            }
 
-    if (options.saveEngine) {
-        dir("RPRHybrid-UE") {
-            String ARTIFACT_NAME = "${projectName}_editor.zip"
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" . -xr!*.obj -xr!*.pdb -xr!*.vs -xr!*.git -xr!*@tmp*")
-            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-            utils.removeFile(this, "Windows", ARTIFACT_NAME)
+            if (projectName == "ToyShop") {
+                dir("Config") {
+                    switch(it) {
+                        case "Default" :
+                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
+                            break
+                        case "VideoRecording":
+                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
+                            break
+                    }
+                }
+            }
+        }
 
-            ARTIFACT_NAME = "${projectName}_debug.zip"
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
-            makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-            utils.removeFile(this, "Windows", ARTIFACT_NAME)
+        dir("RPRHybrid") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
+        }
+
+        bat("mkdir ${targetDir}")
+
+        bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
+        bat("3_UpdateUE4.bat > \"3_UpdateUE4_${projectName}.log\" 2>&1")
+
+        // the last script can return non-zero exit code, but build can be ok
+        try {
+            bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
+        } catch (e) {
+            println(e.getMessage())
+        }
+
+        if (it == "VideoRecording" && projectName == "ToyShop") {
+            executeVideoRecording(svnRepoName, options)
+        }
+
+        if (it == "Default") {
+            dir("${targetDir}\\WindowsNoEditor") {
+                String ARTIFACT_NAME = "${projectName}.zip"
+                bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
+                makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            }
+
+            if (options.saveEngine) {
+                dir("RPRHybrid-UE") {
+                    String ARTIFACT_NAME = "${projectName}_editor.zip"
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" . -xr!*.obj -xr!*.pdb -xr!*.vs -xr!*.git -xr!*@tmp*")
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
+
+                    ARTIFACT_NAME = "${projectName}_debug.zip"
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
+                }
+            }
         }
     }
 }
@@ -193,7 +250,12 @@ def call(String projectBranch = "",
          String platforms = "Windows",
          String projects = "ShooterGame,ToyShop",
          Boolean saveEngine = false,
-         Boolean cleanBuild = false
+         Boolean cleanBuild = false,
+         Boolean videoRecording = false,
+         String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
+         String levelSequence = "/Game/SCENE/SimpleOverview",
+         String movieQuality = "75",
+         Boolean onlyVideo = false
 ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -219,13 +281,18 @@ def call(String projectBranch = "",
                                 executeTests:true,
                                 // TODO: ignore timeout in run_with_retries func. Need to implement more correct solution
                                 BUILD_TIMEOUT: 3000,
-                                PROJECT_BUILD_TIMEOUT: 360,
+                                PROJECT_BUILD_TIMEOUT:420,
                                 retriesForTestStage:1,
                                 storeOnNAS: true,
                                 projects: projects.split(","),
                                 problemMessageManager: problemMessageManager,
                                 saveEngine:saveEngine,
-                                cleanBuild:cleanBuild])
+                                cleanBuild:cleanBuild,
+                                videoRecording:videoRecording,
+                                execCmds:execCmds,
+                                levelSequence:levelSequence,
+                                movieQuality:movieQuality,
+                                onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())

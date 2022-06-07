@@ -607,7 +607,7 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "weekly.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && (options.testsPackageOriginal == "weekly.json" || options.testsPackageOriginal == "Full.json")))
     
     if (options["isPreBuilt"]) {
         return """USDViewer "PreBuilt" "PreBuilt" "PreBuilt" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -889,7 +889,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 println "[ERROR] Can't generate number of lost tests"
             }
             
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "weekly.json"))
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && (options.testsPackageOriginal == "weekly.json" || options.testsPackageOriginal == "Full.json")))
             boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
             String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderUSDViewer"
 
@@ -1018,7 +1018,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800,NVIDIA_RTX3070',
+         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String testsPackage = "",

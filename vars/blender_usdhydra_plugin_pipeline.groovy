@@ -23,8 +23,12 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
         return true
     }
 
+    if (testName == "RenderMan" && engine != "HdRprPlugin") {
+        return true
+    }
+
     // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName == "AMD_RX6800"))
+    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
 
@@ -383,7 +387,7 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
     try {
-        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.3\""
+        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.4\""
         dir('BlenderUSDHydraAddon') {
             GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
             if (options.rebuildDeps) {
@@ -998,7 +1002,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX5700XT,NVIDIA_RTX2080TI,AMD_RX6800,AMD_WX9100,NVIDIA_RTX3070;Ubuntu20:AMD_RadeonVII',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,AMD_WX9100,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',

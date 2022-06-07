@@ -190,7 +190,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                     dir('scripts') {
                         bat """
                             set TOOL_VERSION=${options.pluginVersion}
-                            run.bat \"${testsPackageName}\" \"${testsNames}\" Inventor 2022 ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                            run.bat \"${testsPackageName}\" \"${testsNames}\" Inventor 2023 ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                         """
                     }
                     break
@@ -241,8 +241,8 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
-                String prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Autodesk/Inventor 2022"
-                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2022/*", prefsDir, "", false)
+                String prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Autodesk/Inventor 2023"
+                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2023/*", prefsDir, "", false)
                 bat "reg import \"${prefsDir.replace("/mnt/c", "C:").replace("/", "\\")}\\inventor_window.reg\""
             }
         }
@@ -278,7 +278,7 @@ def executeTests(String osName, String asicName, Map options) {
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE_DIRT) {                        
                     timeout(time: "20", unit: "MINUTES") {
                         try {
-                            buildRenderCache(osName, "2022", options, false)
+                            buildRenderCache(osName, "2023", options, false)
                         } catch (e) {
                             throw e
                         } finally {
@@ -312,7 +312,7 @@ def executeTests(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE_CLEAN) {                        
             timeout(time: "20", unit: "MINUTES") {
                 try {
-                    buildRenderCache(osName, "2022", options, true)
+                    buildRenderCache(osName, "2023", options, true)
                 } catch (e) {
                     throw e
                 } finally {
@@ -612,7 +612,7 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && (options.testsPackageOriginal == "weekly.json" || options.testsPackageOriginal == "Full.json")))
 
     if (options["isPreBuilt"]) {
         return """USDViewer "PreBuilt" "PreBuilt" "PreBuilt" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -866,9 +866,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 println "[ERROR] Can't generate number of lost tests"
             }
 
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && (options.testsPackageOriginal == "weekly.json" || options.testsPackageOriginal == "Full.json")))
             boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderUSDInventorInstaller"
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderInventorInstaller"
 
             if (useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
@@ -996,7 +996,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800,NVIDIA_RTX3070',
+         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String testsPackage = "",

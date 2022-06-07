@@ -501,7 +501,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX2080TI;Ubuntu20:AMD_RadeonVII;OSX:AMD_RXVEGA,AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean enableNotifications = true,
          Boolean executeFT = true) {

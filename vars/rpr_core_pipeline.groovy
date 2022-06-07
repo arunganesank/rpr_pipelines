@@ -15,8 +15,10 @@ import java.util.concurrent.atomic.AtomicInteger
     artifactNameBase: "binCore"
 )
 
+@Field final RPR_SDK_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
+
 Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName == "AMD_RX6800"))
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) 
@@ -662,7 +664,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,NVIDIA_RTX2080TI,NVIDIA_RTX3070,AMD_RX6800;OSX:AMD_RXVEGA,AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RadeonVII',
+         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,NVIDIA_RTX3080TI,AMD_RX6800XT;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX5700XT',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String renderDevice = "gpu",

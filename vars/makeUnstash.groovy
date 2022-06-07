@@ -33,11 +33,11 @@ def call(Map params) {
             while (retries++ < times) {
                 try {
                     print("Try to make unstash №${retries}")
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
+                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
                         if (isUnix()) {
-                            status = sh(returnStatus: true, script: '$CIS_TOOLS/downloadFiles.sh' + " \"${remotePath}\" . " + '$REMOTE_HOST')
+                            status = sh(returnStatus: true, script: '$CIS_TOOLS/downloadFiles.sh' + " \"${remotePath}\" . " + '$REMOTE_HOST $SSH_PORT')
                         } else {
-                            status = bat(returnStatus: true, script: '%CIS_TOOLS%\\downloadFiles.bat' + " \"${remotePath}\" . " + '%REMOTE_HOST%')
+                            status = bat(returnStatus: true, script: '%CIS_TOOLS%\\downloadFiles.bat' + " \"${remotePath}\" . " + '%REMOTE_HOST% %SSH_PORT%')
                         }
                     }
 

@@ -153,6 +153,18 @@ def executeTestCommand(String osName, String asicName, Map options)
     }
 }
 
+
+def cloneTestsRepository(Map options) {
+    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+
+    if (options.parsedTests.contains("RPR_Export") || options.parsedTests.contains("regression.0")) {
+        dir("RadeonProRenderSDK") {
+            checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+        }
+    }
+}
+
+
 def executeTests(String osName, String asicName, Map options)
 {
     options.parsedTests = options.tests.split("-")[0]
@@ -192,7 +204,7 @@ def executeTests(String osName, String asicName, Map options)
                 }
                 
                 cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+                cloneTestsRepository(options)
             }
         }
 
@@ -578,7 +590,7 @@ def executePreBuild(Map options)
     if (!options['isPreBuilt']) {
         dir('RadeonProRenderMayaPlugin') {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, disableSubmodules: true)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
 
             options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
@@ -586,6 +598,10 @@ def executePreBuild(Map options)
             options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
             options.commitShortSHA = options.commitSHA[0..6]
             options.branchName = env.BRANCH_NAME ?: options.projectBranch
+
+            dir("RadeonProRenderSDK") {
+                options.rprsdkCommitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            }
 
             println "The last commit was written by ${options.commitAuthor}."
             println "Commit message: ${options.commitMessage}"
@@ -992,7 +1008,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_WX9100,NVIDIA_RTX2080TI,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800;OSX:AMD_RXVEGA,AMD_RX5700XT',
+        String platforms = 'Windows:AMD_WX9100,NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT;OSX:AMD_RX5700XT',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,
