@@ -368,6 +368,8 @@ def makeDeploy(Map options, String engine = "") {
                 reportBuilderLabels = "Windows && Tester && !NoDeploy"
             }
 
+            reportBuilderLabels = "PC-FACTORY-HAMBURG-WIN10"
+
             options["stage"] = "Deploy"
             def retringFunction = { nodesList, currentTry ->
                 if (engine) {
