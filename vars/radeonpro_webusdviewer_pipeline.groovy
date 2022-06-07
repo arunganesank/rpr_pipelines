@@ -78,12 +78,12 @@ def executeBuildLinux(Map options)
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
             String deployArgs = "-ba -da"
             sh """
-                    export WEBUSD_BUILD_REMOTE_HOST=docker.webusd.stvcis.com
-                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=docker.webusd.stvcis.com/live
-                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=docker.webusd.stvcis.com/route
-                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=docker.webusd.stvcis.com/storage
-                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=docker.webusd.stvcis.com/stream
-                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.webusd.stvcis.com/web
+                    export WEBUSD_BUILD_REMOTE_HOST=$remoteHost
+                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=docker.${remoteHost}/live
+                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=docker.${remoteHost}/route
+                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=docker.${remoteHost}/storage
+                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=docker.${remoteHost}/stream
+                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.${remoteHost}/web
                     python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment
             """
         }
@@ -164,17 +164,17 @@ def executeDeploy(Map options, List platformList, List testResultList)
         println "[INFO] Send deploy command"
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
             res = sh(
-                script: "curl --insecure https://docker.webusd.stvcis.com/deploy?configuration=${options.deployEnvironment}",
+                script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
                 returnStdout: true,
                 returnStatus: true
             )
-        }
-        println ("RES - ${res}")
-        if (res == 0){
-            println "[INFO] Successfully sended"
-        }else{
-            println "[ERROR] Host not available"
-            throw new Exception()
+            println ("RES - ${res}")
+            if (res == 0){
+                println "[INFO] Successfully sended"
+            }else{
+                println "[ERROR] Host not available"
+                throw new Exception()
+            }
         }
     }catch (e){
         println "[ERROR] Error during deploy"
