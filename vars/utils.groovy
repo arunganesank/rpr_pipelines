@@ -169,7 +169,7 @@ class utils {
                     self.sh(script: '$CIS_TOOLS/make_wrapper_page.sh ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
                 } else {
                     // copy the necessary font file
-                    self.sh(script: 'copy %CIS_TOOLS%\\templates\\Klavika-Regular.ttf Klavika-Regular.ttf')
+                    self.bat(script: 'copy %CIS_TOOLS%\\templates\\Klavika-Regular.ttf Klavika-Regular.ttf')
                     self.bat(script: '%CIS_TOOLS%\\make_wrapper_page.bat ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
                 }
             }
