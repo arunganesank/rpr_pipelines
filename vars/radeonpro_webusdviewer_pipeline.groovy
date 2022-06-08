@@ -14,15 +14,21 @@ def executeBuildWindows(Map options)
             bat """
                 call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                 cmake --version >> ${STAGE_NAME}.log 2>&1
-                python --version >> ${STAGE_NAME}.log 2>&1
-                python -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                python3--version >> ${STAGE_NAME}.log 2>&1
+                python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
                 mkdir Build
                 echo [WebRTC] >> Build\\LocalBuildConfig.txt
                 echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
             """
-
-            zip archive: true, dir: "Build/Install", glob: '', zipFile: "WebUsdViewer_Windows.zip"
+            println("[INFO] Start building & sending docker containers to repo")
+            bat """
+                python3 Tools/Docker.py -ba -da -v
+            """
+            println("[INFO] Finish building & sending docker containers to repo")
+            if (options.generateArtifact){
+                zip archive: true, dir: "Build/Install", glob: '', zipFile: "WebUsdViewer_Windows.zip"
+            }
         }
     } catch(e) {
         println("Error during build on Windows")
@@ -44,26 +50,51 @@ def executeBuildWindows(Map options)
 def executeBuildLinux(Map options)
 {
     Boolean failure = false
-
+    println "[INFO] Start build" 
     downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
-
     try {
-       sh """
+        println "[INFO] Start build" 
+        sh """
+            mkdir --parents Build/Install
+        """
+        if (!options.rebuildDeps){
+            downloadFiles("/volume1/CIS/WebUSD/${options.osName}/USD", "./Build/Install", "--quiet")
+            // Because modes resetting after downloading from NAS
+            sh """ chmod -R 775 ./Build/Install/USD"""
+        }
+        sh """
             cmake --version >> ${STAGE_NAME}.log 2>&1
-            python --version >> ${STAGE_NAME}.log 2>&1
-            python -m pip install conan >> ${STAGE_NAME}.log 2>&1
-            mkdir --parents Build
+            python3 --version >> ${STAGE_NAME}.log 2>&1
+            python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
             echo "[WebRTC]" >> Build/LocalBuildConfig.txt
             echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
             export OS=
-            python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+            python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
         """
-
-        sh """
-            tar -C Build/Install -czvf "WebUsdViewer_Ubuntu20.tar.gz" .
-        """
-        
-        archiveArtifacts "WebUsdViewer_Ubuntu20.tar.gz"
+        if (options.updateDeps){
+            uploadFiles("./Build/Install/USD", "/volume1/CIS/WebUSD/${options.osName}", "--delete")
+        }
+        println("[INFO] Start building & sending docker containers to repo")
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+            String deployArgs = "-ba -da"
+            sh """
+                    export WEBUSD_BUILD_REMOTE_HOST=$remoteHost
+                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=docker.${remoteHost}/live
+                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=docker.${remoteHost}/route
+                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=docker.${remoteHost}/storage
+                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=docker.${remoteHost}/stream
+                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.${remoteHost}/web
+                    python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment
+            """
+        }
+        println("[INFO] Finish building & sending docker containers to repo")
+        sh "rm WebUsdWebServer/.env.production"
+        if (options.generateArtifact){
+            sh """
+                tar -C Build/Install -czvf "WebUsdViewer_Ubuntu20.tar.gz" .
+            """
+            archiveArtifacts "WebUsdViewer_Ubuntu20.tar.gz"
+        }
     } catch(e) {
         println("Error during build on Linux")
         println(e.toString())
@@ -72,20 +103,19 @@ def executeBuildLinux(Map options)
         archiveArtifacts "*.log"
     }
 
-   if (failure) {
+    if (failure) {
         currentBuild.result = "FAILED"
         error "error during build"
     }
 }
 
-
 def executeBuild(String osName, Map options)
-{
+{   
     try {
         cleanWS(osName)
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
         outputEnvironmentInfo(osName)
-
+        webusd_set_env(deployEnvironment: options.deployEnvironment, osName: osName)
         switch(osName) {
             case 'Windows':
                 executeBuildWindows(options)
@@ -104,35 +134,100 @@ def executeBuild(String osName, Map options)
     }
 }
 
-
-
 def executePreBuild(Map options)
 {
     dir('WebUsdViewer') {
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
-
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
         println "The last commit was written by ${options.commitAuthor}."
         println "Commit message: ${commitMessage}"
         println "Commit SHA: ${options.commitSHA}"
+
+        if( env.BRANCH_NAME ){
+            options["rebuildDeps"] = true
+        }
     }
 }
 
 
-def call(String projectBranch = "",
-         String platforms = 'Windows;Ubuntu20',
-         Boolean enableNotifications = true) {
+def executeTest(Map options){
+    println "[WARN] Test for this pipeline doesn't exists. Skip Tests stage."
+}
 
-    multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
-                           [projectBranch:projectBranch,
+def executeDeploy(Map options, List platformList, List testResultList)
+{
+    println "[INFO] Start deploying on $options.deployEnvironment environment"
+    failure = false
+    try{
+        println "[INFO] Send deploy command"
+        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+            res = sh(
+                script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                returnStdout: true,
+                returnStatus: true
+            )
+            println ("RES - ${res}")
+            if (res == 0){
+                println "[INFO] Successfully sended"
+            }else{
+                println "[ERROR] Host not available"
+                throw new Exception()
+            }
+        }
+    }catch (e){
+        println "[ERROR] Error during deploy"
+        println(e.toString())
+        failure = true
+    }
+    
+    if (failure){
+        currentBuild.result = "FAILED"
+        error "error during deploy"
+    }
+}
+
+def call(
+    String projectBranch = "",
+    String platforms = 'Windows;Ubuntu20',
+    Boolean enableNotifications = true,
+    Boolean generateArtifact = true,
+    Boolean deploy = true,
+    String deployEnvironment = 'test1;test2;test3;dev;prod;',
+    Boolean rebuildDeps = false,
+    Boolean updateDeps = false
+) {
+    if (env.BRANCH_NAME){
+        switch (env.BRANCH_NAME){
+            case "develop":
+                deployEnvironment = "dev"
+                break
+            case "main":
+                deployEnvironment = "prod"
+                break
+            case "auto_deploy":
+                deployEnvironment = "test3"
+                break
+        }
+    }
+
+    multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy,
+                            [projectBranch:projectBranch,
                             projectRepo:PROJECT_REPO,
+                            rebuildDeps:rebuildDeps,
+                            updateDeps:updateDeps,
                             enableNotifications:enableNotifications,
+                            generateArtifact:generateArtifact,
+                            deployEnvironment: deployEnvironment,
+                            deploy:deploy, 
                             PRJ_NAME:'WebUsdViewer',
                             PRJ_ROOT:'radeon-pro',
-                            BUILDER_TAG: 'BuilderWebUsdViewer',
+                            BUILDER_TAG:'BuilderWebUsdViewer',
                             executeBuild:true,
-                            executeTests:false,
-                            BUILD_TIMEOUT:'120'])
+                            executeTests:true,
+                            executeDeploy:deploy,
+                            BUILD_TIMEOUT:'120',
+                            DEPLOY_TAG:'WebViewerDeployment'
+                            ])
 }
