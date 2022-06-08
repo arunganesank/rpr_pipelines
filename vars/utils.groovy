@@ -98,6 +98,22 @@ class utils {
         return defaultReportName.replace("_", "_5f").replace(" ", "_20")
     }
 
+    static Integer getBuildPriority(Object self) {
+        if (self.env.JOB_NAME.contains('Auto/') || self.env.JOB_NAME.contains('-Hybrid/')) {
+            if (self.env.JOB_NAME.contains("USDViewer") || self.env.JOB_NAME.contains("InventorPluginInstaller")) {
+                return 20
+            } else if (self.env.JOB_NAME.contains("Core")) {
+                return 9
+            } else {
+                return 30
+            }
+        } else if (self.env.JOB_NAME.contains("Weekly")) {
+            return 30
+        } else {
+            return 40
+        }
+    }
+
     static def publishReport(Object self, String buildUrl, String reportDir, String reportFiles, String reportName, String reportTitles = "", Boolean publishOnNAS = false, Map nasReportInfo = [:]) {
         Map params
 
@@ -143,9 +159,8 @@ class utils {
                 jenkinsBuildUrl = nasReportInfo["jenkinsBuildUrl"]
             }
 
-            if (nasReportInfo.containsKey("jenkinsBuildName")) {
-                jenkinsBuildName = nasReportInfo["jenkinsBuildName"]
-            }
+            // TODO: jenkinsBuildName param is legacy and must be removed
+            jenkinsBuildName = "#${self.env.BUILD_NUMBER} (Priority: ${getBuildPriority(self)})"
 
             self.dir(reportDir) {
                 if (self.isUnix()) {
