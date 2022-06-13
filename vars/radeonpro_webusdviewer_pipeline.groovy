@@ -77,15 +77,21 @@ def executeBuildLinux(Map options)
         println("[INFO] Start building & sending docker containers to repo")
         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
             String deployArgs = "-ba -da"
-            sh """
-                    export WEBUSD_BUILD_REMOTE_HOST=$remoteHost
-                    export WEBUSD_BUILD_LIVE_CONTAINER_NAME=docker.${remoteHost}/live
-                    export WEBUSD_BUILD_ROUTE_CONTAINER_NAME=docker.${remoteHost}/route
-                    export WEBUSD_BUILD_STORAGE_CONTAINER_NAME=docker.${remoteHost}/storage
-                    export WEBUSD_BUILD_STREAM_CONTAINER_NAME=docker.${remoteHost}/stream
-                    export WEBUSD_BUILD_WEB_CONTAINER_NAME=docker.${remoteHost}/web
-                    python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment
-            """
+            containersBaseName = "docker.${remoteHost}/" 
+            if (env.CHANGE_URL){
+                deployArgs = "-ba"
+                containersBaseName = ""
+                remoteHost = ""
+                options["deployEnvironment"] = "pr"
+            }
+            env["WEBUSD_BUILD_REMOTE_HOST"] = remoteHost
+            env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
+            env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
+            env["WEBUSD_BUILD_STORAGE_CONTAINER_NAME"] = containersBaseName + "storage"
+            env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
+            env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
+
+            sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment"""
         }
         println("[INFO] Finish building & sending docker containers to repo")
         sh "rm WebUsdWebServer/.env.production"
@@ -115,7 +121,8 @@ def executeBuild(String osName, Map options)
         cleanWS(osName)
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
         outputEnvironmentInfo(osName)
-        webusd_set_env(deployEnvironment: options.deployEnvironment, osName: osName)
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
         switch(osName) {
             case 'Windows':
                 executeBuildWindows(options)
@@ -136,6 +143,7 @@ def executeBuild(String osName, Map options)
 
 def executePreBuild(Map options)
 {
+    
     dir('WebUsdViewer') {
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
@@ -145,11 +153,24 @@ def executePreBuild(Map options)
         println "Commit message: ${commitMessage}"
         println "Commit SHA: ${options.commitSHA}"
 
-        if( env.BRANCH_NAME ){
-            options["rebuildDeps"] = true
+        if (env.CHANGE_URL){
+            // withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+            //     GithubNotificator githubNotificator = new GithubNotificator(this, options)
+            //     githubNotificator.init(options)
+            //     options["githubNotificator"] = githubNotificator
+            //     githubNotificator.initPreBuild("${BUILD_URL}")
+            //     options.projectBranchName = githubNotificator.branchName
+            //     // options.githubNotificator.initChecks(options, "${BUILD_URL}")
+            //     // GithubNotificator.createStatus('Build', "Building sources/containers", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+            //     // GithubNotificator.createStatus('Deploy', "Checks project availibility", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+            // }
+        }else if( env.BRANCH_NAME ){
+            //options["rebuildDeps"] = true
+            options["rebuildDeps"] = false
         }
     }
 }
+
 
 
 def executeTest(Map options){
@@ -160,39 +181,110 @@ def executeDeploy(Map options, List platformList, List testResultList)
 {
     println "[INFO] Start deploying on $options.deployEnvironment environment"
     failure = false
+    Boolean status = true
     try{
-        println "[INFO] Send deploy command"
-        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
-            res = sh(
-                script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
-                returnStdout: true,
-                returnStatus: true
-            )
-            println ("RES - ${res}")
-            if (res == 0){
-                println "[INFO] Successfully sended"
-            }else{
-                println "[ERROR] Host not available"
+        if (env.CHANGE_URL){
+            println "[INFO] Local deploying for sanytize checks"
+            String composePath = "/usr/local/bin/docker-compose"
+
+            downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
+            sh """$composePath -f pr.yml up -d"""
+            List containersNamesAssociations = [
+                "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
+                "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
+                "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
+                "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
+                // "${env.WEBUSD_BUILD_WEB_CONTAINER_NAME}",
+                "front"
+            ]
+            for (i=0; i < 5; i++){
+                try{
+                    sleep(5)
+                    for (name in containersNamesAssociations){
+                        result = sh (
+                            script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
+                            returnStdout: true,
+                            returnStatus: true
+                        )
+                        println result
+                        if (result == 1){
+                            throw new Exception()
+                        }
+                    }
+                    sh """$composePath -f pr.yml stop"""
+                    println "[INFO] Sanytize checks successfully passed"
+                    break
+                }catch (e){
+                    println "[ERROR] Sanytize checks failed. Trying again"
+                }
+            }
+            if (!status){
+                sh """$composePath -f pr.yml stop"""
+                println "[ERROR] Sanytize checks failed. All attempts have been exhausted."
                 throw new Exception()
             }
+        }else {
+            println "[INFO] Send deploy command"
+            withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+                for (i=0; i < 5; i++){
+                    res = sh(
+                        script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                        returnStdout: true,
+                        returnStatus: true
+                    )
+                    println ("RES - ${res}")
+                    if (res == 0){
+                        println "[INFO] Successfully sended"
+                        break
+                    }else{
+                        println "[ERROR] Host not available. Try again"
+                    }
+                }
+                if (!status){
+                    println "[ERROR] Host not available. Retries exceeded"
+                    throw new Exception()
+                }
+        }
         }
     }catch (e){
         println "[ERROR] Error during deploy"
         println(e.toString())
         failure = true
+        status = false
     }
-    
     if (failure){
         currentBuild.result = "FAILED"
         error "error during deploy"
     }
+    String status_message = "Success"
+    Boolean is_pr = false
+    String branchName = options.projectBranch
+    if (branchName.contains("origin")){
+        branchName = branchName.split("/", 2)[1]
+    }
+    String branchURL = "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}"
+    if (!status){
+        status_message = "Failed"
+    }
+    if (env.CHANGE_URL){
+        is_pr = true
+        branchURL = env.CHANGE_URL
+    }
+    withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
+        res = sh(
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}}'",
+            returnStdout: true,
+            returnStatus: true
+        )
+    }
+    
 }
 
 def call(
     String projectBranch = "",
     String platforms = 'Windows;Ubuntu20',
     Boolean enableNotifications = true,
-    Boolean generateArtifact = true,
+    Boolean generateArtifact = false,
     Boolean deploy = true,
     String deployEnvironment = 'test1;test2;test3;dev;prod;',
     Boolean rebuildDeps = false,
@@ -211,7 +303,6 @@ def call(
                 break
         }
     }
-
     multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy,
                             [projectBranch:projectBranch,
                             projectRepo:PROJECT_REPO,
@@ -228,6 +319,6 @@ def call(
                             executeTests:true,
                             executeDeploy:deploy,
                             BUILD_TIMEOUT:'120',
-                            DEPLOY_TAG:'WebViewerDeployment'
+                            DEPLOY_TAG:'WebViewerDeployment',
                             ])
 }
