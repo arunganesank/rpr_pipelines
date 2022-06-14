@@ -372,7 +372,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
             case "Android":
                 bat """
-                    set CIS_OS=Windows 10(64bit) with Android real device
+                    set CIS_OS=Android
                     run_android.bat \"${testsPackageName}\" \"${testsNames}\" ${options.testCaseRetries} \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
 
