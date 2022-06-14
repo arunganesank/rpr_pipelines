@@ -368,8 +368,6 @@ def makeDeploy(Map options, String engine = "") {
                 reportBuilderLabels = "Windows && Tester && !NoDeploy"
             }
 
-            reportBuilderLabels = "PC-TESTER-TALLIN-WIN10"
-
             options["stage"] = "Deploy"
             def retringFunction = { nodesList, currentTry ->
                 if (engine) {
@@ -485,7 +483,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
 
             try {
                 if (executePreBuild) {
-                    node("PC-TESTER-TALLIN-WIN10") {
+                    node("Windows && PreBuild") {
                         ws("WS/${options.PRJ_NAME}_Build") {
                             stage("PreBuild") {
                                 try {
