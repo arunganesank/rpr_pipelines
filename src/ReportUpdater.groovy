@@ -39,7 +39,7 @@ public class ReportUpdater {
 
         String locations = ""
         String reportFiles = "summary_report.html"
-        String reportFilesNames = "Summary Report (Overview)"
+        String reportFilesNames = "Overview Report"
 
         if (options.engines) {
             options.engines.each { engine ->
@@ -79,7 +79,7 @@ public class ReportUpdater {
                 locations = locations ? "${locations}::${publishedReportName}" : "${publishedReportName}"
 
                 reportFiles += ",../${reportName.replace(' ', '_')}/summary_report.html"
-                reportFilesNames += ",Summary Report (${engineName})"
+                reportFilesNames += ",${engineName} Report"
             }
 
             // do not build an overview report for builds with only one engine
