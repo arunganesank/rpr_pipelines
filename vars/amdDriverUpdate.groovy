@@ -97,6 +97,8 @@ def executeUpdate(osName, gpuNames, options) {
                         } finally {
                             archiveArtifacts "*.log"
                         }
+
+                        return 0
                     }
                 }
             }
