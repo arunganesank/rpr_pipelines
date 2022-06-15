@@ -6,7 +6,7 @@ def main(Map options) {
     timestamps {
         def updateTasks = [:]
 
-        platforms.split(';').each() {
+        options.platforms.split(';').each() {
             if (it) {
                 List tokens = it.tokenize(':')
                 String osName = tokens.get(0)
@@ -19,7 +19,6 @@ def main(Map options) {
                     gpuNames = tokens.get(1)
                 }
 
-                platformList << osName
                 updateTasks[osName]=executeUpdate(osName, gpuNames, newOptions)
             }
         }
@@ -43,6 +42,7 @@ def main(Map options) {
 def executeUpdate(osName, gpuNames, options) {
     def gpuLabels = gpuNames.split(",").collect{"gpu${it}"}.join(" || ")
     def labels = "${osName} && (${gpuLabels})"
+    def tasks = [:]
 
     if (options.tags) {
         labels = "${labels} && (${options.tags})"
@@ -103,7 +103,7 @@ def executeUpdate(osName, gpuNames, options) {
         }
     }
 
-    parallel updateTasks
+    parallel tasks
 }
 
 def call(Boolean productionDriver = False,
