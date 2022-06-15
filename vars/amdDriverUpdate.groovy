@@ -45,7 +45,7 @@ def executeUpdate(osName, gpuNames, options) {
     def labels = "${osName} && (${gpuLabels})"
 
     if (options.tags) {
-        labels = "${labels} && ${options.tags}"
+        labels = "${labels} && (${options.tags})"
     }
     nodes = nodesByLabel labels
 
