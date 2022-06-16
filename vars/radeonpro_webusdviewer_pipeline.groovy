@@ -154,18 +154,8 @@ def executePreBuild(Map options)
         println "Commit SHA: ${options.commitSHA}"
 
         if (env.CHANGE_URL){
-            // withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-            //     GithubNotificator githubNotificator = new GithubNotificator(this, options)
-            //     githubNotificator.init(options)
-            //     options["githubNotificator"] = githubNotificator
-            //     githubNotificator.initPreBuild("${BUILD_URL}")
-            //     options.projectBranchName = githubNotificator.branchName
-            //     // options.githubNotificator.initChecks(options, "${BUILD_URL}")
-            //     // GithubNotificator.createStatus('Build', "Building sources/containers", 'queued', options, 'Scheduled', "${env.JOB_URL}")
-            //     // GithubNotificator.createStatus('Deploy', "Checks project availibility", 'queued', options, 'Scheduled', "${env.JOB_URL}")
-            // }
+            // TODO add github notification
         }else if( env.BRANCH_NAME ){
-            //options["rebuildDeps"] = true
             options["rebuildDeps"] = true
         }
     }
@@ -194,7 +184,6 @@ def executeDeploy(Map options, List platformList, List testResultList)
                 "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
                 "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
                 "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
-                // "${env.WEBUSD_BUILD_WEB_CONTAINER_NAME}",
                 "front"
             ]
             for (i=0; i < 5; i++){
