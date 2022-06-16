@@ -440,7 +440,7 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
                     mv BlenderUSDHydraAddon*.zip BlenderUSDHydraAddon_${osName}.zip
                 """
 
-                if (options.toolVersion == "3.1" && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
+                if ((options.toolVersion == "3.1" || options.toolVersion == "3.2") && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
                     makeStash(includes: "BlenderUSDHydraAddon_${osName}.zip", name: getProduct.getStashName(osName), preZip: false, storeOnNAS: options.storeOnNAS)
 
                     GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
