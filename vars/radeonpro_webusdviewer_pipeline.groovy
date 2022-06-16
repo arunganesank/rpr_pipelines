@@ -155,8 +155,6 @@ def executePreBuild(Map options)
 
         if (env.CHANGE_URL){
             // TODO add github notification
-        }else if( env.BRANCH_NAME ){
-            options["rebuildDeps"] = true
         }
     }
 }
