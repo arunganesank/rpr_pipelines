@@ -166,7 +166,7 @@ def executePreBuild(Map options)
             // }
         }else if( env.BRANCH_NAME ){
             //options["rebuildDeps"] = true
-            options["rebuildDeps"] = false
+            options["rebuildDeps"] = true
         }
     }
 }
