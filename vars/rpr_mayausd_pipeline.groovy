@@ -175,6 +175,7 @@ def executeTests(String osName, String asicName, Map options) {
 
             timeout(time: "15", unit: "MINUTES") {
                 uninstallRPRMayaPlugin(osName, options)
+                uninstallRPRMayaUSDPlugin(osName, options)
             }
 
             println "Start plugin installation"
