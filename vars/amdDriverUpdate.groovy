@@ -73,9 +73,7 @@ def planUpdate(osName, gpuNames, options, updateTasks) {
                                     break
                                 case "Ubuntu20":
                                     sh "${CIS_TOOLS}/driver_detection/amd_request.sh \"${DRIVER_PAGE_URL}\" ${env.WORKSPACE}/page.html >> page_download_${it}.log 2>&1 "
-                                    python3("-m pip install -r ${CIS_TOOLS}/driver_detection/requirements.txt >> parse_stage_${it}.log 2>&1")
-                                    status = sh(returnStatus: true, script: "python3 ${CIS_TOOLS}/driver_detection/parse_driver.py --os ubuntu20 --html_path ${env.WORKSPACE}/page.html --installer_dst ${env.WORKSPACE}/amdgpu-install.deb >> parse_stage_${it}.log 2>&1")
-                                    
+                                    status = sh(returnStatus: true, script: "sudo ${CIS_TOOLS}/driver_detection/perform_driver_detection.sh ubuntu20 ${env.WORKSPACE}/page.html ${env.WORKSPACE}/amdgpu-install.deb >> parse_stage_${it}.log 2>&1")
                                     break
                                 default:
                                     println "[WARNING] ${osName} is not supported"
