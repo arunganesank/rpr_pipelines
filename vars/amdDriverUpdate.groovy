@@ -19,7 +19,7 @@ def main(Map options) {
                     gpuNames = tokens.get(1)
                 }
 
-                updateTasks[osName]=executeUpdate(osName, gpuNames, newOptions)
+                planUpdate(osName, gpuNames, newOptions, updateTasks)
             }
         }
         
@@ -39,10 +39,9 @@ def main(Map options) {
     }
 }
 
-def executeUpdate(osName, gpuNames, options) {
+def planUpdate(osName, gpuNames, options, updateTasks) {
     def gpuLabels = gpuNames.split(",").collect{"gpu${it}"}.join(" || ")
     def labels = "${osName} && (${gpuLabels})"
-    def tasks = [:]
 
     if (options.tags) {
         labels = "${labels} && (${options.tags})"
@@ -53,7 +52,7 @@ def executeUpdate(osName, gpuNames, options) {
     println(nodes)
 
     nodes.each() {
-        tasks["${it}"] = {
+        updateTasks["${it}"] = {
             stage("Driver update ${it}") {
                 node("${it}") {
                     timeout(time: "60", unit: "MINUTES") {
@@ -89,7 +88,6 @@ def executeUpdate(osName, gpuNames, options) {
                                 newerDriverInstalled = true
                                 utils.reboot(this, isUnix() ? "Unix" : "Windows")
                             }
-
                         } catch(e) {
                             println(e.toString());
                             println(e.getMessage());
@@ -97,15 +95,11 @@ def executeUpdate(osName, gpuNames, options) {
                         } finally {
                             archiveArtifacts "*.log"
                         }
-
-                        return 0
                     }
                 }
             }
         }
     }
-
-    parallel tasks
 }
 
 def call(Boolean productionDriver = False,
