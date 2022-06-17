@@ -415,10 +415,12 @@ def executeBuild(String osName, Map options) {
 
 
 def getReportBuildArgs(Map options) {
+    boolean collectTrackedMetrics = true
+
     if (options["isPreBuilt"]) {
-        return """Anari "PreBuilt" "PreBuilt" "PreBuilt" \"\" \"\""""
+        return """Anari "PreBuilt" "PreBuilt" "PreBuilt" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     } else {
-        return """Anari ${options.commitSHA} ${options.rprAnariBranch} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"\" \"\""""
+        return """Anari ${options.commitSHA} ${options.rprAnariBranch} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     }
 }
 
@@ -594,6 +596,15 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 println("[ERROR] Can't generate number of lost tests")
             }
 
+            // always show tracked metrics
+            boolean useTrackedMetrics = true
+            boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderAnari"
+
+            if (useTrackedMetrics) {
+                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+            }
+
             try {
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
@@ -602,7 +613,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                         bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(options)}"
                         bat "get_status.bat ..\\summaryTestResults"
                     }
-                } 
+                }
+
+                if (saveTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
+                }
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${BUILD_URL}")
