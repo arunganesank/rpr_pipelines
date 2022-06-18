@@ -438,7 +438,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
-                Integer priority = utils.getJobPriority(this)
+                Integer priority = utils.getBuildPriority(this)
                 currentBuild.displayName = "${currentBuild.displayName} (Priority: ${priority})"
 
                 println("[INFO] Priority was set based on view of job")
