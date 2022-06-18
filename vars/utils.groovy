@@ -131,11 +131,7 @@ class utils {
                 reportLinkBase = self.REMOTE_URL
             }
 
-            reportLinkBase = "${reportLinkBase}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/".replace(" ", "_")
-
-            self.withCredentials([self.usernamePassword(credentialsId: "reportsNAS", usernameVariable: "NAS_USER", passwordVariable: "NAS_PASSWORD")]) {
-                authReportLinkBase = reportLinkBase.replace("https://", "https://${self.NAS_USER}:${self.NAS_PASSWORD}@")
-            }
+            authReportLinkBase = "${reportLinkBase}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/".replace(" ", "_")
 
             def links = []
             def linksTitles
