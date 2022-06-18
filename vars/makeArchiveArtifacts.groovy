@@ -26,12 +26,8 @@ def call(Map params) {
                 artifactURL = "${REMOTE_URL}/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/${artifactName}"
             }
 
-            withCredentials([usernamePassword(credentialsId: "reportsNAS", usernameVariable: "NAS_USER", passwordVariable: "NAS_PASSWORD")]) {
-                artifactURL = artifactURL.replace("https://", "https://${NAS_USER}:${NAS_PASSWORD}@")
-
-                if (createLink) {
-                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${artifactURL}">[BUILD: ${BUILD_ID}] ${artifactName}</a></h3>"""
-                }
+            if (createLink) {
+                rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${artifactURL}">[BUILD: ${BUILD_ID}] ${artifactName}</a></h3>"""
             }
         } else {
             artifactURL = "${BUILD_URL}artifact/${artifactName}"

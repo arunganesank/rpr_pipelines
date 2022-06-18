@@ -77,11 +77,7 @@ def call(String osName, Map options, String credentialsId = '', Integer oneTryTi
             """
         }
     } else if (customBuildLink.contains("cis.nas")) {
-        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'reportsNAS', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
-
-            runCurl("curl -L -o ${artifactNameBase}_${osName}.${extension} -u $USERNAME:$PASSWORD \"${customBuildLink}\"", 5, oneTryTimeout)
-
-        }
+        runCurl("curl -L -o ${artifactNameBase}_${osName}.${extension} \"${customBuildLink}\"", 5, oneTryTimeout)
     } else {
         if (credentialsId) {
             withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: credentialsId, usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
