@@ -247,8 +247,8 @@ def executeDeploy(Map options, List platformList, List testResultList)
 
 
 def notifyByTg(Map options){
-    String status_message = currentBuild.result != "FAILED" ? "Success" : "Failed"
-    Boolean is_pr = env.CHANGE_URL == null
+    String status_message = currentBuild.result.contains("FAILED") ? "Success" : "Failed"
+    Boolean is_pr = env.CHANGE_URL != null
     String branchName = env.CHANGE_URL ?: options.projectBranch
     if (branchName.contains("origin")){
         branchName = branchName.split("/", 2)[1]
