@@ -247,14 +247,13 @@ def executeDeploy(Map options, List platformList, List testResultList)
 
 
 def notifyByTg(Map options){
-    String status_message = "Success"
+    String status_message = currentBuild.result != "FAILED" ? "Success" : "Failed"
     Boolean is_pr = env.CHANGE_URL == null
     String branchName = env.CHANGE_URL ?: options.projectBranch
     if (branchName.contains("origin")){
         branchName = branchName.split("/", 2)[1]
     }
     String branchURL = is_pr ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
-    String status_message = currentBuild.result != "FAILED" ? "Success" : "Failed"
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
             script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}}'",
