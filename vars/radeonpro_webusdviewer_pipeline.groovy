@@ -67,9 +67,13 @@ def executeBuildLinux(Map options)
         println "[INFO] Install AMF"
         sh """
             git clone --recurse-submodules ${AMF_REPO}
-            cmake -B Build . -DCMAKE_INSTALL_PREFIX=Install
+        """
+        dir("amf"){
+        sh """
+            cmake -B Build ./amf -DCMAKE_INSTALL_PREFIX=Install
             cmake --build Build --config Release --target install
         """
+        }
         sh """
             cmake --version >> ${STAGE_NAME}.log 2>&1
             python3 --version >> ${STAGE_NAME}.log 2>&1
@@ -257,8 +261,9 @@ def executeDeploy(Map options, List platformList, List testResultList)
 
 
 def notifyByTg(Map options){
-    String status_message = currentBuild.result != "FAILED" ? "Success" : "Failed"
-    Boolean is_pr = env.CHANGE_URL == null
+    println currentBuild.result
+    String status_message = currentBuild.result.contains("FAILED") ? "Success" : "Failed"
+    Boolean is_pr = env.CHANGE_URL != null
     String branchName = env.CHANGE_URL ?: options.projectBranch
     if (branchName.contains("origin")){
         branchName = branchName.split("/", 2)[1]
