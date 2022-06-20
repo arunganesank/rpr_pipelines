@@ -69,10 +69,11 @@ def executeBuildLinux(Map options)
             git clone --recurse-submodules ${AMF_REPO}
         """
         dir("amf"){
-        sh """
-            cmake -B Build ./amf -DCMAKE_INSTALL_PREFIX=Install
-            cmake --build Build --config Release --target install
-        """
+            println "[INFO] Build AMF"
+            sh """
+                cmake -B Build . -DCMAKE_INSTALL_PREFIX=Install
+                cmake --build Build --config Release --target install
+            """
         }
         sh """
             cmake --version >> ${STAGE_NAME}.log 2>&1
@@ -271,7 +272,7 @@ def notifyByTg(Map options){
     String branchURL = is_pr ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
