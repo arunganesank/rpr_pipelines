@@ -2,8 +2,6 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
-@Field final String AMF_REPO = "git@github.com:s1lentssh/amf.git"
-
 def executeBuildWindows(Map options)
 {
     Boolean failure = false
@@ -255,7 +253,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 def notifyByTg(Map options){
     println currentBuild.result
 
-    String status_message = currentBuild.result.contains("FAILED") ? "Success" : "Failed"
+    String status_message = currentBuild.result.contains("FAILED") ? "Failed" : "Success"
     Boolean is_pr = env.CHANGE_URL != null
     String branchName = env.CHANGE_URL ?: options.projectBranch
     if (branchName.contains("origin")){
