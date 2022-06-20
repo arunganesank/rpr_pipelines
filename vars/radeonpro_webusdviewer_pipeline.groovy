@@ -73,7 +73,7 @@ def executeBuildLinux(Map options)
             echo "[WebRTC]" >> Build/LocalBuildConfig.txt
             echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
             echo "[AMF]" >> Build/LocalBuildConfig.txt
-            echo "path =  ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
+            echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
             export OS=
             python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
         """
