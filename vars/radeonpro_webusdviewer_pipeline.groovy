@@ -113,6 +113,7 @@ def executeBuildLinux(Map options)
         currentBuild.result = "FAILED"
         error "error during build"
     }
+    currentBuild.result = "SUCCESS"
 }
 
 def executeBuild(String osName, Map options)
@@ -139,6 +140,7 @@ def executeBuild(String osName, Map options)
     } finally {
         archiveArtifacts "*.log"
     }
+    currentBuild.result = "SUCCESS"
 }
 
 def executePreBuild(Map options)
@@ -158,8 +160,6 @@ def executePreBuild(Map options)
         }
     }
 }
-
-
 
 def executeTest(Map options){
     println "[WARN] Test for this pipeline doesn't exists. Skip Tests stage."
@@ -229,7 +229,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
                 if (!status){
                     throw new Exception("[ERROR] Host not available. Retries exceeded")
                 }
-        }
+            }
         }
     }catch (e){
         println "[ERROR] Error during deploy"
