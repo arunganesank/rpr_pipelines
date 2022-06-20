@@ -64,17 +64,6 @@ def executeBuildLinux(Map options)
             // Because modes resetting after downloading from NAS
             sh """ chmod -R 775 ./Build/Install/USD"""
         }
-        println "[INFO] Install AMF"
-        sh """
-            git clone --recurse-submodules ${AMF_REPO}
-        """
-        dir("amf"){
-            println "[INFO] Build AMF"
-            sh """
-                cmake -B Build . -DCMAKE_INSTALL_PREFIX=Install
-                cmake --build Build --config Release --target install
-            """
-        }
         sh """
             cmake --version >> ${STAGE_NAME}.log 2>&1
             python3 --version >> ${STAGE_NAME}.log 2>&1
