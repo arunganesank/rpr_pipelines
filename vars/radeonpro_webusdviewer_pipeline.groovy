@@ -195,7 +195,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
                         )
                         println result
                         if (result == 1){
-                            throw new Exception()
+                            throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
                         }
                     }
                     sh """$composePath -f pr.yml stop"""
@@ -207,8 +207,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
             }
             if (!status){
                 sh """$composePath -f pr.yml stop"""
-                println "[ERROR] Sanytize checks failed. All attempts have been exhausted."
-                throw new Exception()
+                throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
             }
         }else {
             println "[INFO] Send deploy command"
@@ -228,8 +227,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
                     }
                 }
                 if (!status){
-                    println "[ERROR] Host not available. Retries exceeded"
-                    throw new Exception()
+                    throw new Exception("[ERROR] Host not available. Retries exceeded")
                 }
         }
         }
@@ -243,20 +241,20 @@ def executeDeploy(Map options, List platformList, List testResultList)
         currentBuild.result = "FAILED"
         error "error during deploy"
     }
+    notifyByTg(options)
+    
+}
+
+
+def notifyByTg(Map options){
     String status_message = "Success"
-    Boolean is_pr = false
-    String branchName = options.projectBranch
+    Boolean is_pr = env.CHANGE_URL == null
+    String branchName = env.CHANGE_URL ?: options.projectBranch
     if (branchName.contains("origin")){
         branchName = branchName.split("/", 2)[1]
     }
-    String branchURL = "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}"
-    if (!status){
-        status_message = "Failed"
-    }
-    if (env.CHANGE_URL){
-        is_pr = true
-        branchURL = env.CHANGE_URL
-    }
+    String branchURL = is_pr ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
+    String status_message = currentBuild.result != "FAILED" ? "Success" : "Failed"
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
             script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}}'",
@@ -264,8 +262,8 @@ def executeDeploy(Map options, List platformList, List testResultList)
             returnStatus: true
         )
     }
-    
 }
+
 
 def call(
     String projectBranch = "",
