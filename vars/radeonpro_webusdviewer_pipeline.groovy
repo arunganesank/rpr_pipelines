@@ -2,6 +2,8 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
+@Field final String AMF_REPO = "git@github.com:s1lentssh/amf.git"
+
 def executeBuildWindows(Map options)
 {
     Boolean failure = false
@@ -62,12 +64,20 @@ def executeBuildLinux(Map options)
             // Because modes resetting after downloading from NAS
             sh """ chmod -R 775 ./Build/Install/USD"""
         }
+        println "[INFO] Install AMF"
+        sh """
+            git clone --recurse-submodules ${AMF_REPO}
+            cmake -B Build . -DCMAKE_INSTALL_PREFIX=Install
+            cmake --build Build --config Release --target install
+        """
         sh """
             cmake --version >> ${STAGE_NAME}.log 2>&1
             python3 --version >> ${STAGE_NAME}.log 2>&1
             python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
             echo "[WebRTC]" >> Build/LocalBuildConfig.txt
             echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
+            echo "[AMF]" >> Build/LocalBuildConfig.txt
+            echo "path = /opt/AMF/Install" >> Build/LocalBuildConfig.txt
             export OS=
             python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
         """
