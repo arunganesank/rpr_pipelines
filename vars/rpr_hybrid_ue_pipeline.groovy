@@ -58,7 +58,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
         try {
             timeout(time: "15", unit: 'MINUTES') {
                 bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
 
                 dir("Saved\\VideoCaptures") {
                     String ARTIFACT_NAME = "render_name.avi"
