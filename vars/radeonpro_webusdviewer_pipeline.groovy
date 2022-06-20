@@ -132,7 +132,6 @@ def executeBuildLinux(Map options)
 def executeBuild(String osName, Map options)
 {   
     try {
-        throw new Exception();
         cleanWS(osName)
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
         outputEnvironmentInfo(osName)
