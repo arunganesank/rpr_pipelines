@@ -53,7 +53,9 @@ def executeBuildLinux(Map options)
 {
     Boolean failure = false
     println "[INFO] Start build" 
+    println "[INFO] Download Web-rtc and AMF" 
     downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
+    downloadFiles("/volume1/CIS/WebUSD/AMF/", "${CIS_TOOLS}/../thirdparty/AMF", "--quiet")
     try {
         println "[INFO] Start build" 
         sh """
@@ -71,7 +73,7 @@ def executeBuildLinux(Map options)
             echo "[WebRTC]" >> Build/LocalBuildConfig.txt
             echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
             echo "[AMF]" >> Build/LocalBuildConfig.txt
-            echo "path = /opt/AMF/Install" >> Build/LocalBuildConfig.txt
+            echo "path =  ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
             export OS=
             python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
         """
