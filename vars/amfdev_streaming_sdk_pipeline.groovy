@@ -65,6 +65,46 @@ Boolean isIdleClient(Map options) {
 }
 
 
+def getClientScreenWidth(String osName, Map options) {
+    try {
+        switch(osName) {
+            case "Windows":
+                return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+            case "OSX":
+                println("Unsupported OS")
+                break
+            default:
+                println("Unsupported OS")
+        }
+    } catch (e) {
+        println("[ERROR] Failed to get client screen width")
+        println(e)
+
+        return 1920
+    }
+}
+
+
+def getClientScreenHeight(String osName, Map options) {
+    try {
+        switch(osName) {
+            case "Windows":
+                return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+            case "OSX":
+                println("Unsupported OS")
+                break
+            default:
+                println("Unsupported OS")
+        }
+    } catch (e) {
+        println("[ERROR] Failed to get client screen height")
+        println(e)
+
+        return 1080
+    }
+}
+
+
 def prepareTool(String osName, Map options) {
     switch(osName) {
         case "Windows":
@@ -323,8 +363,10 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                         run_windows_client.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 } else {
+                    def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
+
                     bat """
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -434,6 +476,12 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 prepareTool(osName, options)
             }
         }
+
+        options["clientInfo"]["screenWidth"] = getClientScreenWidth(osName, options)
+        println("[INFO] Screen width on client machine: ${options.clientInfo.screenWidth}")
+
+        options["clientInfo"]["screenHeight"] = getClientScreenHeight(osName, options)
+        println("[INFO] Screen height on client machine: ${options.clientInfo.screenHeight}")
 
         if (options.isDevelopBranch) {
             if (!driverTestsExecuted.containsKey("executed") || !driverTestsExecuted["executed"]) {
