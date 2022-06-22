@@ -78,11 +78,10 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                     default:
                         sh """
                             export LD_LIBRARY_PATH=${assetsDir}:\$LD_LIBRARY_PATH
-                            pip3.8 install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 -V >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 -V >> ${STAGE_NAME}.ft.log 2>&1
                             env >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                             mv ft.log ${STAGE_NAME}.execute.ft.log
                             mv ft-process.log ${STAGE_NAME}.process.ft.log
                         """
