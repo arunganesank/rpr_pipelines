@@ -52,7 +52,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                     case 'Windows':
                         assetsDir = "C:\\TestResources\\rpr_ml_autotests_assets"
 
-                        withEnv(["PATH=C:\\Python38;C:\\Python38\\Scripts;${PATH}"]) {
+                        withEnv(["PATH=C:\\Python39;C:\\Python39\\Scripts;${PATH}"]) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
