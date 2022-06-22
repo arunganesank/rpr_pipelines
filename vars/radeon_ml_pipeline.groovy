@@ -225,7 +225,7 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
     sh """
         cd build-${buildType}
         mv bin ${buildType}
-        rm ${buildType}/*.a
+        rm -rf ${buildType}/*.a
         mkdir ./${buildType}/rml
         mkdir ./${buildType}/rml_internal
         cp ../rml/include/rml/*.h* ./${buildType}/rml
@@ -318,7 +318,7 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
     sh """
         cd build-${buildType}
         mv bin ${buildType}
-        rm ${buildType}/*.a
+        rm -rf ${buildType}/*.a
         cp -R ../third_party/miopen/libMIOpen.so* ./${buildType}
         cp -R ../third_party/tensorflow/linux/* ./${buildType}
         mkdir ./${buildType}/rml
