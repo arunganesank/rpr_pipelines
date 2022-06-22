@@ -285,6 +285,8 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeLinuxBuildCommand(String osName, Map options, String buildType) {
     
+    outputEnvironmentInfo(osName, "${STAGE_NAME}_${buildType}")
+
     try {
         sh """
             mkdir build-${buildType}
@@ -384,8 +386,7 @@ def executeBuild(String osName, Map options) {
         downloadFiles("/volume1/CIS/rpr-ml/tensorflow/", "../RML_thirdparty/tensorflow")
         downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "../RML_thirdparty/DirectML")
 
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Release")
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Debug")
+        utils.removeFiles(osName, "*.log")
 
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch (osName) {
