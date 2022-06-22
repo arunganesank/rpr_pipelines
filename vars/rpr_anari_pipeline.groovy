@@ -598,8 +598,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             // always show tracked metrics
             boolean useTrackedMetrics = true
-            boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderAnari"
+            boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-Anari"
 
             if (useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")

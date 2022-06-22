@@ -533,7 +533,7 @@ def executeBuild(String osName, Map options)
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFullNorthstar") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
 
     if (options["isPreBuilt"]) {
         return """"Maya" "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -844,9 +844,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFullNorthstar") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFullNorthstar")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderMayaPlugin"
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin"
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 
