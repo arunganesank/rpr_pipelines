@@ -220,8 +220,6 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
         cd build-${buildType}
         cmake -DCMAKE_OSX_SYSROOT=$MACOS_SDK -DCMAKE_buildType=${buildType} ${options.cmakeKeysOSX} .. >> ../${STAGE_NAME}_${buildType}.log 2>&1
         make -j 4 >> ../${STAGE_NAME}_${buildType}.log 2>&1
-
-        cd build-${buildType}
         mv bin ${buildType}
     """
 
