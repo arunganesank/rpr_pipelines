@@ -285,6 +285,8 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeLinuxBuildCommand(String osName, Map options, String buildType) {
     
+    outputEnvironmentInfo(osName, "${STAGE_NAME}_${buildType}")
+
     try {
         sh """
             mkdir build-${buildType}
@@ -382,10 +384,10 @@ def executeBuild(String osName, Map options) {
         
         downloadFiles("/volume1/CIS/rpr-ml/MIOpen/${osName}/release/", "../RML_thirdparty/MIOpen")
         downloadFiles("/volume1/CIS/rpr-ml/tensorflow/", "../RML_thirdparty/tensorflow")
-        //downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "./DirectML")
+        downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "../RML_thirdparty/DirectML")
 
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Release")
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Debug")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Release.log")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Debug.log")
 
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch (osName) {
@@ -501,7 +503,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX5700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean enableNotifications = true,
          Boolean executeFT = true) {
