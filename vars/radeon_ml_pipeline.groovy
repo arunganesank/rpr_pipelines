@@ -69,7 +69,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                         sh """
                             export LD_LIBRARY_PATH=${assetsDir}:\$LD_LIBRARY_PATH
                             python3.9 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.9-intel64 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
+                            python process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                             mv ft.log ${STAGE_NAME}.execute.ft.log
                             mv ft-process.log ${STAGE_NAME}.process.ft.log
                         """
@@ -244,6 +244,7 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
 
         # search for libs in local dir
         install_name_tool -add_rpath "@executable_path" ./${buildType}/tests
+        install_name_tool -add_rpath "@executable_path" ./${buildType}/test_app
 
         tar cf ${osName}_${buildType}.tar ${buildType}
     """
