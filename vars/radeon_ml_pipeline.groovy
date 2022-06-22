@@ -386,7 +386,8 @@ def executeBuild(String osName, Map options) {
         downloadFiles("/volume1/CIS/rpr-ml/tensorflow/", "../RML_thirdparty/tensorflow")
         downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "../RML_thirdparty/DirectML")
 
-        utils.removeFiles(osName, "*.log")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Release.log")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Debug.log")
 
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch (osName) {
