@@ -58,7 +58,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
         try {
             timeout(time: "15", unit: 'MINUTES') {
                 bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
 
                 dir("Saved\\VideoCaptures") {
                     String ARTIFACT_NAME = "render_name.avi"
@@ -252,6 +252,7 @@ def call(String projectBranch = "",
          Boolean saveEngine = false,
          Boolean cleanBuild = false,
          Boolean videoRecording = false,
+         String sceneName = "/Game/Toyshop/scene",
          String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
          String levelSequence = "/Game/SCENE/SimpleOverview",
          String movieQuality = "75",
@@ -289,6 +290,7 @@ def call(String projectBranch = "",
                                 saveEngine:saveEngine,
                                 cleanBuild:cleanBuild,
                                 videoRecording:videoRecording,
+                                sceneName:sceneName,
                                 execCmds:execCmds,
                                 levelSequence:levelSequence,
                                 movieQuality:movieQuality,
