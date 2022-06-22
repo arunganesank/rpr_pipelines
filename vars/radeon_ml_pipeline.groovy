@@ -220,16 +220,32 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
         cd build-${buildType}
         cmake -DCMAKE_OSX_SYSROOT=$MACOS_SDK -DCMAKE_buildType=${buildType} ${options.cmakeKeysOSX} .. >> ../${STAGE_NAME}_${buildType}.log 2>&1
         make -j 4 >> ../${STAGE_NAME}_${buildType}.log 2>&1
+
+        cd build-${buildType}
+        mv bin ${buildType}
     """
+
+    try {
+        // PR-375 stores part of libs and binaries in bin directory
+        sh """
+            cd build-${buildType}/${buildType}
+            mv bin/* .
+            rmdir bin
+        """
+    } catch (e) {
+        print(e)
+    }
 
     sh """
         cd build-${buildType}
-        mv bin ${buildType}
         rm -rf ${buildType}/*.a
         mkdir ./${buildType}/rml
         mkdir ./${buildType}/rml_internal
         cp ../rml/include/rml/*.h* ./${buildType}/rml
         cp ../rml/include/rml_internal/*.h* ./${buildType}/rml_internal
+
+        # search for libs in local dir
+        install_name_tool -add_rpath "@executable_path" ./${buildType}/tests
 
         tar cf ${osName}_${buildType}.tar ${buildType}
     """
@@ -311,10 +327,25 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
 
         throw exception
     }
-    
+
     sh """
         cd build-${buildType}
         mv bin ${buildType}
+    """
+
+    try {
+        // PR-375 stores part of libs and binaries in bin directory
+        sh """
+            cd build-${buildType}/${buildType}
+            mv bin/* .
+            rmdir bin
+        """
+    } catch (e) {
+        print(e)
+    }
+
+    sh """
+        cd build-${buildType}
         rm -rf ${buildType}/*.a
         cp -R ../third_party/miopen/libMIOpen.so* ./${buildType}
         cp -R ../third_party/tensorflow/linux/* ./${buildType}
