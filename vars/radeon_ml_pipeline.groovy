@@ -52,7 +52,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                     case 'Windows':
                         assetsDir = "C:\\TestResources\\rpr_ml_autotests_assets"
 
-                        withEnv(["PATH=C:\\Python38;C:\\Python38\\Scripts;${PATH}"]) {
+                        withEnv(["PATH=C:\\Python39;C:\\Python39\\Scripts;${PATH}"]) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
@@ -225,11 +225,14 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
     sh """
         cd build-${buildType}
         mv bin ${buildType}
-        rm ${buildType}/*.a
+        rm -rf ${buildType}/*.a
         mkdir ./${buildType}/rml
         mkdir ./${buildType}/rml_internal
         cp ../rml/include/rml/*.h* ./${buildType}/rml
         cp ../rml/include/rml_internal/*.h* ./${buildType}/rml_internal
+
+        # search for libs in local dir
+        install_name_tool -add_rpath "@executable_path" ./${buildType}/tests
 
         tar cf ${osName}_${buildType}.tar ${buildType}
     """
@@ -315,7 +318,7 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
     sh """
         cd build-${buildType}
         mv bin ${buildType}
-        rm ${buildType}/*.a
+        rm -rf ${buildType}/*.a
         cp -R ../third_party/miopen/libMIOpen.so* ./${buildType}
         cp -R ../third_party/tensorflow/linux/* ./${buildType}
         mkdir ./${buildType}/rml
