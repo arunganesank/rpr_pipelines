@@ -231,9 +231,6 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
         cp ../rml/include/rml/*.h* ./${buildType}/rml
         cp ../rml/include/rml_internal/*.h* ./${buildType}/rml_internal
 
-        # search for libs in local dir
-        install_name_tool -add_rpath "@executable_path" ./${buildType}/tests
-
         tar cf ${osName}_${buildType}.tar ${buildType}
     """
 
