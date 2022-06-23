@@ -1331,7 +1331,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                     groupLost = true
                                 }
 
-                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~")) {
+                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~") {
                                     try {
                                         makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
                                     } catch (e) {
