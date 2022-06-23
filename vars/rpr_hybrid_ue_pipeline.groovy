@@ -52,7 +52,9 @@ def executeVideoRecording(String svnRepoName, Map options) {
                     "-NoScreenMessages",
                     "-MovieQuality=${options.movieQuality}",
                     "-VSync",
-                    "-MovieWarmUpFrames=100"]
+                    "-MovieWarmUpFrames=100",
+                    "-ResX=${options.resX}",
+                    "-ResY=${options.resY}"]
 
     dir(svnRepoName) {
         try {
@@ -256,6 +258,8 @@ def call(String projectBranch = "",
          String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
          String levelSequence = "/Game/SCENE/SimpleOverview",
          String movieQuality = "75",
+         Integer resX = 1920,
+         Integer resY = 1080,
          Boolean onlyVideo = false
 ) {
 
@@ -294,6 +298,8 @@ def call(String projectBranch = "",
                                 execCmds:execCmds,
                                 levelSequence:levelSequence,
                                 movieQuality:movieQuality,
+                                resX: resX,
+                                resY: resY,
                                 onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
