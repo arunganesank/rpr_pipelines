@@ -54,7 +54,9 @@ def executeVideoRecording(String svnRepoName, Map options) {
                     "-VSync",
                     "-MovieWarmUpFrames=100",
                     "-ResX=${options.resX}",
-                    "-ResY=${options.resY}"]
+                    "-ResY=${options.resY}",
+                    "${options.windowed ? '-windowed' : ''}",
+                    "${options.forceRes ? '-ForceRes' : ''}"]
 
     dir(svnRepoName) {
         try {
@@ -260,6 +262,8 @@ def call(String projectBranch = "",
          String movieQuality = "75",
          Integer resX = 1920,
          Integer resY = 1080,
+         Boolean windowed = false,
+         Boolean forceRes = false,
          Boolean onlyVideo = false
 ) {
 
@@ -300,6 +304,8 @@ def call(String projectBranch = "",
                                 movieQuality:movieQuality,
                                 resX: resX,
                                 resY: resY,
+                                windowed: windowed,
+                                forceRes: forceRes,
                                 onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
