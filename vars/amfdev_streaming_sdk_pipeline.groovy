@@ -44,7 +44,7 @@ Boolean isIdleClient(Map options) {
 
         def parsedTests = options.tests.split("-")[0]
 
-        if (options.multiconnectionConfiguration.second_win_client.any { parsedTests.contains(it) } || parsedTests == "regression.1.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { parsedTests.contains(it) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~") {
             result = false
 
             // wait multiconnection client machine
@@ -574,7 +574,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     prepareTool(osName, options)
                 }
 
-                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests.contains("regression")) {
+                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || parsedTests == "regression.2.json~") {
                     dir("StreamingSDKAndroid") {
                         prepareTool("Android", options)
                         installAndroidClient()
@@ -606,7 +606,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
             sleep(5)
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.parsedTests == "regression.1.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~") {
             while (!options["mcClientInfo"]["ready"]) {
                 if (options["mcClientInfo"]["failed"]) {
                     throw new Exception("Multiconnection client was failed")
@@ -881,7 +881,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
-            if (options.multiconnectionConfiguration.second_win_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.1.json~") {
+            if (options.multiconnectionConfiguration.second_win_client.any { options.parsedTests.contains(it) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~") {
                 threads["${options.stageName}-multiconnection-client"] = { 
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
@@ -1331,7 +1331,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                     groupLost = true
                                 }
 
-                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~")) {
+                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~")) {
                                     try {
                                         makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
                                     } catch (e) {
@@ -1407,7 +1407,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                        if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~")) {
+                        if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || parsedTests == "regression.1.json~" || parsedTests == "regression.2.json~") {
                             dir(testName.replace("testResult-", "")) {
                                 try {
                                     makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
