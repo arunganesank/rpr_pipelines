@@ -424,6 +424,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
+                        // number of errors > 50% -> do retry
+                        if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
+                            String errorMessage
+                            if (options.currentTry < options.nodeReallocateTries) {
+                                errorMessage = "All tests were marked as error. The test group will be restarted."
+                            } else {
+                                errorMessage = "All tests were marked as error."
+                            }
+                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                        }
+
                         println "Stashing logs to : ${options.testResultsName}_server"
                         makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
