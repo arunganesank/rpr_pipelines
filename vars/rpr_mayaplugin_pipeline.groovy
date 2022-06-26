@@ -418,7 +418,7 @@ def executeTests(String osName, String asicName, Map options)
                             for (testGroup in sessionReport.results) {
                                 for (caseResults in sessionReport.results[testGroup].renderResults) {
                                     for (message in caseResults.message) {
-                                        if (message.contains(" Error windows {'maya'}")) {
+                                        if (message.contains("Error windows {'maya'}")) {
                                             String errorMessage
                                             if (options.currentTry < options.nodeReallocateTries) {
                                                 errorMessage = "Maya crash detected. The test group will be restarted."
