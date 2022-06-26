@@ -404,6 +404,8 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
             dir("Work") {
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
 
+                    def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
+
                     if (executionType == "client" || executionType == "android") {
                         String stashPostfix = executionType == "client" ? "_client" : ""
 
@@ -414,8 +416,6 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*_second_client.log,**/*.jpg,**/*.mp4', name: "${options.testResultsName}_sec_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_sec_cl_j", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     } else {
-                        def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
-
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
@@ -424,23 +424,23 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
-                        // number of errors > 50% -> do retry
-                        if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
-                            String errorMessage
-                            if (options.currentTry < options.nodeReallocateTries) {
-                                errorMessage = "All tests were marked as error. The test group will be restarted."
-                            } else {
-                                errorMessage = "All tests were marked as error."
-                            }
-                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                        }
-
                         println "Stashing logs to : ${options.testResultsName}_server"
                         makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.jpg,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
+                }
+
+                // number of errors > 50% -> do retry
+                if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
+                    String errorMessage
+                    if (options.currentTry < options.nodeReallocateTries) {
+                        errorMessage = "Many tests were marked as error. The test group will be restarted."
+                    } else {
+                        errorMessage = "Many tests were marked as error."
+                    }
+                    throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                 }
             }
         }
