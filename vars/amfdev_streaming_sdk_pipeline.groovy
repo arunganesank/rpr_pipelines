@@ -402,9 +402,11 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
         if (stashResults) {
             dir("Work") {
+                def sessionReport
+
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
 
-                    def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
+                    sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
 
                     if (executionType == "client" || executionType == "android") {
                         String stashPostfix = executionType == "client" ? "_client" : ""
