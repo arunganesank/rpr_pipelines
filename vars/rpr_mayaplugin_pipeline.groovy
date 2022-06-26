@@ -413,6 +413,25 @@ def executeTests(String osName, String asicName, Map options)
                             }
                         }
 
+                        // retry on Maya crash
+                        if (sessionReport.summary.error > 0) {
+                            for (testGroup in sessionReport.results) {
+                                for (caseResults in sessionReport.results[testGroup].renderResults) {
+                                    for (message in caseResults.message) {
+                                        if (message.contains(" Error windows {'maya'}")) {
+                                            String errorMessage
+                                            if (options.currentTry < options.nodeReallocateTries) {
+                                                errorMessage = "Maya crash detected. The test group will be restarted."
+                                            } else {
+                                                errorMessage = "Maya crash detected."
+                                            }
+                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
                         }
