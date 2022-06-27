@@ -291,7 +291,7 @@ def call(String projectBranch = "",
                                 executeTests:true,
                                 // TODO: ignore timeout in run_with_retries func. Need to implement more correct solution
                                 BUILD_TIMEOUT: 3000,
-                                PROJECT_BUILD_TIMEOUT:420,
+                                PROJECT_BUILD_TIMEOUT:1440,
                                 retriesForTestStage:1,
                                 storeOnNAS: true,
                                 projects: projects.split(","),
