@@ -116,9 +116,7 @@ def executeBuildLinux(Map options) {
     if (failure) {
         currentBuild.result = "FAILED"
         error "error during build"
-    }
-
-    if (deploy) {
+    } else if (deploy) {
         println "[INFO] Start deploying on $options.deployEnvironment environment"
         failure = false
         Boolean status = true
@@ -201,7 +199,9 @@ def executeBuildLinux(Map options) {
             currentBuild.result = "FAILED"
             error "error during deploy"
         }
+    }
 
+    if (deploy) {
         notifyByTg(options)
     }
 }
@@ -250,18 +250,18 @@ def executeBuild(String osName, Map options) {
 
 
 def notifyByTg(Map options) {
-    String status_message = currentBuild.result.contains("FAILED") ? "Success" : "Failed"
-    Boolean is_pr = env.CHANGE_URL != null
+    String statusMessage = currentBuild.result.contains("FAILED") ? "Failed" : "Success"
+    Boolean isPR = env.CHANGE_URL != null
     String branchName = env.CHANGE_URL ?: options.projectBranch
 
     if (branchName.contains("origin")){
         branchName = branchName.split("/", 2)[1]
     }
 
-    String branchURL = is_pr ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
+    String branchURL = isPR ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${status_message}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}, \"user\": \"${options.commitAuthor}\"}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
