@@ -210,7 +210,10 @@ def executeBuildLinux(Map options) {
 def executeBuild(String osName, Map options) {  
     try {
         cleanWS(osName)
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+
+        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        }
 
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
@@ -292,22 +295,35 @@ def call(
         deployEnvironment = "pr"
     }
 
-    multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
-                            [projectBranch:projectBranch,
-                            projectRepo:PROJECT_REPO,
-                            rebuildDeps:rebuildDeps,
-                            updateDeps:updateDeps,
-                            enableNotifications:enableNotifications,
-                            generateArtifact:generateArtifact,
-                            deployEnvironment: deployEnvironment,
-                            deploy:deploy, 
-                            PRJ_NAME:'WebUsdViewer',
-                            PRJ_ROOT:'radeon-pro',
-                            BUILDER_TAG:'BuilderWebUsdViewer',
-                            executeBuild:true,
-                            executeTests:true,
-                            executeDeploy:deploy,
-                            BUILD_TIMEOUT:'120',
-                            DEPLOY_TAG:'WebViewerDeployment',
-                            ])
+    ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+    options["stage"] = "Init"
+
+    try {
+        multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
+                                [projectBranch:projectBranch,
+                                projectRepo:PROJECT_REPO,
+                                rebuildDeps:rebuildDeps,
+                                updateDeps:updateDeps,
+                                enableNotifications:enableNotifications,
+                                generateArtifact:generateArtifact,
+                                deployEnvironment: deployEnvironment,
+                                deploy:deploy, 
+                                PRJ_NAME:'WebUsdViewer',
+                                PRJ_ROOT:'radeon-pro',
+                                BUILDER_TAG:'BuilderWebUsdViewer',
+                                executeBuild:true,
+                                executeTests:true,
+                                executeDeploy:deploy,
+                                BUILD_TIMEOUT:'120',
+                                DEPLOY_TAG:'WebViewerDeployment',
+                                problemMessageManager:problemMessageManager
+                                ])
+    } catch(e) {
+        currentBuild.result = "FAILURE"
+        println(e.toString())
+        println(e.getMessage())
+        throw e
+    } finally {
+        String problemMessage = options.problemMessageManager.publishMessages()
+    }
 }
