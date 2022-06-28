@@ -795,7 +795,7 @@ def call(String projectBranch = "",
          String apiValues = "vulkan,d3d12") {
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
-        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME).getItem("master").lastBuild.result == null) {
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
             println("[INFO] Make a delay because there is a running build in master branch")
             sleep(300)
         }
