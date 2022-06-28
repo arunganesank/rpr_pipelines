@@ -799,6 +799,12 @@ def call(String projectBranch = "",
             println("[INFO] Make a delay because there is a running build in master branch")
             sleep(300)
         }
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) {
+            milestone(buildNumber - 1)
+        }
+        milestone(buildNumber) 
     }
 
     Boolean isLegacyBranch = false
