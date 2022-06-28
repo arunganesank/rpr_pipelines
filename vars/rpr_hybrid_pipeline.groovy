@@ -794,10 +794,11 @@ def call(String projectBranch = "",
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON",
          String apiValues = "vulkan,d3d12") {
 
-    // TODO: make a delay only for builds triggered by nwe commits in the master branch
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
-        println("[INFO] Make a delay because this build may be triggered by the master branch. It can require some time to update refs")
-        sleep(600)
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME).getItem("master").lastBuild.result == null) {
+            println("[INFO] Make a delay because there is a running build in master branch")
+            sleep(300)
+        }
     }
 
     Boolean isLegacyBranch = false
