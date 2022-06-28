@@ -309,7 +309,6 @@ def call(
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    options["stage"] = "Init"
 
     try {
         multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
