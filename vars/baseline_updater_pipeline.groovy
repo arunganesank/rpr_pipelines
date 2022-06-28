@@ -107,12 +107,6 @@ def call(String jobName,
                     String machineConfiguration
                     String groupName
                     String reportName = engine ? "Test_Report_${ENGINE_REPORT_MAPPING[engine.toLowerCase()]}" : "Test_Report"
-
-                    // FIXME: in USD Blender Hybrid delegate has reports which ends with HybridPro
-                    if (jobName == "USD-BlenderPlugin-Weekly") {
-                        reportName = engine ? "Test_Report_HybridPro" : "Test_Report"
-                    }
-
                     String baselinesPath = "/Baselines/${baselineDirName}"
                     String reportComparePath
 
