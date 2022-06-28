@@ -225,7 +225,7 @@ def executeTests(String osName, String asicName, Map options)
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_blender_autotests/${asicName}-${osName}"
         switch(options.engine) {
             case 'FULL2':
-            case 'HIPvsNS'
+            case 'HIPvsNS':
                 enginePostfix = "NorthStar"
                 break
             case 'LOW':
