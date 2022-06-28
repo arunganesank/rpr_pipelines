@@ -47,7 +47,9 @@ def executeBuildWindows(Map options) {
 def executeBuildLinux(Map options) {
     Boolean failure = false
     println "[INFO] Start build" 
+    println "[INFO] Download Web-rtc and AMF" 
     downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
+    downloadFiles("/volume1/CIS/WebUSD/AMF/", "${CIS_TOOLS}/../thirdparty/AMF", "--quiet")
     try {
         println "[INFO] Start build"
 
@@ -67,6 +69,8 @@ def executeBuildLinux(Map options) {
             python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
             echo "[WebRTC]" >> Build/LocalBuildConfig.txt
             echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
+            echo "[AMF]" >> Build/LocalBuildConfig.txt
+            echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
             export OS=
             python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
         """
@@ -249,7 +253,9 @@ def executeBuild(String osName, Map options) {
 }
 
 
-def notifyByTg(Map options) {
+def notifyByTg(Map options){
+    println currentBuild.result
+
     String statusMessage = currentBuild.result.contains("FAILED") ? "Failed" : "Success"
     Boolean isPR = env.CHANGE_URL != null
     String branchName = env.CHANGE_URL ?: options.projectBranch
