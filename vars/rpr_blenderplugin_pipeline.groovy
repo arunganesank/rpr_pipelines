@@ -17,7 +17,11 @@ import java.util.concurrent.atomic.AtomicInteger
 )
 
 
-Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
+Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    if (engine.contains("HIP") && !(asicName.contains("AMD") && osName == "Windows")) {
+        return true
+    }
+
     return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
@@ -39,34 +43,22 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete)
     }
 }
 
-def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine, Boolean useHIP)
+def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine)
 {
     try {
         dir("scripts") {
             switch(osName) {
                 case 'Windows':
-                    if (useHIP) {
-                        bat """
-                            set TH_FORCE_HIP=1
-                            build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
-                        """
-                    } else {
-                        bat """
-                            build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
-                        """
-                    }
+                    bat """
+                        ${engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                        build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                    """
                     break
                 default:
-                    if (useHIP) {
-                        sh """
-                            export TH_FORCE_HIP=1
-                            ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
-                        """
-                    } else {
-                        sh """
-                            ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
-                        """
-                    }
+                    sh """
+                        ${engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                    """
             }
         }
     } catch (e) {
@@ -100,31 +92,19 @@ def executeTestCommand(String osName, String asicName, Map options)
         switch(osName) {
             case 'Windows':
                 dir('scripts') {
-                    if (options.useHIP) {
-                        bat """
-                            set TH_FORCE_HIP=1
-                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                        """
-                    } else {
-                        bat """
-                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                        """
-                    }
+                    bat """
+                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                    """
                 }
                 break
             // OSX & Ubuntu20
             default:
                 dir("scripts") {
-                    if (options.useHIP) {
-                        sh """
-                            export TH_FORCE_HIP=1
-                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                        """
-                    } else {
-                        sh """
-                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                        """
-                    }
+                    sh """
+                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                    """
                 }
         }
     }
@@ -221,7 +201,7 @@ def executeTests(String osName, String asicName, Map options)
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
                 if (newPluginInstalled) {                         
                     timeout(time: "12", unit: "MINUTES") {
-                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine, options.useHIP)
+                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine)
                         String cacheImgPath = "./Work/Results/Blender/cache_building.jpg"
                         if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
@@ -245,6 +225,7 @@ def executeTests(String osName, String asicName, Map options)
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_blender_autotests/${asicName}-${osName}"
         switch(options.engine) {
             case 'FULL2':
+            case 'HIPvsNS'
                 enginePostfix = "NorthStar"
                 break
             case 'LOW':
@@ -258,6 +239,9 @@ def executeTests(String osName, String asicName, Map options)
                 break
             case 'HYBRIDPRO':
                 enginePostfix = "HybridPro"
+                break
+            case 'HIP':
+                enginePostfix = "HIP"
                 break
         }
         REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
@@ -849,7 +833,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
 
-                        if (hybridProFilter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
                             return
                         }
 
@@ -1100,8 +1084,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                     formattedEngines.add('HYBRIDPRO')
                 } else if (it.contains('Hybrid')) {
                     formattedEngines.add(it.replace('Hybrid', '').toUpperCase())
-                } else {
+                } else if (it == "Northstar") {
                     formattedEngines.add('FULL2')
+                } else {
+                    formattedEngines.add(it)
                 }
             }
 
@@ -1159,7 +1145,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
             println "Tests package: ${testsPackage}"
             println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
-            println "Use HIP: ${useHIP}"
 
             String prRepoName = ""
             String prBranchName = ""
@@ -1216,8 +1201,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&hybridProFilter,
-                        useHIP: useHIP
+                        skipCallback: this.&filter
                         ]
         }
 
