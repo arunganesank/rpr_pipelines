@@ -336,6 +336,6 @@ def call(
         println(e.getMessage())
         throw e
     } finally {
-        String problemMessage = options.problemMessageManager.publishMessages()
+        String problemMessage = problemMessageManager.publishMessages()
     }
 }
