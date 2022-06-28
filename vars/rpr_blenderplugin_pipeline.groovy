@@ -136,7 +136,11 @@ def cloneTestsRepository(Map options) {
 
     if (options.parsedTests.contains("RPR_Export") || options.parsedTests.contains("Smoke") || options.parsedTests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
-            checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            if (options["isPreBuilt"]) {
+                checkoutScm(branchName: "master", repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            } else {
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            }
         }
     }
 }
@@ -554,7 +558,7 @@ def executeBuild(String osName, Map options)
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
 
     if (options["isPreBuilt"]) {
         return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -876,9 +880,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderBlenderPlugin/${engine}"
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/${engine}"
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (useTrackedMetrics) {
@@ -1063,7 +1067,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String enginesNames = "Northstar,HybridPro",
     String tester_tag = "Blender",
     Boolean useHIP = false,
-    String toolVersion = "3.1",
+    String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
     Integer testCaseRetries = 3)

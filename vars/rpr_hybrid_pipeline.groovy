@@ -110,7 +110,7 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
 
 
 def executeTestsCustomQuality(String osName, String asicName, Map options, String apiValue = "vulkan") {
-    validateDriver(osName, asicName, ["Ubuntu-NVIDIA": "510.54"], options)
+    validateDriver(osName, asicName, ["Ubuntu-NVIDIA": "515.48.07"], options)
        
     cleanWS(osName)
     String error_message = ""
@@ -793,6 +793,19 @@ def call(String projectBranch = "",
          Boolean enableNotifications = true,
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON",
          String apiValues = "vulkan,d3d12") {
+
+    if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME).getItem("master").lastBuild.result == null) {
+            println("[INFO] Make a delay because there is a running build in master branch")
+            sleep(300)
+        }
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) {
+            milestone(buildNumber - 1)
+        }
+        milestone(buildNumber) 
+    }
 
     Boolean isLegacyBranch = false
 

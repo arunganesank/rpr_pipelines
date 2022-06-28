@@ -358,7 +358,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
 
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
                 
-                if (options.toolVersion == "3.1" && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
+                if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
                     bat """
                         rename ${ARTIFACT_NAME} BlenderUSDHydraAddon_Windows.zip
                     """
@@ -371,7 +371,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
         }
     } catch(e) {
         println "[ERROR] Python ${pyVersion} build was failed"
-        if (options.toolVersion == "3.1" && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
+        if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
             println "[ERROR] Failed main version of build"
             throw e
         }
@@ -440,7 +440,7 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
                     mv BlenderUSDHydraAddon*.zip BlenderUSDHydraAddon_${osName}.zip
                 """
 
-                if (options.toolVersion == "3.1" && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
+                if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
                     makeStash(includes: "BlenderUSDHydraAddon_${osName}.zip", name: getProduct.getStashName(osName), preZip: false, storeOnNAS: options.storeOnNAS)
 
                     GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
@@ -449,7 +449,7 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
         }
     } catch(e) {
         println "[ERROR] Python ${pyVersion} build was failed"
-        if (options.toolVersion == "3.1" && pyVersion == "3.10" || options.toolVersion != "3.1" && pyVersion != "3.10") {
+        if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
             println "[ERROR] Failed main version of build"
             throw e
         }
@@ -461,7 +461,7 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
 def executeBuild(String osName, Map options) {
     try {
         def pyVersions = ["3.9"]
-        options.toolVersion != "3.1" ?: pyVersions << "3.10"
+        (options.toolVersion == "3.0") ?: pyVersions << "3.10"
 
         pyVersions.each() {
             cleanWS(osName)
@@ -518,7 +518,7 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
 
     if (options["isPreBuilt"]) {
         return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -834,9 +834,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFull") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-            boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFull")
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/BlenderUSDHydraPluginManual/${engine}"
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+            boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
 
             if (useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
@@ -1021,7 +1021,7 @@ def call(String projectRepo = PROJECT_REPO,
     String customBuildLinkOSX = "",
     String enginesNames = "RPR,GL,Hybrid",
     String tester_tag = "Blender",
-    String toolVersion = "3.1",
+    String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
     Integer testCaseRetries = 3

@@ -159,7 +159,11 @@ def cloneTestsRepository(Map options) {
 
     if (options.parsedTests.contains("RPR_Export") || options.parsedTests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
-            checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            if (options["isPreBuilt"]) {
+                checkoutScm(branchName: "master", repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            } else {
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            }
         }
     }
 }
@@ -409,6 +413,25 @@ def executeTests(String osName, String asicName, Map options)
                             }
                         }
 
+                        // retry on Maya crash
+                        if (sessionReport.summary.error > 0) {
+                            for (testGroup in sessionReport.results) {
+                                for (caseResults in sessionReport.results[testGroup].renderResults) {
+                                    for (message in caseResults.message) {
+                                        if (message.contains("Error windows {'maya'}")) {
+                                            String errorMessage
+                                            if (options.currentTry < options.nodeReallocateTries) {
+                                                errorMessage = "Maya crash detected. The test group will be restarted."
+                                            } else {
+                                                errorMessage = "Maya crash detected."
+                                            }
+                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
                         }
@@ -533,7 +556,7 @@ def executeBuild(String osName, Map options)
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("WeeklyFullNorthstar") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
 
     if (options["isPreBuilt"]) {
         return """"Maya" "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -844,9 +867,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("WeeklyFullNorthstar") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("WeeklyFullNorthstar")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RadeonProRenderMayaPlugin"
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin"
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 

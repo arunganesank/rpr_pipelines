@@ -52,13 +52,17 @@ def executeVideoRecording(String svnRepoName, Map options) {
                     "-NoScreenMessages",
                     "-MovieQuality=${options.movieQuality}",
                     "-VSync",
-                    "-MovieWarmUpFrames=100"]
+                    "-MovieWarmUpFrames=100",
+                    "-ResX=${options.resX}",
+                    "-ResY=${options.resY}",
+                    "${options.windowed ? '-windowed' : ''}",
+                    "${options.forceRes ? '-ForceRes' : ''}"]
 
     dir(svnRepoName) {
         try {
-            timeout(time: "15", unit: 'MINUTES') {
+            timeout(time: options.videoRecordingTimeout, unit: 'MINUTES') {
                 bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uproject\" \"/Game/Toyshop/scene\" ${params.join(" ")}")
+                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
 
                 dir("Saved\\VideoCaptures") {
                     String ARTIFACT_NAME = "render_name.avi"
@@ -252,9 +256,15 @@ def call(String projectBranch = "",
          Boolean saveEngine = false,
          Boolean cleanBuild = false,
          Boolean videoRecording = false,
+         String sceneName = "/Game/Toyshop/scene",
          String execCmds = "rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0",
          String levelSequence = "/Game/SCENE/SimpleOverview",
          String movieQuality = "75",
+         Integer resX = 1920,
+         Integer resY = 1080,
+         Boolean windowed = false,
+         Boolean forceRes = false,
+         String videoRecordingTimeout = "15",
          Boolean onlyVideo = false
 ) {
 
@@ -281,7 +291,7 @@ def call(String projectBranch = "",
                                 executeTests:true,
                                 // TODO: ignore timeout in run_with_retries func. Need to implement more correct solution
                                 BUILD_TIMEOUT: 3000,
-                                PROJECT_BUILD_TIMEOUT:420,
+                                PROJECT_BUILD_TIMEOUT:1440,
                                 retriesForTestStage:1,
                                 storeOnNAS: true,
                                 projects: projects.split(","),
@@ -289,9 +299,15 @@ def call(String projectBranch = "",
                                 saveEngine:saveEngine,
                                 cleanBuild:cleanBuild,
                                 videoRecording:videoRecording,
+                                sceneName:sceneName,
                                 execCmds:execCmds,
                                 levelSequence:levelSequence,
                                 movieQuality:movieQuality,
+                                resX: resX,
+                                resY: resY,
+                                windowed: windowed,
+                                forceRes: forceRes,
+                                videoRecordingTimeout: videoRecordingTimeout,
                                 onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"

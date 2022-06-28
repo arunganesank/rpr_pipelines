@@ -44,7 +44,7 @@ Boolean isIdleClient(Map options) {
 
         def parsedTests = options.tests.split("-")[0]
 
-        if (options.multiconnectionConfiguration.second_win_client.any { parsedTests.contains(it) } || parsedTests == "regression.1.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { parsedTests.contains(it) } || parsedTests == "regression.1.json~" || parsedTests == "regression.3.json~") {
             result = false
 
             // wait multiconnection client machine
@@ -61,6 +61,46 @@ Boolean isIdleClient(Map options) {
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
         return options["finishedBuildStages"]["Windows"]
+    }
+}
+
+
+def getClientScreenWidth(String osName, Map options) {
+    try {
+        switch(osName) {
+            case "Windows":
+                return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+            case "OSX":
+                println("Unsupported OS")
+                break
+            default:
+                println("Unsupported OS")
+        }
+    } catch (e) {
+        println("[ERROR] Failed to get client screen width")
+        println(e)
+
+        return 1920
+    }
+}
+
+
+def getClientScreenHeight(String osName, Map options) {
+    try {
+        switch(osName) {
+            case "Windows":
+                return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+            case "OSX":
+                println("Unsupported OS")
+                break
+            default:
+                println("Unsupported OS")
+        }
+    } catch (e) {
+        println("[ERROR] Failed to get client screen height")
+        println(e)
+
+        return 1080
     }
 }
 
@@ -209,46 +249,6 @@ def getCommunicationPort(String osName, Map options) {
 }
 
 
-def getClientScreenWidth(String osName, Map options) {
-    try {
-        switch(osName) {
-            case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
-        }
-    } catch (e) {
-        println("[ERROR] Failed to get client screen width")
-        println(e)
-
-        return 1920
-    }
-}
-
-
-def getClientScreenHeight(String osName, Map options) {
-    try {
-        switch(osName) {
-            case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
-        }
-    } catch (e) {
-        println("[ERROR] Failed to get client screen height")
-        println(e)
-
-        return 1080
-    }
-}
-
-
 def closeGames(String osName, Map options, String gameName) {
     try {
         switch(osName) {
@@ -355,16 +355,18 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
         switch (osName) {
             case "Windows":
                 if (executionType == "mcClient") {
-                    def screenResolution = "${options.mcClientInfo.screenWidth}x${options.mcClientInfo.screenHeight}"
-
                     bat """
-                        run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" ${screenResolution} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                    """
+                } else if (executionType == "client") {
+                    bat """
+                        run_windows_client.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 } else {
                     def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
                     bat """
-                        run_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${executionType}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" ${options.testCaseRetries} \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${screenResolution} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -372,8 +374,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
             case "Android":
                 bat """
-                    set CIS_OS=Windows 10(64bit) with Android real device
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" ${options.testCaseRetries} \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
 
                 break
@@ -401,7 +402,11 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
         if (stashResults) {
             dir("Work") {
+                def sessionReport
+
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
+
+                    sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
 
                     if (executionType == "client" || executionType == "android") {
                         String stashPostfix = executionType == "client" ? "_client" : ""
@@ -413,8 +418,6 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*_second_client.log,**/*.jpg,**/*.mp4', name: "${options.testResultsName}_sec_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_sec_cl_j", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     } else {
-                        def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
-
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
@@ -429,6 +432,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*.jpg,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
+                }
+
+                // number of errors > 50% -> do retry
+                if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
+                    String errorMessage
+                    if (options.currentTry < options.nodeReallocateTries) {
+                        errorMessage = "Many tests were marked as error. The test group will be restarted."
+                    } else {
+                        errorMessage = "Many tests were marked as error."
+                    }
+                    throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                 }
             }
         }
@@ -573,7 +587,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     prepareTool(osName, options)
                 }
 
-                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests.contains("regression")) {
+                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.2.json~" || options.parsedTests == "regression.3.json~") {
                     dir("StreamingSDKAndroid") {
                         prepareTool("Android", options)
                         installAndroidClient()
@@ -605,7 +619,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
             sleep(5)
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.parsedTests == "regression.1.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.parsedTests == "regression.1.json~" || options.parsedTests == "regression.3.json~") {
             while (!options["mcClientInfo"]["ready"]) {
                 if (options["mcClientInfo"]["failed"]) {
                     throw new Exception("Multiconnection client was failed")
@@ -676,12 +690,6 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 prepareTool(osName, options)
             }
         }
-
-        options["mcClientInfo"]["screenWidth"] = getClientScreenWidth(osName, options)
-        println("[INFO] Screen width on multiconnection client machine: ${options.mcClientInfo.screenWidth}")
-
-        options["mcClientInfo"]["screenHeight"] = getClientScreenHeight(osName, options)
-        println("[INFO] Screen height on multiconnection client machine: ${options.mcClientInfo.screenHeight}")
 
         options["mcClientInfo"]["ready"] = true
         println("[INFO] Multiconnection client is ready to run tests")
@@ -886,7 +894,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
-            if (options.multiconnectionConfiguration.second_win_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.1.json~") {
+            if (options.multiconnectionConfiguration.second_win_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.1.json~" || options.parsedTests == "regression.3.json~") {
                 threads["${options.stageName}-multiconnection-client"] = { 
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
@@ -1336,7 +1344,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                     groupLost = true
                                 }
 
-                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~")) {
+                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                                     try {
                                         makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
                                     } catch (e) {
@@ -1412,7 +1420,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                        if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~")) {
+                        if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                             dir(testName.replace("testResult-", "")) {
                                 try {
                                     makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)

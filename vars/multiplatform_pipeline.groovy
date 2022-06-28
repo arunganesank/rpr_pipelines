@@ -438,19 +438,9 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
-                if (env.JOB_NAME.contains('Auto/') || env.JOB_NAME.contains('-Hybrid/')) {
-                    if (env.JOB_NAME.contains("USDViewer") || env.JOB_NAME.contains("InventorPluginInstaller")) {
-                        currentBuild.displayName = "${currentBuild.displayName} (Priority: 20)"
-                    } else if (env.JOB_NAME.contains("Core")) {
-                        currentBuild.displayName = "${currentBuild.displayName} (Priority: 9)"
-                    } else {
-                        currentBuild.displayName = "${currentBuild.displayName} (Priority: 30)"
-                    }
-                } else if (env.JOB_NAME.contains("Weekly")) {
-                    currentBuild.displayName = "${currentBuild.displayName} (Priority: 30)"
-                } else {
-                    currentBuild.displayName = "${currentBuild.displayName} (Priority: 40)"
-                }
+                Integer priority = utils.getBuildPriority(this)
+                currentBuild.displayName = "${currentBuild.displayName} (Priority: ${priority})"
+
                 println("[INFO] Priority was set based on view of job")
             }
         } catch (e) {

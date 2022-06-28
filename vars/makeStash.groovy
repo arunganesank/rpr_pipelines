@@ -115,16 +115,13 @@ def call(Map params) {
                     }
 
                     if (status == 23) {
-                        if (allowEmpty) {
-                            break
-                        } else {
-                            println("[ERROR] Stash is empty")
-                            throw new Exception("Empty stash")
-                        }
-                    } else if (status != 24) {
-                        break
-                    } else {
+                        println("[ERROR] Failed to upload stash")
+                    } else if (status == 24) {
                         print("[ERROR] Partial transfer due to vanished source files")
+                    } else if (status != 0) {
+                        println("[ERROR] Download script returned non-zero code: ${status}")
+                    } else {
+                        break
                     }
                 } catch (FlowInterruptedException e1) {
                     println("[INFO] Making of stash with name '${stashName}' was aborting.")

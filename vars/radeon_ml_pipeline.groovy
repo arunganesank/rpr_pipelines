@@ -52,7 +52,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                     case 'Windows':
                         assetsDir = "C:\\TestResources\\rpr_ml_autotests_assets"
 
-                        withEnv(["PATH=C:\\Python38;C:\\Python38\\Scripts;${PATH}"]) {
+                        withEnv(["PATH=C:\\Python39;C:\\Python39\\Scripts;${PATH}"]) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
@@ -69,7 +69,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                         sh """
                             export LD_LIBRARY_PATH=${assetsDir}:\$LD_LIBRARY_PATH
                             python3.9 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.9-intel64 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
+                            python process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                             mv ft.log ${STAGE_NAME}.execute.ft.log
                             mv ft-process.log ${STAGE_NAME}.process.ft.log
                         """
@@ -78,11 +78,10 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                     default:
                         sh """
                             export LD_LIBRARY_PATH=${assetsDir}:\$LD_LIBRARY_PATH
-                            pip3.8 install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 -V >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 -V >> ${STAGE_NAME}.ft.log 2>&1
                             env >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
-                            python3.8 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 execute_cases.py -t ${assetsDir} -e rml_release/test_app -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
+                            python3.9 process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                             mv ft.log ${STAGE_NAME}.execute.ft.log
                             mv ft-process.log ${STAGE_NAME}.process.ft.log
                         """
@@ -220,16 +219,31 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
         cd build-${buildType}
         cmake -DCMAKE_OSX_SYSROOT=$MACOS_SDK -DCMAKE_buildType=${buildType} ${options.cmakeKeysOSX} .. >> ../${STAGE_NAME}_${buildType}.log 2>&1
         make -j 4 >> ../${STAGE_NAME}_${buildType}.log 2>&1
+        mv bin ${buildType}
     """
+
+    try {
+        // PR-375 stores part of libs and binaries in bin directory
+        sh """
+            cd build-${buildType}/${buildType}
+            mv bin/* .
+            rmdir bin
+        """
+    } catch (e) {
+        print(e)
+    }
 
     sh """
         cd build-${buildType}
-        mv bin ${buildType}
-        rm ${buildType}/*.a
+        rm -rf ${buildType}/*.a
         mkdir ./${buildType}/rml
         mkdir ./${buildType}/rml_internal
         cp ../rml/include/rml/*.h* ./${buildType}/rml
         cp ../rml/include/rml_internal/*.h* ./${buildType}/rml_internal
+
+        # search for libs in local dir
+        install_name_tool -add_rpath "@executable_path" ./${buildType}/tests
+        install_name_tool -add_rpath "@executable_path" ./${buildType}/test_app
 
         tar cf ${osName}_${buildType}.tar ${buildType}
     """
@@ -285,6 +299,8 @@ def executeBuildOSX(String osName, Map options) {
 
 def executeLinuxBuildCommand(String osName, Map options, String buildType) {
     
+    outputEnvironmentInfo(osName, "${STAGE_NAME}_${buildType}")
+
     try {
         sh """
             mkdir build-${buildType}
@@ -309,11 +325,26 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
 
         throw exception
     }
-    
+
     sh """
         cd build-${buildType}
         mv bin ${buildType}
-        rm ${buildType}/*.a
+    """
+
+    try {
+        // PR-375 stores part of libs and binaries in bin directory
+        sh """
+            cd build-${buildType}/${buildType}
+            mv bin/* .
+            rmdir bin
+        """
+    } catch (e) {
+        print(e)
+    }
+
+    sh """
+        cd build-${buildType}
+        rm -rf ${buildType}/*.a
         cp -R ../third_party/miopen/libMIOpen.so* ./${buildType}
         cp -R ../third_party/tensorflow/linux/* ./${buildType}
         mkdir ./${buildType}/rml
@@ -382,10 +413,10 @@ def executeBuild(String osName, Map options) {
         
         downloadFiles("/volume1/CIS/rpr-ml/MIOpen/${osName}/release/", "../RML_thirdparty/MIOpen")
         downloadFiles("/volume1/CIS/rpr-ml/tensorflow/", "../RML_thirdparty/tensorflow")
-        //downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "./DirectML")
+        downloadFiles("/volume1/CIS/rpr-ml/DirectML/", "../RML_thirdparty/DirectML")
 
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Release")
-        outputEnvironmentInfo(osName, "${STAGE_NAME}_Debug")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Release.log")
+        utils.removeFile(this, osName, "${STAGE_NAME}_Debug.log")
 
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch (osName) {
@@ -501,7 +532,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX5700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean enableNotifications = true,
          Boolean executeFT = true) {

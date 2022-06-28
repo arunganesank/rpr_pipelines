@@ -98,6 +98,22 @@ class utils {
         return defaultReportName.replace("_", "_5f").replace(" ", "_20")
     }
 
+    static Integer getBuildPriority(Object self) {
+        if (self.env.JOB_NAME.contains('Auto/') || self.env.JOB_NAME.contains('-Hybrid/')) {
+            if (self.env.JOB_NAME.contains("USDViewer") || self.env.JOB_NAME.contains("InventorPluginInstaller")) {
+                return 20
+            } else if (self.env.JOB_NAME.contains("Core")) {
+                return 9
+            } else {
+                return 30
+            }
+        } else if (self.env.JOB_NAME.contains("Weekly")) {
+            return 30
+        } else {
+            return 40
+        }
+    }
+
     static def publishReport(Object self, String buildUrl, String reportDir, String reportFiles, String reportName, String reportTitles = "", Boolean publishOnNAS = false, Map nasReportInfo = [:]) {
         Map params
 
@@ -115,11 +131,7 @@ class utils {
                 reportLinkBase = self.REMOTE_URL
             }
 
-            reportLinkBase = "${reportLinkBase}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/".replace(" ", "_")
-
-            self.withCredentials([self.usernamePassword(credentialsId: "reportsNAS", usernameVariable: "NAS_USER", passwordVariable: "NAS_PASSWORD")]) {
-                authReportLinkBase = reportLinkBase.replace("https://", "https://${self.NAS_USER}:${self.NAS_PASSWORD}@")
-            }
+            authReportLinkBase = "${reportLinkBase}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/".replace(" ", "_")
 
             def links = []
             def linksTitles
@@ -143,14 +155,17 @@ class utils {
                 jenkinsBuildUrl = nasReportInfo["jenkinsBuildUrl"]
             }
 
-            if (nasReportInfo.containsKey("jenkinsBuildName")) {
-                jenkinsBuildName = nasReportInfo["jenkinsBuildName"]
-            }
+            // TODO: jenkinsBuildName param is legacy and must be removed
+            jenkinsBuildName = "#${self.env.BUILD_NUMBER} (Priority: ${getBuildPriority(self)})"
 
             self.dir(reportDir) {
                 if (self.isUnix()) {
+                    // copy the necessary font file
+                    self.sh(script: 'cp $CIS_TOOLS/templates/Klavika-Regular.ttf Klavika-Regular.ttf')
                     self.sh(script: '$CIS_TOOLS/make_wrapper_page.sh ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
                 } else {
+                    // copy the necessary font file
+                    self.bat(script: 'copy %CIS_TOOLS%\\templates\\Klavika-Regular.ttf Klavika-Regular.ttf')
                     self.bat(script: '%CIS_TOOLS%\\make_wrapper_page.bat ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
                 }
             }
