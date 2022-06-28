@@ -219,20 +219,6 @@ def executeBuild(String osName, Map options) {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
         }
 
-        if (isUnix()) {
-            options.commitAuthor = sh (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-            options.commitMessage = sh (script: "git log --format=%%B -n 1", returnStdout: true)
-            options.commitSHA = sh (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-        } else {
-            options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-            commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
-            options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-        }
-
-        println "The last commit was written by ${options.commitAuthor}."
-        println "Commit message: ${options.commitMessage}"
-        println "Commit SHA: ${options.commitSHA}"
-
         if (env.CHANGE_URL) {
             // TODO add github notification
         }
