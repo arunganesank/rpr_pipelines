@@ -60,14 +60,12 @@ def executeVideoRecording(String svnRepoName, Map options) {
 
     dir(svnRepoName) {
         try {
-            timeout(time: options.videoRecordingTimeout, unit: 'MINUTES') {
-                bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-                bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
+            bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
+            bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
 
-                dir("Saved\\VideoCaptures") {
-                    String ARTIFACT_NAME = "render_name.avi"
-                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                }
+            dir("Saved\\VideoCaptures") {
+                String ARTIFACT_NAME = "render_name.avi"
+                makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
         } catch (e) {
             println(e.toString())
@@ -264,7 +262,6 @@ def call(String projectBranch = "",
          Integer resY = 1080,
          Boolean windowed = false,
          Boolean forceRes = false,
-         String videoRecordingTimeout = "15",
          Boolean onlyVideo = false
 ) {
 
@@ -307,7 +304,6 @@ def call(String projectBranch = "",
                                 resY: resY,
                                 windowed: windowed,
                                 forceRes: forceRes,
-                                videoRecordingTimeout: videoRecordingTimeout,
                                 onlyVideo:onlyVideo])
     } catch(e) {
         currentBuild.result = "FAILURE"
