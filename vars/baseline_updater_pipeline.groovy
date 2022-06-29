@@ -41,7 +41,8 @@ import groovy.json.JsonSlurperClassic
     "hdrprplugin": "RPR",
     "hdstormrendererplugin": "GL",
     "rpr": "RPR",
-    "gl": "GL"
+    "gl": "GL",
+    "hip": "HIP"
 ]
 
 @Field final Map ENGINE_BASELINES_MAPPING = [
@@ -54,7 +55,8 @@ import groovy.json.JsonSlurperClassic
     "hdrprplugin": "RPR",
     "hdstormrendererplugin": "GL",
     "gl": "GL",
-    "rpr": "RPR"
+    "rpr": "RPR",
+    "hip": "HIP"
 ]
 
 
