@@ -1050,7 +1050,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String customBuildLinkMacOSARM = "",
     String enginesNames = "Northstar,HybridPro",
     String tester_tag = "Blender",
-    Boolean useHIP = false,
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",

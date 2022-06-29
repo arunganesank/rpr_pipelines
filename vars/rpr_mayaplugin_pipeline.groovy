@@ -1044,7 +1044,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String customBuildLinkOSX = "",
         String enginesNames = "Northstar",
         String tester_tag = 'Maya',
-        Boolean useHIP = false,
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5)
