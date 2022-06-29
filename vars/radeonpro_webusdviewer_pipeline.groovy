@@ -3,220 +3,235 @@ import groovy.transform.Field
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
 def executeBuildWindows(Map options) {
-    Boolean failure = false
-    String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+        Boolean failure = false
+        String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
 
-    downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+        downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-    try {
-        withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
-            bat """
-                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-                cmake --version >> ${STAGE_NAME}.log 2>&1
-                python3--version >> ${STAGE_NAME}.log 2>&1
-                python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
-                mkdir Build
-                echo [WebRTC] >> Build\\LocalBuildConfig.txt
-                echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
-            """
-            println("[INFO] Start building & sending docker containers to repo")
-            bat """
-                python3 Tools/Docker.py -ba -da -v
-            """
-            println("[INFO] Finish building & sending docker containers to repo")
-            if (options.generateArtifact){
-                zip archive: true, dir: "Build/Install", glob: '', zipFile: "WebUsdViewer_Windows.zip"
+        try {
+            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
+                bat """
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                    cmake --version >> ${STAGE_NAME}.log 2>&1
+                    python3--version >> ${STAGE_NAME}.log 2>&1
+                    python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                    mkdir Build
+                    echo [WebRTC] >> Build\\LocalBuildConfig.txt
+                    echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
+                    python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                """
+                println("[INFO] Start building & sending docker containers to repo")
+                bat """
+                    python3 Tools/Docker.py -ba -da -v
+                """
+                println("[INFO] Finish building & sending docker containers to repo")
+                if (options.generateArtifact){
+                    zip archive: true, dir: "Build/Install", glob: '', zipFile: "WebUsdViewer_Windows.zip"
+                }
             }
+        } catch(e) {
+            println("Error during build on Windows")
+            println(e.toString())
+            failure = true
+        } finally {
+            archiveArtifacts "*.log"
         }
-    } catch(e) {
-        println("Error during build on Windows")
-        println(e.toString())
-        failure = true
-    } finally {
-        archiveArtifacts "*.log"
-    }
 
-    if (failure) {
-        currentBuild.result = "FAILED"
-        error "error during build"
+        if (failure) {
+            currentBuild.result = "FAILED"
+            error "error during build"
+        }
     }
 }
 
 
 def executeBuildLinux(Map options) {
     Boolean failure = false
-    println "[INFO] Start build" 
-    println "[INFO] Download Web-rtc and AMF" 
-    downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
-    downloadFiles("/volume1/CIS/WebUSD/AMF/", "${CIS_TOOLS}/../thirdparty/AMF", "--quiet")
-    try {
-        println "[INFO] Start build"
 
-        sh """
-            mkdir --parents Build/Install
-        """
-
-        if (!options.rebuildDeps){
-            downloadFiles("/volume1/CIS/WebUSD/${options.osName}/USD", "./Build/Install", "--quiet")
-            // Because modes resetting after downloading from NAS
-            sh """ chmod -R 775 ./Build/Install/USD"""
-        }
-
-        sh """
-            cmake --version >> ${STAGE_NAME}.log 2>&1
-            python3 --version >> ${STAGE_NAME}.log 2>&1
-            python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
-            echo "[WebRTC]" >> Build/LocalBuildConfig.txt
-            echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
-            echo "[AMF]" >> Build/LocalBuildConfig.txt
-            echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
-            export OS=
-            python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
-        """
-
-        if (options.updateDeps){
-            uploadFiles("./Build/Install/USD", "/volume1/CIS/WebUSD/${options.osName}", "--delete")
-        }
-
-        println("[INFO] Start building & sending docker containers to repo")
-        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
-            String deployArgs = "-ba -da"
-            containersBaseName = "docker.${remoteHost}/"
-
-            if (env.CHANGE_URL){
-                deployArgs = "-ba"
-                containersBaseName = ""
-                remoteHost = ""
-            }
-
-            env["WEBUSD_BUILD_REMOTE_HOST"] = remoteHost
-            env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
-            env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
-            env["WEBUSD_BUILD_STORAGE_CONTAINER_NAME"] = containersBaseName + "storage"
-            env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
-            env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
-
-            sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment"""
-        }
-
-        println("[INFO] Finish building & sending docker containers to repo")
-        sh "rm WebUsdWebServer/.env.production"
-
-        if (options.generateArtifact){
-            sh """
-                tar -C Build/Install -czvf "WebUsdViewer_Ubuntu20.tar.gz" .
-            """
-            archiveArtifacts "WebUsdViewer_Ubuntu20.tar.gz"
-        }
-    } catch(e) {
-        println("Error during build on Linux")
-        println(e.toString())
-        failure = true
-    } finally {
-        archiveArtifacts "*.log"
-    }
-
-    if (failure) {
-        currentBuild.result = "FAILED"
-        error "error during build"
-    } else if (options.deploy) {
-        println "[INFO] Start deploying on $options.deployEnvironment environment"
-        failure = false
-        Boolean status = true
-
+    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+        println "[INFO] Start build" 
+        println "[INFO] Download Web-rtc and AMF" 
+        downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
+        downloadFiles("/volume1/CIS/WebUSD/AMF/", "${CIS_TOOLS}/../thirdparty/AMF", "--quiet")
         try {
-            if (env.CHANGE_URL) {
-                println "[INFO] Local deploying for sanytize checks"
-                String composePath = "/usr/local/bin/docker-compose"
+            println "[INFO] Start build"
 
-                downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
-                sh """$composePath -f pr.yml up -d"""
+            sh """
+                mkdir --parents Build/Install
+            """
 
-                List containersNamesAssociations = [
-                    "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
-                    "front"
-                ]
-
-                for (i=0; i < 5; i++) {
-                    try {
-                        sleep(5)
-                        for (name in containersNamesAssociations) {
-                            result = sh (
-                                script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
-                                returnStdout: true,
-                                returnStatus: true
-                            )
-                            println result
-                            if (result == 1) {
-                                throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
-                            }
-                        }
-                        sh """$composePath -f pr.yml stop"""
-                        println "[INFO] Sanytize checks successfully passed"
-                        break
-                    } catch (e) {
-                        println "[ERROR] Sanytize checks failed. Trying again"
-                    }
-                }
-
-                if (!status) {
-                    sh """$composePath -f pr.yml stop"""
-                    throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
-                }
-            } else {
-                println "[INFO] Send deploy command"
-                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
-                    for (i=0; i < 5; i++) {
-                        res = sh(
-                            script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
-                            returnStdout: true,
-                            returnStatus: true
-                        )
-
-                        println ("RES - ${res}")
-
-                        if (res == 0) {
-                            println "[INFO] Successfully sended"
-                            break
-                        } else {
-                            println "[ERROR] Host not available. Try again"
-                        }
-                    }
-
-                    if (!status) {
-                        throw new Exception("[ERROR] Host not available. Retries exceeded")
-                    }
-                }
+            if (!options.rebuildDeps){
+                downloadFiles("/volume1/CIS/WebUSD/${options.osName}/USD", "./Build/Install", "--quiet")
+                // Because modes resetting after downloading from NAS
+                sh """ chmod -R 775 ./Build/Install/USD"""
             }
-        } catch (e) {
-            println "[ERROR] Error during deploy"
+
+            sh """
+                cmake --version >> ${STAGE_NAME}.log 2>&1
+                python3 --version >> ${STAGE_NAME}.log 2>&1
+                python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                echo "[WebRTC]" >> Build/LocalBuildConfig.txt
+                echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
+                echo "[AMF]" >> Build/LocalBuildConfig.txt
+                echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
+                export OS=
+                python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+            """
+
+            if (options.updateDeps){
+                uploadFiles("./Build/Install/USD", "/volume1/CIS/WebUSD/${options.osName}", "--delete")
+            }
+
+            println("[INFO] Start building & sending docker containers to repo")
+            withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+                String deployArgs = "-ba -da"
+                containersBaseName = "docker.${remoteHost}/"
+
+                if (env.CHANGE_URL){
+                    deployArgs = "-ba"
+                    containersBaseName = ""
+                    remoteHost = ""
+                }
+
+                env["WEBUSD_BUILD_REMOTE_HOST"] = remoteHost
+                env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
+                env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
+                env["WEBUSD_BUILD_STORAGE_CONTAINER_NAME"] = containersBaseName + "storage"
+                env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
+                env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
+
+                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment"""
+            }
+
+            println("[INFO] Finish building & sending docker containers to repo")
+            sh "rm WebUsdWebServer/.env.production"
+
+            if (options.generateArtifact){
+                sh """
+                    tar -C Build/Install -czvf "WebUsdViewer_Ubuntu20.tar.gz" .
+                """
+                archiveArtifacts "WebUsdViewer_Ubuntu20.tar.gz"
+            }
+        } catch(e) {
+            println("Error during build on Linux")
             println(e.toString())
             failure = true
-            status = false
+        } finally {
+            archiveArtifacts "*.log"
         }
 
         if (failure) {
             currentBuild.result = "FAILED"
-            error "error during deploy"
+            error "error during build"
         }
     }
 
-    if (options.deploy) {
-        notifyByTg(options)
+    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
+        if (options.deploy) {
+            println "[INFO] Start deploying on $options.deployEnvironment environment"
+            failure = false
+            Boolean status = true
+
+            try {
+                if (env.CHANGE_URL) {
+                    println "[INFO] Local deploying for sanytize checks"
+                    String composePath = "/usr/local/bin/docker-compose"
+
+                    downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
+                    sh """$composePath -f pr.yml up -d"""
+
+                    List containersNamesAssociations = [
+                        "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
+                        "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
+                        "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
+                        "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
+                        "front"
+                    ]
+
+                    for (i=0; i < 5; i++) {
+                        try {
+                            sleep(5)
+                            for (name in containersNamesAssociations) {
+                                result = sh (
+                                    script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
+                                    returnStdout: true,
+                                    returnStatus: true
+                                )
+                                println result
+                                if (result == 1) {
+                                    throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
+                                }
+                            }
+                            sh """$composePath -f pr.yml stop"""
+                            println "[INFO] Sanytize checks successfully passed"
+                            break
+                        } catch (e) {
+                            println "[ERROR] Sanytize checks failed. Trying again"
+                        }
+                    }
+
+                    if (!status) {
+                        sh """$composePath -f pr.yml stop"""
+                        throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
+                    }
+                } else {
+                    println "[INFO] Send deploy command"
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+                        for (i=0; i < 5; i++) {
+                            res = sh(
+                                script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                                returnStdout: true,
+                                returnStatus: true
+                            )
+
+                            println ("RES - ${res}")
+
+                            if (res == 0) {
+                                println "[INFO] Successfully sended"
+                                break
+                            } else {
+                                println "[ERROR] Host not available. Try again"
+                            }
+                        }
+
+                        if (!status) {
+                            throw new Exception("[ERROR] Host not available. Retries exceeded")
+                        }
+                    }
+                }
+            } catch (e) {
+                println "[ERROR] Error during deploy"
+                println(e.toString())
+                failure = true
+                status = false
+            }
+
+            if (failure) {
+                currentBuild.result = "FAILED"
+                error "error during deploy"
+            }
+        }
+    }
+
+    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
+        if (options.deploy) {
+            notifyByTg(options)
+        }
     }
 }
 
 
 def executeBuild(String osName, Map options) {  
     try {
-        cleanWS(osName)
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CLEAN_ENVIRONMENT) {
+            cleanWS(osName)
+        }
 
-        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+            }
         }
 
         if (env.CHANGE_URL) {
@@ -278,6 +293,8 @@ def call(
     Boolean rebuildDeps = false,
     Boolean updateDeps = false
 ) {
+    ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+
     if (env.BRANCH_NAME) {
         switch (env.BRANCH_NAME) {
             case "develop":
@@ -300,8 +317,6 @@ def call(
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
     """
-
-    ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     try {
         multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
