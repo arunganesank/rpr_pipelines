@@ -17,7 +17,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Field final RPR_SDK_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
 
-Boolean hybridProFilter(Map options, String asicName, String osName, String testName, String engine) {
+Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    if (engine.contains("HIP") && !(asicName.contains("AMD") && osName == "Windows")) {
+        return true
+    }
+
     return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
@@ -48,47 +52,29 @@ def executeTestCommand(String osName, String asicName, Map options)
     switch(osName) {
         case 'Windows':
             dir('scripts') {
-                if (options.useHIP) {
-                    bat """
-                        set TH_FORCE_HIP=1
-                        run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                    """
-                } else {
-                    bat """
-                        run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                    """
-                }
+                bat """
+                    ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                    run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                """
             }
             break
         case 'OSX':
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    if (options.useHIP) {
-                        sh """
-                            export TH_FORCE_HIP=1
-                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                        """
-                    } else {
-                        sh """
-                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                        """
-                    }
+                    sh """
+                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                    """
                 }
             }
             break
         default:
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    if (options.useHIP) {
-                        sh """
-                            export TH_FORCE_HIP=1
-                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                        """
-                    } else {
-                        sh """
-                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                        """
-                    }
+                    sh """
+                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                    """
                 }
             }
     }
@@ -119,7 +105,7 @@ def executeTests(String osName, String asicName, Map options)
             downloadFiles("/volume1/Assets/rpr_core_autotests/", assets_dir)
         }
 
-        String enginePostfix = options.engine
+        String enginePostfix = options.engine == "HIPvsNS" ? "Northstar64" : options.engine
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_core_autotests/${asicName}-${osName}"
 
         REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
@@ -495,7 +481,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                        if (hybridProFilter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
                             return
                         }
 
@@ -681,7 +667,6 @@ def call(String projectBranch = "",
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
          String enginesNames = "Northstar64,HybridPro,Hybrid",
-         Boolean useHIP = false,
          Boolean collectTrackedMetrics = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -756,7 +741,6 @@ def call(String projectBranch = "",
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
             println "Tests execution type: ${parallelExecutionType}"
-            println "Use HIP: ${useHIP}"
 
             String prRepoName = ""
             String prBranchName = ""
@@ -807,8 +791,7 @@ def call(String projectBranch = "",
                         splitTestsExecution: false,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        useHIP: useHIP,
-                        skipCallback: this.&hybridProFilter
+                        skipCallback: this.&filter
                         ]
         }
 
