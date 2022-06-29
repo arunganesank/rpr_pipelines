@@ -223,7 +223,7 @@ def getOSName() {
 
         dir("jobs_launcher") {
             dir("core") {
-                machineInfoRaw = python3("-c \"from system_info import get_machine_info; print(get_machine_info())\"").split('\r\n')[2].trim()
+                machineInfoRaw = python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
             }
         }
 
