@@ -64,6 +64,20 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static CLEAN_ENVIRONMENT = [
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to clean environment.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
+            ],
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to clean environment due to timeout.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "githubNotification": ["status": "timed_out"]
+            ]
+        ]
+    ]
+
     def static DOWNLOAD_BLENDER = [
         "begin": ["message": "Downloading Blender."],
 
@@ -529,6 +543,26 @@ public class NotificationConfiguration {
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to publish test report.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "githubNotification": ["status": "failure"]
+            ]
+        ]
+    ]
+
+    def static DEPLOY_APPLICATION = [
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to deploy application.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "githubNotification": ["status": "failure"]
+            ]
+        ]
+    ]
+
+    def static NOTIFY_BY_TG = [
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to notify by Telegram.", 
                 "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "failure"]
             ]
