@@ -200,15 +200,11 @@ def getServerIpAddress(String osName, Map options) {
 
 def getGPUName() {
     try {
-        String renderDevice
-
         dir("jobs_launcher") {
             dir("core") {
-                renderDevice = python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
             }
         }
-
-        return renderDevice
     } catch (e) {
         println("[ERROR] Failed to get GPU name")
         throw e
@@ -218,17 +214,11 @@ def getGPUName() {
 
 def getOSName() {
     try {
-        String machineInfoRaw
-        def machineInfoJson
-
         dir("jobs_launcher") {
             dir("core") {
-                machineInfoRaw = python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                return python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
             }
         }
-
-        machineInfoJson = utils.parseJson(this, machineInfoRaw.replaceAll("\'", "\""))
-        return machineInfoJson["os"]
     } catch (e) {
         println("[ERROR] Failed to get OS name")
         throw e
