@@ -120,7 +120,7 @@ def executeBuildLinux(Map options) {
     if (failure) {
         currentBuild.result = "FAILED"
         error "error during build"
-    } else if (deploy) {
+    } else if (options.deploy) {
         println "[INFO] Start deploying on $options.deployEnvironment environment"
         failure = false
         Boolean status = true
@@ -205,7 +205,7 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    if (deploy) {
+    if (options.deploy) {
         notifyByTg(options)
     }
 }
@@ -274,7 +274,7 @@ def call(
     Boolean enableNotifications = true,
     Boolean generateArtifact = false,
     Boolean deploy = true,
-    String deployEnvironment = 'test1;test2;test3;dev;prod;',
+    String deployEnvironment = '',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false
 ) {
@@ -294,6 +294,13 @@ def call(
         deployEnvironment = "pr"
     }
 
+    println """
+        Deploy: ${deploy}
+        Deploy environment: ${deployEnvironment}
+        Rebuild deps: ${rebuildDeps}
+        Update deps: ${updateDeps}
+    """
+
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     try {
@@ -310,10 +317,7 @@ def call(
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
                                 executeBuild:true,
-                                executeTests:true,
-                                executeDeploy:deploy,
                                 BUILD_TIMEOUT:'120',
-                                DEPLOY_TAG:'WebViewerDeployment',
                                 problemMessageManager:problemMessageManager
                                 ])
     } catch(e) {
