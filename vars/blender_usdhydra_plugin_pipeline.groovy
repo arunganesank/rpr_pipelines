@@ -113,6 +113,16 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
+    // FIXME: remove this ducktape when CPUs on that machines will be changes
+    if (env.NODE_NAME == "PC-RENDERER-KABUL-WIN10") {
+        if (options.parsedTests.contains("Export_Import")) {
+            throw new ExpectedExceptionWrapper(
+                "System doesn't support Export_Import group", 
+                new Exception("System doesn't support Export_Import group")
+            )
+        }
+    }
+
     try {
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
