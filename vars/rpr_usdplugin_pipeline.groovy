@@ -591,14 +591,17 @@ def executePreBuild(Map options) {
             println "[INFO] Branch was detected as Pull Request"
             options.executeBuild = true
             options.executeTests = true
+            options.testsPackage = "Full.json"
         } else if (env.BRANCH_NAME == "master" || env.BRANCH_NAME == "develop") {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
             options.executeBuild = true
             options.executeTests = true
+            options.testsPackage = "Full.json"
         } else  {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
             options.executeBuild = true
             options.executeTests = true
+            options.testsPackage = "Full.json"
         }
     }
 
@@ -860,7 +863,7 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String usdBranch = "master",
         String testsBranch = "master",
-        String platforms = 'Windows:;OSX;Ubuntu20',
+        String platforms = 'Windows:AMD_RX6800,Windows:NVIDIA_RTX3080TI;OSX:AMD_RX5700XT;Ubuntu20',
         String buildType = "Houdini",
         Boolean rebuildUSD = false,
         String houdiniVersion = "19.0.622",
