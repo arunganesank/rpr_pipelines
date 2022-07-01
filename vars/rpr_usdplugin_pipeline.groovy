@@ -61,7 +61,7 @@ def buildRenderCache(String osName, Map options) {
                 break
             default:
                 sh """
-                    export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs19.0.383/dsolib"
+                    export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.houdiniVersion}/dsolib"
                     chmod +x build_rpr_cache.sh
                     ./build_rpr_cache.sh \"/home/user/${options.unix_tool_path}/bin/husk\" >> \"../${options.stageName}_${options.currentTry}.cb.log\" 2>&1
                 """     
@@ -152,7 +152,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                             mkdir -p "${env.WORKSPACE}/${env.STAGE_NAME}_RIF_Trace"
                             export RIF_TRACING_ENABLED=1
                             export RIF_TRACING_PATH=${env.WORKSPACE}/${env.STAGE_NAME}_RIF_Trace
-                            export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs19.0.383/dsolib"
+                            export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.houdiniVersion}/dsolib"
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
                             export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
@@ -161,7 +161,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                         """
                     } else {
                         sh """
-                            export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs19.0.383/dsolib"
+                            export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.houdiniVersion}/dsolib"
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
                             export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
@@ -863,7 +863,7 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String usdBranch = "master",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_RX6800,Windows:NVIDIA_RTX3080TI;OSX:AMD_RX5700XT;Ubuntu20',
+        String platforms = 'Windows:AMD_RX6800,Windows:NVIDIA_RTX3080TI;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX5700XT',
         String buildType = "Houdini",
         Boolean rebuildUSD = false,
         String houdiniVersion = "19.0.622",
