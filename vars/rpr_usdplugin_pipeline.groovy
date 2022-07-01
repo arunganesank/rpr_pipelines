@@ -176,7 +176,8 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-     if (options.buildType == "Houdini") {
+    // TODO: actualize Houdini installation with developer licenses
+/*     if (options.buildType == "Houdini") {
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.INSTALL_HOUDINI) {
             timeout(time: "20", unit: "MINUTES") {
                 withCredentials([[$class: "UsernamePasswordMultiBinding", credentialsId: "sidefxCredentials", usernameVariable: "USERNAME", passwordVariable: "PASSWORD"]]) {
@@ -184,7 +185,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
         }
-    }
+    }*/
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
