@@ -163,18 +163,20 @@ def executeBuildWindows(String projectName, Map options) {
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
-
             
             if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
-
-                    bat """
-                        svn co svn://cis.nas.stvcis.com/ToyShopEditor .
-                        svn resolve --accept working -R .
-                        svn propset svn:global-ignores -F .svn_ignore .
-                        svn add * --force --quiet
-                        svn commit -m ""
-                    """
+                    
+                    withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
+                        bat """
+                            svn co svn://${ART_NAS_IP}/${projectName}Editor .
+                            svn resolve --accept working -R .
+                            svn propset svn:global-ignores -F .svn_ignore .
+                            svn add * --force --quiet
+                            svn commit -m ""
+                        """
+                    }
+                    
                     /*
                     ARTIFACT_NAME = "${projectName}_debug.zip"
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
