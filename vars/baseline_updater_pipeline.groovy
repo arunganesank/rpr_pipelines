@@ -82,10 +82,10 @@ def call(String jobName,
     String buildID,
     String resultPath,
     String caseName,
-    Boolean allPlatforms,
     String engine,
     String toolName,
-    String updateType) {
+    String updateType,
+    Boolean allPlatforms=false) {
 
     stage("UpdateBaselines") {
         node("Windows && !NoBaselinesUpdate") {
