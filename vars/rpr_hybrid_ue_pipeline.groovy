@@ -177,11 +177,10 @@ def executeBuildWindows(String projectName, Map options) {
                         """
                     }
                     
-                    /*
                     ARTIFACT_NAME = "${projectName}_debug.zip"
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
                     makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                    utils.removeFile(this, "Windows", ARTIFACT_NAME) */
+                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
                 }
             }
         }
