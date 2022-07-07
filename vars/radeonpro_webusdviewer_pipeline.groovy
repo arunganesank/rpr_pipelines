@@ -14,20 +14,30 @@ def executeBuildWindows(Map options) {
                 bat """
                     call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                     cmake --version >> ${STAGE_NAME}.log 2>&1
-                    python3--version >> ${STAGE_NAME}.log 2>&1
-                    python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                    python--version >> ${STAGE_NAME}.log 2>&1
+                    python -m pip install conan >> ${STAGE_NAME}.log 2>&1
                     mkdir Build
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                    python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                    python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
                 """
-                println("[INFO] Start building & sending docker containers to repo")
+                println("[INFO] Start building installer")
                 bat """
-                    python3 Tools/Docker.py -ba -da -v
+                    python Tools/Package.py -v >> ${STAGE_NAME}.log 2>&1
                 """
-                println("[INFO] Finish building & sending docker containers to repo")
                 if (options.generateArtifact){
-                    zip archive: true, dir: "Build/Install", glob: '', zipFile: "WebUsdViewer_Windows.zip"
+                    println("[INFO] Saving exe files to NAS")
+                    dir("WebUsdWebServer\\dist_electron") {
+                        def exe_file = findFiles(glob: '*.exe')
+                        println("Found EXE files: ${exe_file}")
+                        for (file in exe_file) {
+                            renamed_filename = file.toString().replace(" ", "_")
+                            bat """
+                                rename "${file}" "${renamed_filename}"
+                            """
+                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                        }
+                    }
                 }
             }
         } catch(e) {
@@ -239,14 +249,14 @@ def executeBuild(String osName, Map options) {
         }
 
         outputEnvironmentInfo(osName)
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
 
         switch(osName) {
             case 'Windows':
                 executeBuildWindows(options)
                 break
             case 'Ubuntu20':
+                downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+                sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
                 executeBuildLinux(options)
                 break
             default:
