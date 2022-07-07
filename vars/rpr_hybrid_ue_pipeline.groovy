@@ -173,7 +173,7 @@ def executeBuildWindows(String projectName, Map options) {
                             svn resolve --accept working -R .
                             svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
-                            svn commit -m ""
+                            svn commit -m "Build #${currentBuild.number}"
                         """
                     }
                     
