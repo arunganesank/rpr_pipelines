@@ -184,7 +184,7 @@ def call(String jobName,
 
                                 String gpuName = directory.split("-")[0]
                                 String osName = directory.split("-")[1]
-                                List groups = directory.split("-")[2].split() as List
+                                List groups = directory.split("-")[2].replace("/", "").split() as List
 
                                 if (!groups.contains(groupName)) {
                                     println("[INFO] Directory ${directory} doesn't contain ${groupName} test group. Skip it")
