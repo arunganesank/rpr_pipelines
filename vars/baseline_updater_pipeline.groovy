@@ -165,16 +165,21 @@ def call(String jobName,
                             if (allPlatforms) {
                                 // search all directories in the target report
                                 withCredentials([string(credentialsId: "nasURL", variable: 'REMOTE_HOST'), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
-                                    directories = bat(script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
+                                    directories = bat(returnStdout: true, script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
                                 }
                             } else {
                                 directories = [resultPath.split("/")[0]]
                             }
 
+
                             directories.each() { directory ->
+                                if (!directory.endsWith("/")) {
+                                    // not a directory
+                                    return
+                                }
                                 if (directory.split("-").length != 3) {
                                     println("[INFO] Directory ${directory} hasn't required structure. Skip it")
-                                    continue
+                                    return
                                 }
 
                                 String gpuName = directory.split("-")[0]
@@ -183,7 +188,7 @@ def call(String jobName,
 
                                 if (!groups.contains(groupName)) {
                                     println("[INFO] Directory ${directory} doesn't contain ${groupName} test group. Skip it")
-                                    continue
+                                    return
                                 }
 
                                 String machineConfiguration
