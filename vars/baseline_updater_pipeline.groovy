@@ -197,7 +197,8 @@ def call(String jobName,
 
                                 // replace platform directory by a new one to iterate through all necessary directories of all platforms
                                 // it does nothing for builds with 'allPlatforms' equals to 'false'
-                                String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory + '/' + resultPath.subList(1, testNameParts.size()).join('-')}"
+                                List resultPathParts = resultPath.split("/") as List
+                                String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory + '/' + resultPathParts.subList(1, resultPathParts.size()).join('/')}"
                                 String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
 
                                 if (updateType == "Case") {
