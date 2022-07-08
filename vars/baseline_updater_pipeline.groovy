@@ -164,7 +164,7 @@ def call(String jobName,
 
                             if (allPlatforms) {
                                 // search all directories in the target report
-                                withCredentials([string(credentialsId: remoteHost, variable: 'REMOTE_HOST'), string(credentialsId: sshPort, variable: "SSH_PORT")]) {
+                                withCredentials([string(credentialsId: "nasURL", variable: 'REMOTE_HOST'), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
                                     directories = bat(script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
                                 }
                             } else {
