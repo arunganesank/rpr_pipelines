@@ -168,7 +168,7 @@ def call(String jobName,
                                     directories = bat(returnStdout: true, script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
                                 }
                             } else {
-                                directories = [resultPath.split("/")[0]]
+                                directories = [resultPath.split("/")[0] + "/"]
                             }
 
 
