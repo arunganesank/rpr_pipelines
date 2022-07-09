@@ -163,14 +163,20 @@ def executeBuildWindows(String projectName, Map options) {
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
-
+            
             if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
-                    String ARTIFACT_NAME = "${projectName}_editor.zip"
-                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" . -xr!*.obj -xr!*.pdb -xr!*.vs -xr!*.git -xr!*@tmp*")
-                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                    utils.removeFile(this, "Windows", ARTIFACT_NAME)
-
+                    
+                    withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
+                        bat """
+                            svn co svn://${ART_NAS_IP}/${projectName}Editor .
+                            svn resolve --accept working -R .
+                            svn propset svn:global-ignores -F .svn_ignore .
+                            svn add * --force --quiet
+                            svn commit -m "Build #${currentBuild.number}"
+                        """
+                    }
+                    
                     ARTIFACT_NAME = "${projectName}_debug.zip"
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" -ir!*.pdb -xr!*@tmp*")
                     makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
