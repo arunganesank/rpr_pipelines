@@ -143,7 +143,13 @@ def executeBuildWindows(String projectName, Map options) {
         bat("mkdir ${targetDir}")
 
         bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
-        bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
+
+        try {
+            bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
+        } catch (e) {
+            println("[WARNING] 2nd script returne non-zero exit code")
+        }
+        
         bat("3_UpdateUE4.bat > \"3_UpdateUE4_${projectName}.log\" 2>&1")
 
         // the last script can return non-zero exit code, but build can be ok
