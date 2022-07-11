@@ -84,7 +84,8 @@ def call(String jobName,
     String caseName,
     String engine,
     String toolName,
-    String updateType) {
+    String updateType,
+    Boolean allPlatforms=false) {
 
     stage("UpdateBaselines") {
         node("Windows && !NoBaselinesUpdate") {
@@ -106,7 +107,6 @@ def call(String jobName,
                         engine = ""
                     }
 
-                    String machineConfiguration
                     String groupName
                     String reportName = engine ? "Test_Report_${ENGINE_REPORT_MAPPING[engine.toLowerCase()]}" : "Test_Report"
                     String baselinesPath = "/Baselines/${baselineDirName}"
@@ -119,18 +119,14 @@ def call(String jobName,
 
                     if (updateType != "Build") {
                         def resultPathParts = resultPath.split("/")[0].split("-")
-                        String gpuName = resultPathParts[0]
-                        String osName = resultPathParts[1]
-
-                        if (engine) {
-                            String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
-                            machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
-                        } else {
-                            machineConfiguration = "${gpuName}-${osName}"
-                        }
 
                         String platform = resultPathParts[0] + "-" + resultPathParts[1]
-                        currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? platform + '-' + ENGINE_REPORT_MAPPING[engine.toLowerCase()] : platform})<br/>"
+
+                        if (allPlatforms){
+                            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? ENGINE_REPORT_MAPPING[engine.toLowerCase()] : ''})<br/>"
+                        } else {
+                            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? platform + '-' + ENGINE_REPORT_MAPPING[engine.toLowerCase()] : platform})<br/>"
+                        }
                     } else {
                         currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? ENGINE_REPORT_MAPPING[engine.toLowerCase()] : ''})<br/>"
                     }
@@ -163,37 +159,90 @@ def call(String jobName,
 
                     switch(updateType) {
                         case "Case":
-                            String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${resultPath}"
-                            String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
+                        case "Group":
+                            List directories
 
-                            downloadFiles(remoteResultPath + "/report_compare.json", "results/${groupName}")
-                            downloadFiles(remoteResultPath + "/Color/*${caseName}*", "results/${groupName}/Color")
-                            downloadFiles(remoteResultPath + "/*${caseName}*.json", "results/${groupName}")
-
-                            def testCases = readJSON(file: reportComparePath)
-
-                            for (testCase in testCases) {
-                                if (testCase["test_case"] == caseName) {
-                                    JSON serializedJson = JSONSerializer.toJSON([testCase], new JsonConfig());
-                                    writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
-                                    break
+                            if (allPlatforms) {
+                                // search all directories in the target report
+                                withCredentials([string(credentialsId: "nasURL", variable: 'REMOTE_HOST'), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+                                    directories = bat(returnStdout: true, script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
                                 }
+                            } else {
+                                directories = [resultPath.split("/")[0] + "/"]
                             }
 
-                            saveBaselines(refPathProfile)
 
-                            break
+                            directories.each() { directory ->
+                                if (!directory.endsWith("/")) {
+                                    // not a directory
+                                    return
+                                }
+                                if (directory.split("-").length != 3) {
+                                    println("[INFO] Directory ${directory} hasn't required structure. Skip it")
+                                    return
+                                }
 
-                        case "Group":
-                            String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${resultPath}"
-                            String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
+                                String gpuName = directory.split("-")[0]
+                                String osName = directory.split("-")[1]
+                                List groups = directory.split("-")[2].replace("/", "").split() as List
 
-                            downloadFiles(remoteResultPath, "results")
-                            saveBaselines(refPathProfile)
+                                if (!groups.contains(groupName)) {
+                                    println("[INFO] Directory ${directory} doesn't contain ${groupName} test group. Skip it")
+                                    return
+                                }
+
+                                String machineConfiguration
+
+                                if (engine) {
+                                    String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
+                                    machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
+                                } else {
+                                    machineConfiguration = "${gpuName}-${osName}"
+                                }
+
+                                // replace platform directory by a new one to iterate through all necessary directories of all platforms
+                                // it does nothing for builds with 'allPlatforms' equals to 'false'
+                                List resultPathParts = resultPath.split("/") as List
+                                String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory + '/' + resultPathParts.subList(1, resultPathParts.size()).join('/')}"
+                                String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
+
+                                if (updateType == "Case") {
+                                    downloadFiles(remoteResultPath + "/report_compare.json", "results/${groupName}")
+                                    downloadFiles(remoteResultPath + "/Color/*${caseName}*", "results/${groupName}/Color")
+                                    downloadFiles(remoteResultPath + "/*${caseName}*.json", "results/${groupName}")
+
+                                    def testCases = readJSON(file: reportComparePath)
+
+                                    for (testCase in testCases) {
+                                        if (testCase["test_case"] == caseName) {
+                                            JSON serializedJson = JSONSerializer.toJSON([testCase], new JsonConfig());
+                                            writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
+                                            break
+                                        }
+                                    }
+
+                                    saveBaselines(refPathProfile)
+                                } else {
+                                    downloadFiles(remoteResultPath, "results")
+                                    saveBaselines(refPathProfile)
+                                }
+                            }
 
                             break
 
                         case "Platform":
+                            def resultPathParts = resultPath.split("/")[0].split("-")
+                            String gpuName = resultPathParts[0]
+                            String osName = resultPathParts[1]
+                            String machineConfiguration
+
+                            if (engine) {
+                                String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
+                                machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
+                            } else {
+                                machineConfiguration = "${gpuName}-${osName}"
+                            }
+
                             String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${resultPath}*"
                             String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
                             downloadFiles(remoteResultPath, "results")
