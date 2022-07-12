@@ -178,7 +178,7 @@ def executeBuildWindows(String projectName, Map options) {
             """
             def output = bat(script: script, returnStdout: true).trim() as Integer
             println("File size UE4Editor.exe ${output} bytes")
-            if (output = 0) {
+            if (output == 0) {
                 throw new Exception("File size UE4Editor.exe 0 bytes")
             }
         }
