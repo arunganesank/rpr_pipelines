@@ -61,16 +61,35 @@ def executeVideoRecording(String svnRepoName, Map options) {
     dir(svnRepoName) {
         try {
             bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-            bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
+
+            timeout(time: "45", unit: 'MINUTES') {
+                bat """
+                    START "" C:\\Python39\\python.exe ..\\detect.py
+                    "Engine\Binaries\Win64\UE4Editor.exe" "C:\JN\WS\HybridParagon_Build\ToyShopUnreal\ToyShopScene.uprojec" "/Game/Toyshop/scene" -ExecCmds="rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0" -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/SCENE/SimpleOverview" -NoLoadingScreen -MovieName="render_name" -MovieCinematicMode=no -NoScreenMessages -MovieQuality=75 -VSync -MovieWarmUpFrames=100
+                """
+                //\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")} - return it to bat script before review
+            }
 
             dir("Saved\\VideoCaptures") {
                 String ARTIFACT_NAME = "render_name.avi"
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
         } catch (e) {
+            def errorTypesWindows = ["The  Game has crashed and will close", "Message"]
+            def detected = []
+            errorTypesWindows.each() {
+                def output = bat(script: "if exist \"screenshot-"+ it + ".png\" echo true", returnStatus: true)
+                if (output) {
+                    it >> detect
+                    println("Window ${it} detected")
+                    String ARTIFACT_NAME = "screenshot-${it}.png"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
+            
             println(e.toString())
             println(e.getMessage())
-            options.failureMessage = "Video recording stopped due to timeout"
+            options.failureMessage = detected ? "Detected error window during recording" : "Video recording error"
             options.failureError = e.getMessage()
         }
     }
@@ -151,6 +170,17 @@ def executeBuildWindows(String projectName, Map options) {
             bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
         } catch (e) {
             println(e.getMessage())
+        }
+
+        dir("RPRHybrid-UE\\Engine\\Binaries\\Win64") {
+            def script = """ @echo off
+            for %%I in (UE4Editor.exe) do @echo %%~zI
+            """
+            def output = bat(script: script, returnStdout: true).trim() as Integer
+            println("File size UE4Editor.exe ${output} bytes")
+            if (output = 0) {
+                throw new Exception("File size UE4Editor.exe 0 bytes")
+            }
         }
 
         if (it == "VideoRecording" && projectName == "ToyShop") {
