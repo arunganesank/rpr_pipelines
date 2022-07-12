@@ -65,7 +65,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
             timeout(time: "45", unit: 'MINUTES') {
                 bat """
                     START "" C:\\Python39\\python.exe ..\\detect.py
-                    "Engine\Binaries\Win64\UE4Editor.exe" "C:\JN\WS\HybridParagon_Build\ToyShopUnreal\ToyShopScene.uprojec" "/Game/Toyshop/scene" -ExecCmds="rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0" -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/SCENE/SimpleOverview" -NoLoadingScreen -MovieName="render_name" -MovieCinematicMode=no -NoScreenMessages -MovieQuality=75 -VSync -MovieWarmUpFrames=100
+                    "..\\RPRHybrid-UE\\Engine\Binaries\Win64\UE4Editor.exe" "C:\JN\WS\HybridParagon_Build\ToyShopUnreal\ToyShopScene.uprojec" "/Game/Toyshop/scene" -ExecCmds="rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0" -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/SCENE/SimpleOverview" -NoLoadingScreen -MovieName="render_name" -MovieCinematicMode=no -NoScreenMessages -MovieQuality=75 -VSync -MovieWarmUpFrames=100
                 """
                 //\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")} - return it to bat script before review
             }
