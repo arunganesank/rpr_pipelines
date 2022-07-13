@@ -81,14 +81,16 @@ def executeVideoRecording(String svnRepoName, Map options) {
                 if (fileExists("screenshot-${it}.png")) {
                     detected << it 
                     println("Window ${it} detected")
-                    String ARTIFACT_NAME = "screenshot-${it}.png"
-                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
                 }
             }
-            
+            if (detected) {
+                archiveArtifacts artifacts: "*.png ", allowEmptyArchive: true
+                options.failureMessage = "Detected error window during recording"
+            } else {
+                options.failureMessage = "Video recording error"
+            }
             println(e.toString())
             println(e.getMessage())
-            options.failureMessage = detected ? "Detected error window during recording" : "Video recording error"
             options.failureError = e.getMessage()
             throw e
         }
