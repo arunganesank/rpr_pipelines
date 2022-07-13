@@ -94,6 +94,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
             println(e.getMessage())
             options.failureMessage = detected ? "Detected error window during recording" : "Video recording error"
             options.failureError = e.getMessage()
+            throw e
         }
     }
 }
