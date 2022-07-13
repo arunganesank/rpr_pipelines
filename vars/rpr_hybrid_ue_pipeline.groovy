@@ -78,7 +78,10 @@ def executeVideoRecording(String svnRepoName, Map options) {
             def errorTypesWindows = ["The  Game has crashed and will close", "Message"]
             def detected = []
             errorTypesWindows.each() {
-                def output = bat(script: "if exist \"screenshot-"+ it + ".png\" echo true", returnStatus: true)
+                def script = """ @echo off
+                if exist \"screenshot-${it}.png\" echo true
+                """
+                def output = bat(script: script, returnStatus: true)
                 if (output) {
                     it >> detect
                     println("Window ${it} detected")
