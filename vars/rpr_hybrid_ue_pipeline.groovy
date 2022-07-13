@@ -78,11 +78,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
             def errorTypesWindows = ["The  Game has crashed and will close", "Message"]
             def detected = []
             errorTypesWindows.each() {
-                def script = """ @echo off
-                if exist \"screenshot-${it}.png\" echo true
-                """
-                def output = bat(script: script, returnStatus: true)
-                if (output) {
+                if (fileExists("screenshot-${it}.png")) {
                     it >> detect
                     println("Window ${it} detected")
                     String ARTIFACT_NAME = "screenshot-${it}.png"
@@ -177,13 +173,17 @@ def executeBuildWindows(String projectName, Map options) {
         }
 
         dir("RPRHybrid-UE\\Engine\\Binaries\\Win64") {
-            def script = """ @echo off
-            for %%I in (UE4Editor.exe) do @echo %%~zI
-            """
-            def output = bat(script: script, returnStdout: true).trim() as Integer
-            println("File size UE4Editor.exe ${output} bytes")
-            if (output == 0) {
-                throw new Exception("File size UE4Editor.exe 0 bytes")
+            if(fileExists("UE4Editor.exe")){
+                def script = """ @echo off
+                for %%I in (UE4Editor.exe) do @echo %%~zI
+                """
+                def output = bat(script: script, returnStdout: true).trim() as Integer
+                println("File size UE4Editor.exe ${output} bytes")
+                if (output == 0) {
+                    throw new Exception("File size UE4Editor.exe 0 bytes")
+                }
+            } else {
+                throw new Exception("File UE4Editor.exe doesn't exists")
             }
         }
 
