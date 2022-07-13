@@ -84,7 +84,7 @@ def executeVideoRecording(String svnRepoName, Map options) {
                 }
             }
             if (detected) {
-                archiveArtifacts artifacts: "*.png ", allowEmptyArchive: true
+                archiveArtifacts artifacts: "screenshot-* ", allowEmptyArchive: true
                 options.failureMessage = "Detected error window during recording"
             } else {
                 options.failureMessage = "Video recording error"
