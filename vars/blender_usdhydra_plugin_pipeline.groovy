@@ -113,12 +113,22 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
-    // FIXME: remove this ducktape when CPUs on that machines will be changes
+    // FIXME: wait for Matlib optimization
     if (env.NODE_NAME == "PC-RENDERER-KABUL-WIN10") {
         if (options.parsedTests.contains("Export_Import")) {
             throw new ExpectedExceptionWrapper(
                 "System doesn't support Export_Import group", 
                 new Exception("System doesn't support Export_Import group")
+            )
+        }
+    }
+
+    // FIXME: Wait for new drivers / new plugin version to check difference
+    if (env.NODE_NAME == "PC-TESTER-TOKYO-WIN10") {
+        if (options.parsedTests.contains("Camera") || options.parsedTests.contains("regression.0")) {
+            throw new ExpectedExceptionWrapper(
+                "System doesn't support Camera group", 
+                new Exception("System doesn't support Camera group")
             )
         }
     }
