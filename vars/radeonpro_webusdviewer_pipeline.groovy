@@ -28,8 +28,8 @@ def executeBuildWindows(Map options) {
                 if (options.generateArtifact){
                     println("[INFO] Saving exe files to NAS")
                     dir("WebUsdWebServer\\dist_electron") {
-                        def exe_file = findFiles(glob: '*.exe')
-                        println("Found EXE files: ${exe_file}")
+                        def exe_file = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exe_file}")
                         for (file in exe_file) {
                             renamed_filename = file.toString().replace(" ", "_")
                             bat """
