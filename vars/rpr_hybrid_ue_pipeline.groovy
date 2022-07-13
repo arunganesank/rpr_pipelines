@@ -76,10 +76,10 @@ def executeVideoRecording(String svnRepoName, Map options) {
             }
         } catch (e) {
             def errorTypesWindows = ["The  Game has crashed and will close", "Message"]
-            def detected = []
+            def detected = [""]
             errorTypesWindows.each() {
                 if (fileExists("screenshot-${it}.png")) {
-                    it >> detected
+                    detected << it 
                     println("Window ${it} detected")
                     String ARTIFACT_NAME = "screenshot-${it}.png"
                     makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
