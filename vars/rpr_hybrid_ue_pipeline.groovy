@@ -24,7 +24,7 @@ def getUE(Map options, String projectName) {
         }
 
         // start script which presses enter to register UE file types
-        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\register_ue_file_types.py && exit 0\"")
+        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\unreal\\register_ue_file_types.py && exit 0\"")
         bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
     } else {
         println("[INFO] UnrealEngine will be downloaded and configured")
@@ -34,7 +34,7 @@ def getUE(Map options, String projectName) {
         }
 
         // start script which presses enter to register UE file types
-        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\register_ue_file_types.py && exit 0\"")
+        bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\unreal\\register_ue_file_types.py && exit 0\"")
         bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
     }
 
@@ -61,17 +61,38 @@ def executeVideoRecording(String svnRepoName, Map options) {
     dir(svnRepoName) {
         try {
             bat("if exist \"Saved\\VideoCaptures\\\" rmdir /Q /S \"Saved\\VideoCaptures\\\"")
-            bat(script: "\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")}")
+
+            timeout(time: "45", unit: 'MINUTES') {
+                bat """
+                    START "" C:\\Python39\\python.exe %CIS_TOOLS%\\unreal\\detect.py
+                    "..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe" "C:\\JN\\WS\\HybridParagon_Build\\ToyShopUnreal\\ToyShopScene.uprojec" "/Game/Toyshop/scene" -ExecCmds="rpr.denoise 1, rpr.spp 1, rpr.restir 2, rpr.restirgi 1, r.Streaming.FramesForFullUpdate 0" -game -MovieSceneCaptureType="/Script/MovieSceneCapture.AutomatedLevelSequenceCapture" -LevelSequence="/Game/SCENE/SimpleOverview" -NoLoadingScreen -MovieName="render_name" -MovieCinematicMode=no -NoScreenMessages -MovieQuality=75 -VSync -MovieWarmUpFrames=100
+                """
+                //\"..\\RPRHybrid-UE\\Engine\\Binaries\\Win64\\UE4Editor.exe\" \"${env.WORKSPACE}\\ToyShopUnreal\\ToyShopScene.uproject\" \"${options.sceneName}\" ${params.join(" ")} - return it to bat script before review
+            }
 
             dir("Saved\\VideoCaptures") {
                 String ARTIFACT_NAME = "render_name.avi"
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
         } catch (e) {
+            def errorTypesWindows = ["The  Game has crashed and will close", "Message"]
+            def detected = [""]
+            errorTypesWindows.each() {
+                if (fileExists("screenshot-${it}.png")) {
+                    detected << it 
+                    println("Window ${it} detected")
+                }
+            }
+            if (detected) {
+                archiveArtifacts artifacts: "screenshot-* ", allowEmptyArchive: true
+                options.failureMessage = "Detected error window during recording"
+            } else {
+                options.failureMessage = "Video recording error"
+            }
             println(e.toString())
             println(e.getMessage())
-            options.failureMessage = "Video recording stopped due to timeout"
             options.failureError = e.getMessage()
+            throw e
         }
     }
 }
@@ -157,6 +178,21 @@ def executeBuildWindows(String projectName, Map options) {
             bat("4_Package_${projectName}.bat > \"4_Package_${projectName}.log\" 2>&1")
         } catch (e) {
             println(e.getMessage())
+        }
+
+        dir("RPRHybrid-UE\\Engine\\Binaries\\Win64") {
+            if(fileExists("UE4Editor.exe")){
+                def script = """ @echo off
+                for %%I in (UE4Editor.exe) do @echo %%~zI
+                """
+                def output = bat(script: script, returnStdout: true).trim() as Integer
+                println("File size UE4Editor.exe ${output} bytes")
+                if (output == 0) {
+                    throw new Exception("File size UE4Editor.exe 0 bytes")
+                }
+            } else {
+                throw new Exception("File UE4Editor.exe doesn't exists")
+            }
         }
 
         if (it == "VideoRecording" && projectName == "ToyShop") {
