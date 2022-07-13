@@ -373,6 +373,30 @@ def executeBuildWindows(Map options) {
         withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
             outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
 
+            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-12") {
+                withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                    """
+                }
+                dir('installation') {
+                    bat """
+                        
+                    """
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup.exe
+                            rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    }
+
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup.exe"
+                    String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
+
             // vcvars64.bat sets VS/msbuild env
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
                 bat """
