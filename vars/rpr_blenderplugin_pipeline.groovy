@@ -43,13 +43,13 @@ def compareDriverVersion(String logFilePath)
         while (tmpScanner.hasNextLine()) {
             def line = tmpScanner.nextLine()
             if(line.find("newest_driver")){
-                newestVersionNb = line.findAll( /\d+/ )*.toInteger()
+                newestVersionNb = line.findAll( /\d+/ ).collect{it.toInteger()}
                 newestMajor = (newestVersionNb[0] > 0) ? newestVersionNb[0] : 0
                 newestMinor = (newestVersionNb[1] > 0) ? newestVersionNb[1] : 0
                 newestPatch = (newestVersionNb[2] > 0) ? newestVersionNb[2] : 0
             }
             if(line.find("driver_version")){
-                currentVersionNb = line.findAll( /\d+/ )*.toInteger()
+                currentVersionNb = line.findAll( /\d+/ ).collect{it.toInteger()}
                 currentMajor = (currentVersionNb[0] > 0) ? currentVersionNb[0] : 0
                 currentMinor = (currentVersionNb[1] > 0) ? currentVersionNb[1] : 0
                 currentPatch = (currentVersionNb[2] > 0) ? currentVersionNb[2] : 0
