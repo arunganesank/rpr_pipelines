@@ -25,52 +25,50 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
     return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
-def compareDriverVersion(String logFilePath)
+def compareDriverVersion(String logFilePath, String osName)
 {
-    def newestVersionNb
-    def newestMajor
-    def newestMinor
-    def newestPatch
-    def currentVersionNb
-    def currentMajor
-    def currentMinor
-    def currentPatch
-
-    try{
-        def fileWithDriverVer = new File(logFilePath)
-        def tmpScanner = new Scanner(fileWithDriverVer)
-
-        while (tmpScanner.hasNextLine()) {
-            def line = tmpScanner.nextLine()
-            if(line.find("newest_driver")){
-                newestVersionNb = line.findAll( /\d+/ ).collect{it.toInteger()}
-                newestMajor = (newestVersionNb[0] > 0) ? newestVersionNb[0] : 0
-                newestMinor = (newestVersionNb[1] > 0) ? newestVersionNb[1] : 0
-                newestPatch = (newestVersionNb[2] > 0) ? newestVersionNb[2] : 0
-            }
-            if(line.find("driver_version")){
-                currentVersionNb = line.findAll( /\d+/ ).collect{it.toInteger()}
-                currentMajor = (currentVersionNb[0] > 0) ? currentVersionNb[0] : 0
-                currentMinor = (currentVersionNb[1] > 0) ? currentVersionNb[1] : 0
-                currentPatch = (currentVersionNb[2] > 0) ? currentVersionNb[2] : 0
-            }
-        }
-        tmpScanner.close()
-
-        println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
-
-        if(newestMajor - currentMajor > 0 || newestPatch - currentPatch > 3)
-        {
-            String oldDriverMessage = "[WARNING] Driver version is outdated:" + "\n" + "current version " + currentVersionNb + "\n" + "newest version " + newestVersionNb + ".\n"
-            println(oldDriverMessage)
-            node ("Windows") {
-                    SlackUtils.sendMessageToWorkspaceChannel(this, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
+    switch(osName) {
+        case 'Windows':
+            try{
+                def newestVersionNb
+                int newestMajor
+                int newestMinor
+                int newestPatch
+                def currentVersionNb
+                int currentMajor
+                int currentMinor
+                int currentPatch
+                String fileWithDriverVer = new readFile(logFilePath)
+                String[] lines = fileWithDriverVer.split('\n');
+                lines.each {
+                    if(it.indexOf("newest_driver") != -1){
+                        newestVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
+                        newestMajor = (newestVersionNb[0] > 0) ? newestVersionNb[0] : 0
+                        newestMinor = (newestVersionNb[1] > 0) ? newestVersionNb[1] : 0
+                        newestPatch = (newestVersionNb[2] > 0) ? newestVersionNb[2] : 0
+                    }
+                    if(it.indexOf("driver_version") != -1){
+                        currentVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
+                        currentMajor = (currentVersionNb[0] > 0) ? currentVersionNb[0] : 0
+                        currentMinor = (currentVersionNb[1] > 0) ? currentVersionNb[1] : 0
+                        currentPatch = (currentVersionNb[2] > 0) ? currentVersionNb[2] : 0
+                    }
                 }
-        }
-    } catch(e) {
-        println("\n[WARNING] Unable to determine GPU driver version." + "\n")
-        println(e.toString())
-        println(e.getMessage())
+
+                println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
+                if(newestMajor - currentMajor > 0 || newestPatch - currentPatch > 3)
+                {
+                    String oldDriverMessage = "[WARNING] Driver version is outdated:" + "\n" + "current version " + currentVersionNb + "\n" + "newest version " + newestVersionNb + ".\n"
+                    println(oldDriverMessage)
+                    node ("Windows") {
+                            SlackUtils.sendMessageToWorkspaceChannel(this, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
+                        }
+                }
+            } catch(e) {
+                println("\n[WARNING] Unable to determine GPU driver version." + "\n")
+                println(e.toString())
+                println(e.getMessage())
+            }
     }
 }
 
