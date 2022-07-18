@@ -56,7 +56,7 @@ def compareDriverVersion(String logFilePath, String osName)
                 }
 
                 println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
-                if(newestMajor - currentMajor > 0 || newestPatch - currentPatch > 3)
+                if(newestMajor - currentMajor >= 1 || newestMinor - currentMinor >= 2)
                 {
                     String oldDriverMessage = "[WARNING] Driver version is outdated:" + "\n" + "current version " + currentVersionNb + "\n" + "newest version " + newestVersionNb + ".\n"
                     println(oldDriverMessage)
