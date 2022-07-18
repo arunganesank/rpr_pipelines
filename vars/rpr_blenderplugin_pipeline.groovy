@@ -58,7 +58,9 @@ def compareDriverVersion(String logFilePath, String osName)
                 println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
                 if(newestMajor - currentMajor >= 1 || newestMinor - currentMinor >= 2)
                 {
-                    String oldDriverMessage = "[WARNING] Driver version is outdated:" + "\n" + "current version " + currentVersionNb + "\n" + "newest version " + newestVersionNb + ".\n"
+                    String newestDriverVerStr = "Newest version: " + "${newestVersionNb.join('.')}"
+                    String currentDriverVerStr = "Current version: " + "${currentVersionNb.join('.')}"
+                    String oldDriverMessage = "[WARNING] Driver version is outdated:\n" + currentDriverVerStr + "\n" + newestDriverVerStr + "\n"
                     println(oldDriverMessage)
                     node ("Windows") {
                             SlackUtils.sendMessageToWorkspaceChannel(this, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
