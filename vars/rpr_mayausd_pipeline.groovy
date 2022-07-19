@@ -251,6 +251,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
         options.executeTestsFinished = true
 
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", osName)
+
         if (options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] != -1) {
             // mark that one group was finished and counting of errored groups in succession must be stopped
             options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] = new AtomicInteger(-1)
