@@ -22,8 +22,8 @@ def executeBuildWindows(Map options) {
                     mkdir Build
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                    echo "[AMF]" >> Build/LocalBuildConfig.txt
-                    echo "path = ${webrtcPath.replace("\\", "/")}" >> Build\\LocalBuildConfig.txt
+                    echo [AMF] >> Build/LocalBuildConfig.txt
+                    echo path = ${webrtcPath.replace("\\", "/")} >> Build\\LocalBuildConfig.txt
                     python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
                 """
                 println("[INFO] Start building installer")
