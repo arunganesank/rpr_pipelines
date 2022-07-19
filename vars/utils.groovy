@@ -719,7 +719,7 @@ class utils {
                         String currentDriverVerStr = "Current version: " + "${currentVersionNb.join('.')}"
                         String oldDriverMessage = "[WARNING] Driver version is outdated:\n" + currentDriverVerStr + "\n" + newestDriverVerStr + "\n"
                         self.println(oldDriverMessage)
-                        node ("Windows") {
+                        self.node ("Windows") {
                             self.SlackUtils.sendMessageToWorkspaceChannel(self, '', oldDriverMessage, self.SlackUtils.Color.ORANGE, self.SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
                         }
                     }
