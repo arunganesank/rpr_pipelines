@@ -25,55 +25,6 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
     return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
-def compareDriverVersion(String logFilePath, String osName)
-{
-    switch(osName) {
-        case 'Windows':
-            try{
-                def newestVersionNb
-                int newestMajor
-                int newestMinor
-                int newestPatch
-                def currentVersionNb
-                int currentMajor
-                int currentMinor
-                int currentPatch
-                String fileWithDriverVer = readFile(logFilePath)
-                String[] lines = fileWithDriverVer.split('\n');
-                lines.each {
-                    if(it.indexOf("newest_driver") != -1){
-                        newestVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
-                        newestMajor = (newestVersionNb[0] > 0) ? newestVersionNb[0] : 0
-                        newestMinor = (newestVersionNb[1] > 0) ? newestVersionNb[1] : 0
-                        newestPatch = (newestVersionNb[2] > 0) ? newestVersionNb[2] : 0
-                    }
-                    if(it.indexOf("driver_version") != -1){
-                        currentVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
-                        currentMajor = (currentVersionNb[0] > 0) ? currentVersionNb[0] : 0
-                        currentMinor = (currentVersionNb[1] > 0) ? currentVersionNb[1] : 0
-                        currentPatch = (currentVersionNb[2] > 0) ? currentVersionNb[2] : 0
-                    }
-                }
-
-                println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
-                if(newestMajor - currentMajor >= 1 || newestMinor - currentMinor >= 2)
-                {
-                    String newestDriverVerStr = "Newest version: " + "${newestVersionNb.join('.')}"
-                    String currentDriverVerStr = "Current version: " + "${currentVersionNb.join('.')}"
-                    String oldDriverMessage = "[WARNING] Driver version is outdated:\n" + currentDriverVerStr + "\n" + newestDriverVerStr + "\n"
-                    println(oldDriverMessage)
-                    node ("Windows") {
-                            SlackUtils.sendMessageToWorkspaceChannel(this, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
-                        }
-                }
-            } catch(e) {
-                println("\n[WARNING] Unable to determine GPU driver version." + "\n")
-                println(e.toString())
-                println(e.getMessage())
-            }
-    }
-}
-
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
 {
     dir('scripts') {
@@ -331,7 +282,7 @@ def executeTests(String osName, String asicName, Map options)
         }
         options.executeTestsFinished = true
 
-        compareDriverVersion("${options.stageName}_${options.currentTry}.log", osName)
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", osName)
 
         if (options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] != -1) {
             // mark that one group was finished and counting of errored groups in succession must be stopped
