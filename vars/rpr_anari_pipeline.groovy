@@ -172,6 +172,7 @@ def executeTests(String osName, String asicName, Map options) {
         }
         options.executeTestsFinished = true
 
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", osName)
     } catch (e) {
         String additionalDescription = ""
         if (options.currentTry + 1 < options.nodeReallocateTries) {
