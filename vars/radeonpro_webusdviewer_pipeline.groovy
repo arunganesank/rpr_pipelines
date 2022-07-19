@@ -6,7 +6,7 @@ def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
-        String amfPath = "C:\\JN\\thirdparty\\amf"
+        String amfPath = "C:\\JN\\thirdparty\\amf\\AMF-WIN"
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
