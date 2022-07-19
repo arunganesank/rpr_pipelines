@@ -6,8 +6,11 @@ def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
+        String amfPath = "C:\\JN\\thirdparty\\amf"
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+        downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+
 
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
@@ -19,6 +22,8 @@ def executeBuildWindows(Map options) {
                     mkdir Build
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
+                    echo "[AMF]" >> Build/LocalBuildConfig.txt
+                    echo "path = ${webrtcPath.replace("\\", "/")}" >> Build\\LocalBuildConfig.txt
                     python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
                 """
                 println("[INFO] Start building installer")
