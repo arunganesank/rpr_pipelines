@@ -684,4 +684,50 @@ class utils {
             }
         }
     }
+
+    // Function that compare current and neweset AMD gpu driver on Windows.
+    static def compareDriverVersion(Object self, String logFilePath, String osName)
+    {
+        switch(osName) {
+            case 'Windows':
+                try{
+                    def newestVersionNb, currentVersionNb = [0, 0, 0]
+                    int newestMajor, newestMinor, newestPatch
+                    int currentMajor, currentMinor, currentPatch
+
+                    String fileWithDriverVer = self.readFile(logFilePath)
+                    String[] lines = fileWithDriverVer.split('\n');
+                    lines.each {
+                        if(it.indexOf("newest_driver") != -1) {
+                            newestVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
+                            newestMajor = newestVersionNb[0]
+                            newestMinor = newestVersionNb[1]
+                            newestPatch = newestVersionNb[2]
+                        }
+                        if(it.indexOf("driver_version") != -1) {
+                            currentVersionNb = it.findAll( /\d+/ ).collect{it.toInteger()}
+                            currentMajor = currentVersionNb[0]
+                            currentMinor = currentVersionNb[1]
+                            currentPatch = currentVersionNb[2]
+                        }
+                    }
+
+                    self.println("\n[INFO] GPU current driver version " + currentVersionNb + "\n")
+                    if(newestMajor - currentMajor >= 1 || newestMinor - currentMinor >= 2)
+                    {
+                        String newestDriverVerStr = "Newest version: " + "${newestVersionNb.join('.')}"
+                        String currentDriverVerStr = "Current version: " + "${currentVersionNb.join('.')}"
+                        String oldDriverMessage = "[WARNING] Driver version is outdated:\n" + currentDriverVerStr + "\n" + newestDriverVerStr + "\n"
+                        self.println(oldDriverMessage)
+                        self.node ("Windows") {
+                            SlackUtils.sendMessageToWorkspaceChannel(self, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'zabbix_critical')
+                        }
+                    }
+                } catch(e) {
+                    self.println("\n[WARNING] Unable to determine GPU driver version\n")
+                    self.println(e.toString())
+                    self.println(e.getMessage())
+                }
+        }
+    }
 }
