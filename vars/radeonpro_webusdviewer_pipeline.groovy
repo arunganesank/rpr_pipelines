@@ -44,7 +44,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
     try {
         cleanWS(osName)
 
-        withNotifications(title: options["stageName"] options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
             getProduct(osName, options)
         }
 
@@ -389,13 +389,14 @@ def call(
         deployEnvironment = "pr"
     }
 
-    Boolean isPreBuilt = customBuildLinkWindows.toBoolean()
+    Boolean isPreBuilt = (customBuildLinkWindows)
 
     println """
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
+        Is prebuilt: ${isPreBuilt}
     """
 
     try {
@@ -412,8 +413,8 @@ def call(
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
-                                executeBuild:true,
-                                executeTests: !isPreBuilt,
+                                executeBuild:!isPreBuilt,
+                                executeTests:true,
                                 BUILD_TIMEOUT:'120',
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
