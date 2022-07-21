@@ -95,19 +95,18 @@ def executeBuildWindows(Map options) {
                 bat """
                     python Tools/Package.py -v >> ${STAGE_NAME}.log 2>&1
                 """
-                if (options.generateArtifact){
-                    println("[INFO] Saving exe files to NAS")
-                    dir("WebUsdWebServer\\dist_electron") {
-                        def exe_file = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exe_file}")
-                        for (file in exe_file) {
-                            renamed_filename = file.toString().replace(" ", "_")
-                            bat """
-                                rename "${file}" "${renamed_filename}"
-                            """
-                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
-                        }
+
+                println("[INFO] Saving exe files to NAS")
+                dir("WebUsdWebServer\\dist_electron") {
+                    def exe_file = findFiles(glob: '*.msi')
+                    println("Found MSI files: ${exe_file}")
+                    for (file in exe_file) {
+                        renamed_filename = file.toString().replace(" ", "_")
+                        bat """
+                            rename "${file}" "${renamed_filename}"
+                        """
+                        makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
@@ -406,7 +405,6 @@ def call(
                                 rebuildDeps:rebuildDeps,
                                 updateDeps:updateDeps,
                                 enableNotifications:enableNotifications,
-                                generateArtifact:generateArtifact,
                                 deployEnvironment: deployEnvironment,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
