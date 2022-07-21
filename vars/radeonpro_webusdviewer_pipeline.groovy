@@ -66,7 +66,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
         currentBuild.result = "FAILED"
         throw e
     } finally {
-        archiveArtifacts "*.log", allowEmptyArchive: true
+        archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
     }
 }
 
