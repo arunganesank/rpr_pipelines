@@ -68,13 +68,14 @@ def doSanityCheck(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+        utils.reboot(this, osName)
+
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
         String amfPath = "C:\\JN\\thirdparty\\amf"
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
-
 
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
@@ -365,7 +366,7 @@ def notifyByTg(Map options){
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows;Ubuntu20',
+    String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
