@@ -21,7 +21,18 @@ def doSanityCheckWindows(String asicName, Map options) {
         installMSI("${options[getProduct.getIdentificatorKey(osName)]}.msi", options.stageName, options.currentTry)
     }
 
-    // TODO: do sanity check
+    downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
+
+    timeout(time: 2, unit: "MINUTES") {
+        python3("webusd_check.py")
+    }
+
+    dir("${options.stageName}") {
+        utils.moveFiles(this, "Windows", "../*.log", ".")
+        utils.moveFiles(this, "Windows", "../*.jpg", ".")
+    }
+
+    archiveArtifacts(artifacts: options.stageName)
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
