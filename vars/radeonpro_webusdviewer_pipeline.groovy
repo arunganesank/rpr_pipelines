@@ -300,11 +300,11 @@ def notifyByTg(Map options){
 
 def call(
     String projectBranch = "",
-    String platforms = 'Ubuntu20',
-    Boolean enableNotifications = true,
-    Boolean generateArtifact = false,
+    String platforms = 'Windows;Ubuntu20',
+    Boolean enableNotifications = false,
+    Boolean generateArtifact = true,
     Boolean deploy = true,
-    String deployEnvironment = '',
+    String deployEnvironment = 'pr',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false
 ) {
@@ -318,12 +318,7 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
-            case "auto_deploy":
-                deployEnvironment = "test3"
-                break
         }
-    } else if (env.CHANGE_URL) {
-        deployEnvironment = "pr"
     }
 
     println """
