@@ -6,7 +6,7 @@ def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
-        String amfPath = "C:\\JN\\thirdparty\\amf\\AMF-WIN"
+        String amfPath = "C:\\JN\\thirdparty\\amf"
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
@@ -23,7 +23,7 @@ def executeBuildWindows(Map options) {
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
-                    echo path = ${amfPath.replace("\\", "/")} >> Build\\LocalBuildConfig.txt
+                    echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
                     python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
                 """
                 println("[INFO] Start building installer")
