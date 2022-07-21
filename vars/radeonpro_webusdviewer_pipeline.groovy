@@ -399,7 +399,7 @@ def call(
     """
 
     try {
-        multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
+        multiplatform_pipeline(platforms, null, this.&executeBuild, this.&doSanityCheck, null,
                                 [configuration: PIPELINE_CONFIGURATION,
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
