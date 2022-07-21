@@ -70,7 +70,7 @@ def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
-        String amfPath = "C:\\JN\\thirdparty\\amf\\AMF-WIN"
+        String amfPath = "C:\\JN\\thirdparty\\amf"
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
@@ -87,7 +87,7 @@ def executeBuildWindows(Map options) {
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
-                    echo path = ${amfPath.replace("\\", "/")} >> Build\\LocalBuildConfig.txt
+                    echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
                     python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
                 """
                 println("[INFO] Start building installer")
@@ -355,7 +355,7 @@ def notifyByTg(Map options){
     String branchURL = isPR ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${is_pr}, \"user\": \"${options.commitAuthor}\"}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
@@ -365,11 +365,11 @@ def notifyByTg(Map options){
 
 def call(
     String projectBranch = "",
-    String platforms = 'Ubuntu20',
-    Boolean enableNotifications = true,
-    Boolean generateArtifact = false,
+    String platforms = 'Windows;Ubuntu20',
+    Boolean enableNotifications = false,
+    Boolean generateArtifact = true,
     Boolean deploy = true,
-    String deployEnvironment = '',
+    String deployEnvironment = 'pr',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String customBuildLinkWindows = ""
@@ -384,12 +384,7 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
-            case "auto_deploy":
-                deployEnvironment = "test3"
-                break
         }
-    } else if (env.CHANGE_URL) {
-        deployEnvironment = "pr"
     }
 
     Boolean isPreBuilt = (customBuildLinkWindows)
