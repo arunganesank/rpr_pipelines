@@ -11,14 +11,14 @@ import groovy.transform.Field
 
 def doSanityCheckWindows(String asicName, Map options) {
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
-        def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'Radeon%${tool}%'\").IdentifyingNumber""", returnStdout: true)
+        def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
         if (installedProductCode) {
             println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
             uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
         }
 
-        installMSI("${options[getProduct.getIdentificatorKey(osName)]}.msi", options.stageName, options.currentTry)
+        installMSI("${options[getProduct.getIdentificatorKey('Windows')]}.msi", options.stageName, options.currentTry)
     }
 
     downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
@@ -50,7 +50,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
 
         switch(osName) {
             case 'Windows':
-                doSanityCheckWindows(options)
+                doSanityCheckWindows(asicName, options)
                 break
             default:
                 println "[WARNING] ${osName} is not supported"
@@ -58,8 +58,6 @@ def doSanityCheck(String osName, String asicName, Map options) {
     } catch (e) {
         currentBuild.result = "FAILED"
         throw e
-    } finally {
-        archiveArtifacts "*.log"
     }
 }
 
