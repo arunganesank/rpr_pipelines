@@ -18,21 +18,22 @@ def doSanityCheckWindows(String asicName, Map options) {
             uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
         }
 
-        installMSI("${options[getProduct.getIdentificatorKey('Windows')]}.msi", options.stageName, options.currentTry)
     }
 
     downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
 
-    timeout(time: 2, unit: "MINUTES") {
-        python3("webusd_check.py")
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+        timeout(time: 2, unit: "MINUTES") {
+            python3("webusd_check.py")
+        }
     }
 
     dir("${options.stageName}") {
-        utils.moveFiles(this, "Windows", "../*.log", ".")
-        utils.moveFiles(this, "Windows", "../*.jpg", ".")
+        utils.moveFiles(this, "Windows", "../webusd_check.log", "${options.stageName}.log")
+        utils.moveFiles(this, "Windows", "../screen.jpg", "${options.stageName}.jpg")
     }
 
-    archiveArtifacts(artifacts: options.stageName)
+    archiveArtifacts(artifacts: "${options.stageName}/*")
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
@@ -56,8 +57,11 @@ def doSanityCheck(String osName, String asicName, Map options) {
                 println "[WARNING] ${osName} is not supported"
         }
     } catch (e) {
+        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", "Windows"))
         currentBuild.result = "FAILED"
         throw e
+    } finally {
+        archiveArtifacts "*.log", allowEmptyArchive: true
     }
 }
 
@@ -101,6 +105,7 @@ def executeBuildWindows(Map options) {
                                 rename "${file}" "${renamed_filename}"
                             """
                             makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
                     }
                 }
@@ -417,6 +422,7 @@ def call(
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
                                 customBuildLinkWindows:customBuildLinkWindows,
+                                retriesForTestStage:1,
                                 splitTestsExecution: false
                                 ])
     } catch(e) {
