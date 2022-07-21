@@ -73,7 +73,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-        utils.reboot(this, osName)
+        utils.reboot(this, "Windows")
 
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
