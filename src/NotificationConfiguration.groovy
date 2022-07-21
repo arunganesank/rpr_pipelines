@@ -154,6 +154,22 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static SANITY_CHECK = [
+        "begin": ["message": "Sanity check failed."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Sanity check failed due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Sanity check failed.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
     def static INCREMENT_VERSION = [
         "exceptions": [
             [
@@ -701,5 +717,7 @@ public class NotificationConfiguration {
     def static FAILED_UPDATE_BASELINES_UMS = "Failed to update baselines on UMS <name>"
 
     def static SOME_STAGES_FAILED = "Some stages failed"
+
+    def static SANITY_CHECK_FAILED = "Sanity check failed on <gpuName> (<osName>)."
 
 }

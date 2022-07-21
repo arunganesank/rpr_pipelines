@@ -18,6 +18,11 @@ def doSanityCheckWindows(String asicName, Map options) {
             uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
         }
 
+        timeout(time: 10, unit: "MINUTES") {
+            bat """
+                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
+            """
+        }
     }
 
     downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
