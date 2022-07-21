@@ -2,6 +2,57 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
+@Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
+    supportedOS: ["Windows"],
+    productExtensions: ["Windows": "msi"],
+    artifactNameBase: "AMD_RenderStudio"
+)
+
+
+def doSanityCheckWindows(String asicName, Map options) {
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
+        def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'Radeon%${tool}%'\").IdentifyingNumber""", returnStdout: true)
+
+        if (installedProductCode) {
+            println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
+            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+        }
+
+        installMSI("${options[getProduct.getIdentificatorKey(osName)]}.msi", options.stageName, options.currentTry)
+    }
+
+    // TODO: do sanity check
+
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
+        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+    }
+}
+
+
+def doSanityCheck(String osName, String asicName, Map options) {
+    try {
+        cleanWS(osName)
+
+        withNotifications(title: options["stageName"] options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+            getProduct(osName, options)
+        }
+
+        switch(osName) {
+            case 'Windows':
+                doSanityCheckWindows(options)
+                break
+            default:
+                println "[WARNING] ${osName} is not supported"
+        }
+    } catch (e) {
+        currentBuild.result = "FAILED"
+        throw e
+    } finally {
+        archiveArtifacts "*.log"
+    }
+}
+
+
 def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         Boolean failure = false
@@ -306,7 +357,8 @@ def call(
     Boolean deploy = true,
     String deployEnvironment = '',
     Boolean rebuildDeps = false,
-    Boolean updateDeps = false
+    Boolean updateDeps = false,
+    String customBuildLinkWindows = ""
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -326,6 +378,8 @@ def call(
         deployEnvironment = "pr"
     }
 
+    Boolean isPreBuilt = customBuildLinkWindows.toBoolean()
+
     println """
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
@@ -335,7 +389,8 @@ def call(
 
     try {
         multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
-                                [projectBranch:projectBranch,
+                                [configuration: PIPELINE_CONFIGURATION,
+                                projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
                                 rebuildDeps:rebuildDeps,
                                 updateDeps:updateDeps,
@@ -347,8 +402,12 @@ def call(
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
                                 executeBuild:true,
+                                executeTests: !isPreBuilt,
                                 BUILD_TIMEOUT:'120',
-                                problemMessageManager:problemMessageManager
+                                problemMessageManager:problemMessageManager,
+                                isPreBuilt:isPreBuilt,
+                                customBuildLinkWindows:customBuildLinkWindows,
+                                splitTestsExecution: false
                                 ])
     } catch(e) {
         currentBuild.result = "FAILURE"
