@@ -138,6 +138,22 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static DOWNLOAD_APPPLICATION = [
+        "begin": ["message": "Downloading the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to download the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to download the application.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
     def static INCREMENT_VERSION = [
         "exceptions": [
             [
@@ -378,6 +394,38 @@ public class NotificationConfiguration {
             ],
             [
                 "class": Exception, "problemMessage": "Failed to install the plugin (custom path install).", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
+    def static INSTALL_APPPLICATION = [
+        "begin": ["message": "Installing the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to install the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to install the application.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
+    def static UNINSTALL_APPPLICATION = [
+        "begin": ["message": "Uninstalling the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to uninstall the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to uninstall the application.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
             ]
         ]
