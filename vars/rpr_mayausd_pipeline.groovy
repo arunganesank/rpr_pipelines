@@ -384,11 +384,11 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    
+                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup.exe
                 """
+
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup.exe
                         rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
