@@ -86,19 +86,19 @@ def executeBuildWindows(Map options) {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
                 bat """
                     call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-                    cmake --version >> ${STAGE_NAME}.log 2>&1
-                    python--version >> ${STAGE_NAME}.log 2>&1
-                    python -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                    cmake --version >> ${STAGE_NAME}.Build.log 2>&1
+                    python--version >> ${STAGE_NAME}.Build.log 2>&1
+                    python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
                     mkdir Build
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
                     echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                    python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                    python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
                 """
                 println("[INFO] Start building installer")
                 bat """
-                    python Tools/Package.py -v >> ${STAGE_NAME}.log 2>&1
+                    python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
                 """
 
                 println("[INFO] Saving exe files to NAS")
@@ -153,15 +153,15 @@ def executeBuildLinux(Map options) {
             }
 
             sh """
-                cmake --version >> ${STAGE_NAME}.log 2>&1
-                python3 --version >> ${STAGE_NAME}.log 2>&1
-                python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                cmake --version >> ${STAGE_NAME}.Build.log 2>&1
+                python3 --version >> ${STAGE_NAME}.Build.log 2>&1
+                python3 -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
                 echo "[WebRTC]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
                 echo "[AMF]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
                 export OS=
-                python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                python3 Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
             """
 
             if (options.updateDeps){
@@ -186,7 +186,7 @@ def executeBuildLinux(Map options) {
                 env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
                 env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
 
-                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment"""
+                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
             }
 
             println("[INFO] Finish building & sending docker containers to repo")
@@ -327,6 +327,7 @@ def executeBuild(String osName, Map options) {
 
         switch(osName) {
             case 'Windows':
+                options[getProduct.getIdentificatorKey(osName)] = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                 executeBuildWindows(options)
                 break
             case 'Ubuntu20':
