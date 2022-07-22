@@ -2,8 +2,79 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
+@Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
+    supportedOS: ["Windows"],
+    productExtensions: ["Windows": "msi"],
+    artifactNameBase: "AMD_RenderStudio"
+)
+
+
+def doSanityCheckWindows(String asicName, Map options) {
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
+        def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
+
+        if (installedProductCode) {
+            println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
+            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+        }
+
+        timeout(time: 10, unit: "MINUTES") {
+            bat """
+                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
+            """
+        }
+    }
+
+    downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
+
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+        timeout(time: 2, unit: "MINUTES") {
+            python3("webusd_check.py")
+        }
+    }
+
+    dir("${options.stageName}") {
+        utils.moveFiles(this, "Windows", "../webusd_check.log", "${options.stageName}.log")
+        utils.moveFiles(this, "Windows", "../screen.jpg", "${options.stageName}.jpg")
+    }
+
+    archiveArtifacts(artifacts: "${options.stageName}/*")
+
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
+        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+    }
+}
+
+
+def doSanityCheck(String osName, String asicName, Map options) {
+    try {
+        cleanWS(osName)
+
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+            getProduct(osName, options)
+        }
+
+        switch(osName) {
+            case 'Windows':
+                doSanityCheckWindows(asicName, options)
+                break
+            default:
+                println "[WARNING] ${osName} is not supported"
+        }
+    } catch (e) {
+        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", "Windows"))
+        currentBuild.result = "FAILED"
+        throw e
+    } finally {
+        archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
+    }
+}
+
+
 def executeBuildWindows(Map options) {
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+        utils.reboot(this, "Windows")
+
         Boolean failure = false
         String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
         String amfPath = "C:\\JN\\thirdparty\\amf"
@@ -11,37 +82,36 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
                 bat """
                     call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-                    cmake --version >> ${STAGE_NAME}.log 2>&1
-                    python--version >> ${STAGE_NAME}.log 2>&1
-                    python -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                    cmake --version >> ${STAGE_NAME}.Build.log 2>&1
+                    python--version >> ${STAGE_NAME}.Build.log 2>&1
+                    python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
                     mkdir Build
                     echo [WebRTC] >> Build\\LocalBuildConfig.txt
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
                     echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                    python Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                    python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
                 """
                 println("[INFO] Start building installer")
                 bat """
-                    python Tools/Package.py -v >> ${STAGE_NAME}.log 2>&1
+                    python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
                 """
-                if (options.generateArtifact){
-                    println("[INFO] Saving exe files to NAS")
-                    dir("WebUsdWebServer\\dist_electron") {
-                        def exe_file = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exe_file}")
-                        for (file in exe_file) {
-                            renamed_filename = file.toString().replace(" ", "_")
-                            bat """
-                                rename "${file}" "${renamed_filename}"
-                            """
-                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                        }
+
+                println("[INFO] Saving exe files to NAS")
+                dir("WebUsdWebServer\\dist_electron") {
+                    def exe_file = findFiles(glob: '*.msi')
+                    println("Found MSI files: ${exe_file}")
+                    for (file in exe_file) {
+                        renamed_filename = file.toString().replace(" ", "_")
+                        bat """
+                            rename "${file}" "${renamed_filename}"
+                        """
+                        makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
@@ -83,15 +153,15 @@ def executeBuildLinux(Map options) {
             }
 
             sh """
-                cmake --version >> ${STAGE_NAME}.log 2>&1
-                python3 --version >> ${STAGE_NAME}.log 2>&1
-                python3 -m pip install conan >> ${STAGE_NAME}.log 2>&1
+                cmake --version >> ${STAGE_NAME}.Build.log 2>&1
+                python3 --version >> ${STAGE_NAME}.Build.log 2>&1
+                python3 -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
                 echo "[WebRTC]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
                 echo "[AMF]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
                 export OS=
-                python3 Tools/Build.py -v >> ${STAGE_NAME}.log 2>&1
+                python3 Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
             """
 
             if (options.updateDeps){
@@ -116,7 +186,7 @@ def executeBuildLinux(Map options) {
                 env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
                 env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
 
-                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment"""
+                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
             }
 
             println("[INFO] Finish building & sending docker containers to repo")
@@ -257,6 +327,7 @@ def executeBuild(String osName, Map options) {
 
         switch(osName) {
             case 'Windows':
+                options[getProduct.getIdentificatorKey(osName)] = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                 executeBuildWindows(options)
                 break
             case 'Ubuntu20':
@@ -300,13 +371,14 @@ def notifyByTg(Map options){
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows;Ubuntu20',
+    String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
     Boolean rebuildDeps = false,
-    Boolean updateDeps = false
+    Boolean updateDeps = false,
+    String customBuildLinkWindows = ""
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -321,29 +393,37 @@ def call(
         }
     }
 
+    Boolean isPreBuilt = (customBuildLinkWindows)
+
     println """
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
+        Is prebuilt: ${isPreBuilt}
     """
 
     try {
-        multiplatform_pipeline(platforms, null, this.&executeBuild, null, null,
-                                [projectBranch:projectBranch,
+        multiplatform_pipeline(platforms, null, this.&executeBuild, this.&doSanityCheck, null,
+                                [configuration: PIPELINE_CONFIGURATION,
+                                projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
                                 rebuildDeps:rebuildDeps,
                                 updateDeps:updateDeps,
                                 enableNotifications:enableNotifications,
-                                generateArtifact:generateArtifact,
                                 deployEnvironment: deployEnvironment,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
-                                executeBuild:true,
+                                executeBuild:!isPreBuilt,
+                                executeTests:true,
                                 BUILD_TIMEOUT:'120',
-                                problemMessageManager:problemMessageManager
+                                problemMessageManager:problemMessageManager,
+                                isPreBuilt:isPreBuilt,
+                                customBuildLinkWindows:customBuildLinkWindows,
+                                retriesForTestStage:1,
+                                splitTestsExecution: false
                                 ])
     } catch(e) {
         currentBuild.result = "FAILURE"

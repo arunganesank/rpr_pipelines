@@ -138,6 +138,38 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static DOWNLOAD_APPPLICATION = [
+        "begin": ["message": "Downloading the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to download the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to download the application.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
+    def static SANITY_CHECK = [
+        "begin": ["message": "Sanity check failed."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Sanity check failed due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Sanity check failed.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
     def static INCREMENT_VERSION = [
         "exceptions": [
             [
@@ -378,6 +410,38 @@ public class NotificationConfiguration {
             ],
             [
                 "class": Exception, "problemMessage": "Failed to install the plugin (custom path install).", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
+    def static INSTALL_APPPLICATION = [
+        "begin": ["message": "Installing the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to install the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to install the application.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
+    def static UNINSTALL_APPPLICATION = [
+        "begin": ["message": "Uninstalling the application."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to uninstall the application due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to uninstall the application.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
             ]
         ]
@@ -653,5 +717,7 @@ public class NotificationConfiguration {
     def static FAILED_UPDATE_BASELINES_UMS = "Failed to update baselines on UMS <name>"
 
     def static SOME_STAGES_FAILED = "Some stages failed"
+
+    def static SANITY_CHECK_FAILED = "Sanity check failed on <gpuName> (<osName>)."
 
 }
