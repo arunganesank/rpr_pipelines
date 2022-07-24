@@ -136,6 +136,14 @@ def executeBuildWindows(Map options) {
 def executeBuildLinux(Map options) {
     Boolean failure = false
 
+    String webUsdUrlBase
+
+    withCredentials([string(credentialsId: "WebUsdHost", variable: "remoteHost")]) {
+        webUsdUrlBase = remoteHost
+    }
+
+    println(webUsdUrlBase)
+
     withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
@@ -171,25 +179,23 @@ def executeBuildLinux(Map options) {
             }
 
             println("[INFO] Start building & sending docker containers to repo")
-            withCredentials([string(credentialsId: "WebUsdDockerRegisterHost", variable: "remoteHost")]) {
-                String deployArgs = "-ba -da"
-                containersBaseName = "docker.${remoteHost}/"
+            String deployArgs = "-ba -da"
+            containersBaseName = "docker.${webUsdUrlBase}/"
 
-                if (env.CHANGE_URL){
-                    deployArgs = "-ba"
-                    containersBaseName = ""
-                    remoteHost = ""
-                }
-
-                env["WEBUSD_BUILD_REMOTE_HOST"] = remoteHost
-                env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
-                env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
-                env["WEBUSD_BUILD_STORAGE_CONTAINER_NAME"] = containersBaseName + "storage"
-                env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
-                env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
-
-                sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
+            if (env.CHANGE_URL){
+                deployArgs = "-ba"
+                containersBaseName = ""
+                remoteHost = ""
             }
+
+            env["WEBUSD_BUILD_REMOTE_HOST"] = webUsdUrlBase
+            env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
+            env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
+            env["WEBUSD_BUILD_STORAGE_CONTAINER_NAME"] = containersBaseName + "storage"
+            env["WEBUSD_BUILD_STREAM_CONTAINER_NAME"] = containersBaseName + "stream"
+            env["WEBUSD_BUILD_WEB_CONTAINER_NAME"] = containersBaseName + "web"
+
+            sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
 
             println("[INFO] Finish building & sending docker containers to repo")
             sh "rm WebUsdWebServer/.env.production"
@@ -273,27 +279,26 @@ def executeBuildLinux(Map options) {
                 }
 
                 println "[INFO] Send deploy command"
-                withCredentials([string(credentialsId: "WebUsdDockerRegisterHost", variable: "remoteHost")]) {
-                    for (i=0; i < 5; i++) {
-                        res = sh(
-                            script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
-                            returnStdout: true,
-                            returnStatus: true
-                        )
 
-                        println ("RES - ${res}")
+                for (i=0; i < 5; i++) {
+                    res = sh(
+                        script: "curl --insecure https://admin.${webUsdUrlBase}/deploy?configuration=${options.deployEnvironment}",
+                        returnStdout: true,
+                        returnStatus: true
+                    )
 
-                        if (res == 0) {
-                            println "[INFO] Successfully sended"
-                            break
-                        } else {
-                            println "[ERROR] Host not available. Try again"
-                        }
+                    println ("RES - ${res}")
+
+                    if (res == 0) {
+                        println "[INFO] Successfully sended"
+                        break
+                    } else {
+                        println "[ERROR] Host not available. Try again"
                     }
+                }
 
-                    if (!status) {
-                        throw new Exception("[ERROR] Host not available. Retries exceeded")
-                    }
+                if (!status) {
+                    throw new Exception("[ERROR] Host not available. Retries exceeded")
                 }
 
                 withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
