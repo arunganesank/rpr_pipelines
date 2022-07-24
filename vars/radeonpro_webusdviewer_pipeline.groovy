@@ -171,7 +171,7 @@ def executeBuildLinux(Map options) {
             }
 
             println("[INFO] Start building & sending docker containers to repo")
-            withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+            withCredentials([string(credentialsId: "WebUsdDockerRegisterHost", variable: "remoteHost")]) {
                 String deployArgs = "-ba -da"
                 containersBaseName = "docker.${remoteHost}/"
 
@@ -273,7 +273,7 @@ def executeBuildLinux(Map options) {
                 }
 
                 println "[INFO] Send deploy command"
-                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+                withCredentials([string(credentialsId: "WebUsdDockerRegisterHost", variable: "remoteHost")]) {
                     for (i=0; i < 5; i++) {
                         res = sh(
                             script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
