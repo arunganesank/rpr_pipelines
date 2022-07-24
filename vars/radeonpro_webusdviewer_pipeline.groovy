@@ -2,6 +2,8 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
+@Field final Integer MAX_TEST_INSTANCE_NUMBER = 3
+
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "msi"],
@@ -219,71 +221,84 @@ def executeBuildLinux(Map options) {
             Boolean status = true
 
             try {
-                if (env.CHANGE_URL) {
-                    println "[INFO] Local deploying for sanytize checks"
-                    String composePath = "/usr/local/bin/docker-compose"
+                if (options.deployEnvironment == "pr") {
+                    downloadFiles("/volume1/CIS/WebUSD/State/NextTestingNumber.txt", ".")
 
-                    downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
-                    sh """$composePath -f pr.yml up -d"""
+                    Integer testingNumber = readFile(file: "NextTestingNumber.txt") as Integer
+                    options.deployEnvironment = "test${testingNumber}"
+                    writeFile(file: "NextTestingNumber.txt", text: "${testingNumber >= MAX_TEST_INSTANCE_NUMBER ? 1 : testingNumber + 1}")
 
-                    List containersNamesAssociations = [
-                        "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
-                        "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
-                        "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
-                        "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
-                        "front"
-                    ]
+                    uploadFiles("NextTestingNumber.txt", "/volume1/CIS/WebUSD/State")
+                }
 
-                    for (i=0; i < 5; i++) {
-                        try {
-                            sleep(5)
-                            for (name in containersNamesAssociations) {
-                                result = sh (
-                                    script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
-                                    returnStdout: true,
-                                    returnStatus: true
-                                )
-                                println result
-                                if (result == 1) {
-                                    throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
-                                }
+                println "[INFO] Local deploying for sanytize checks"
+                String composePath = "/usr/local/bin/docker-compose"
+
+                downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
+                sh """$composePath -f pr.yml up -d"""
+
+                List containersNamesAssociations = [
+                    "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
+                    "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
+                    "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
+                    "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
+                    "front"
+                ]
+
+                for (i=0; i < 5; i++) {
+                    try {
+                        sleep(5)
+                        for (name in containersNamesAssociations) {
+                            result = sh (
+                                script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
+                                returnStdout: true,
+                                returnStatus: true
+                            )
+                            println result
+                            if (result == 1) {
+                                throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
                             }
-                            sh """$composePath -f pr.yml stop"""
-                            println "[INFO] Sanytize checks successfully passed"
+                        }
+                        sh """$composePath -f pr.yml stop"""
+                        println "[INFO] Sanytize checks successfully passed"
+                        break
+                    } catch (e) {
+                        println "[ERROR] Sanytize checks failed. Trying again"
+                    }
+                }
+
+                if (!status) {
+                    sh """$composePath -f pr.yml stop"""
+                    throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
+                }
+
+                println "[INFO] Send deploy command"
+                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
+                    for (i=0; i < 5; i++) {
+                        res = sh(
+                            script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
+                            returnStdout: true,
+                            returnStatus: true
+                        )
+
+                        println ("RES - ${res}")
+
+                        if (res == 0) {
+                            println "[INFO] Successfully sended"
                             break
-                        } catch (e) {
-                            println "[ERROR] Sanytize checks failed. Trying again"
+                        } else {
+                            println "[ERROR] Host not available. Try again"
                         }
                     }
 
                     if (!status) {
-                        sh """$composePath -f pr.yml stop"""
-                        throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
+                        throw new Exception("[ERROR] Host not available. Retries exceeded")
                     }
-                } else {
-                    println "[INFO] Send deploy command"
-                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'WebUsdDockerRegisterHost', usernameVariable: 'remoteHost', passwordVariable: 'remotePort']]){
-                        for (i=0; i < 5; i++) {
-                            res = sh(
-                                script: "curl --insecure https://admin.${remoteHost}/deploy?configuration=${options.deployEnvironment}",
-                                returnStdout: true,
-                                returnStatus: true
-                            )
+                }
 
-                            println ("RES - ${res}")
-
-                            if (res == 0) {
-                                println "[INFO] Successfully sended"
-                                break
-                            } else {
-                                println "[ERROR] Host not available. Try again"
-                            }
-                        }
-
-                        if (!status) {
-                            throw new Exception("[ERROR] Host not available. Retries exceeded")
-                        }
-                    }
+                withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                    String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
             } catch (e) {
                 println "[ERROR] Error during deploy"
