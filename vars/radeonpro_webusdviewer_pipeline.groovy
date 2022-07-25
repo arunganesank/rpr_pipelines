@@ -190,12 +190,6 @@ def executeBuildLinux(Map options) {
             String deployArgs = "-ba -da"
             containersBaseName = "docker.${webUsdUrlBase}/"
 
-            if (env.CHANGE_URL){
-                deployArgs = "-ba"
-                containersBaseName = ""
-                remoteHost = ""
-            }
-
             env["WEBUSD_BUILD_REMOTE_HOST"] = webUsdUrlBase
             env["WEBUSD_BUILD_LIVE_CONTAINER_NAME"] = containersBaseName + "live"
             env["WEBUSD_BUILD_ROUTE_CONTAINER_NAME"] = containersBaseName + "route"
