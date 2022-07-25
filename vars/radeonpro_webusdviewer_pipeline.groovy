@@ -267,9 +267,11 @@ def executeBuildLinux(Map options) {
                         }
                         sh """$composePath -f pr.yml stop"""
                         println "[INFO] Sanytize checks successfully passed"
+                        status = true
                         break
                     } catch (e) {
                         println "[ERROR] Sanytize checks failed. Trying again"
+                        status = false
                     }
                 }
 
@@ -291,9 +293,11 @@ def executeBuildLinux(Map options) {
 
                     if (res == 0) {
                         println "[INFO] Successfully sended"
+                        status = true
                         break
                     } else {
                         println "[ERROR] Host not available. Try again"
+                        status = false
                     }
                 }
 
