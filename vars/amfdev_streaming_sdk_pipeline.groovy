@@ -1041,6 +1041,49 @@ def executeBuildAndroid(Map options) {
 }
 
 
+def executeBuildUbuntu(Map options) {
+    String logName = "${STAGE_NAME}.log"
+
+    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+        GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+
+        // TODO: temporary ducktape. Waiting for fix from side of developers
+        String content = readFile(file: "../../../../protected/common/VirtualMicrophoneAudioInput.cpp")
+        content = content.replace("#include \"runtime/src/components/VirtualAudio/VirtualAudioImpl.h\"", "")
+        writeFile(file: "../../../../protected/common/VirtualMicrophoneAudioInput.cpp", text: content)
+
+        // TODO: temporary ducktape. Waiting for fix from side of developers
+        if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
+            sh """
+                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
+            """
+        }
+
+        sh """
+            chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
+            make >> ../../../../../../${logName} 2>&1
+        """
+
+        String archiveUrl = ""
+    }
+
+    dir("StreamingSDK/amf/bin/dbg_64") {
+        String BUILD_NAME = "StreamingSDK_Ubuntu20.zip"
+
+        zip archive: true, zipFile: BUILD_NAME
+
+        utils.moveFiles(this, "Ubuntu20", BUILD_NAME, "ubuntu20.zip")
+        //makeStash(includes: "ubuntu20.zip", name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
+
+        archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+        rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
+    }
+
+    GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
+}
+
+
 def executeBuild(String osName, Map options) {
     try {
         //utils.reboot(this, osName != "Android" ? osName : "Windows")
@@ -1062,6 +1105,9 @@ def executeBuild(String osName, Map options) {
                     break
                 case "Android":
                     executeBuildAndroid(options)
+                    break
+                case "Ubuntu20":
+                    executeBuildUbuntu(options)
                     break
                 case "OSX":
                     println("Unsupported OS")
