@@ -142,7 +142,15 @@ def executeBuildLinux(Map options) {
         webUsdUrlBase = remoteHost
     }
 
-    println(webUsdUrlBase)
+    if (options.deployEnvironment == "pr") {
+        downloadFiles("/volume1/CIS/WebUSD/State/NextTestingNumber.txt", ".")
+
+        Integer testingNumber = readFile(file: "NextTestingNumber.txt") as Integer
+        options.deployEnvironment = "test${testingNumber}"
+        writeFile(file: "NextTestingNumber.txt", text: "${testingNumber >= MAX_TEST_INSTANCE_NUMBER ? 1 : testingNumber + 1}")
+
+        uploadFiles("NextTestingNumber.txt", "/volume1/CIS/WebUSD/State")
+    }
 
     withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         println "[INFO] Start build" 
@@ -227,59 +235,6 @@ def executeBuildLinux(Map options) {
             Boolean status = true
 
             try {
-                if (options.deployEnvironment == "pr") {
-                    downloadFiles("/volume1/CIS/WebUSD/State/NextTestingNumber.txt", ".")
-
-                    Integer testingNumber = readFile(file: "NextTestingNumber.txt") as Integer
-                    options.deployEnvironment = "test${testingNumber}"
-                    writeFile(file: "NextTestingNumber.txt", text: "${testingNumber >= MAX_TEST_INSTANCE_NUMBER ? 1 : testingNumber + 1}")
-
-                    uploadFiles("NextTestingNumber.txt", "/volume1/CIS/WebUSD/State")
-                }
-
-                println "[INFO] Local deploying for sanytize checks"
-                String composePath = "/usr/local/bin/docker-compose"
-
-                downloadFiles("/volume1/CIS/WebUSD/Additional/pr.yml", ".", "--quiet")
-                sh """$composePath -f pr.yml up -d"""
-
-                List containersNamesAssociations = [
-                    "${env.WEBUSD_BUILD_LIVE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_ROUTE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_STORAGE_CONTAINER_NAME}",
-                    "${env.WEBUSD_BUILD_STREAM_CONTAINER_NAME}",
-                    "front"
-                ]
-
-                for (i=0; i < 5; i++) {
-                    try {
-                        sleep(5)
-                        for (name in containersNamesAssociations) {
-                            result = sh (
-                                script: "$composePath -f pr.yml ps --services --filter \"status=running\" | grep $name",
-                                returnStdout: true,
-                                returnStatus: true
-                            )
-                            println result
-                            if (result == 1) {
-                                throw new Exception("""[ERROR] Sanytize checks failed. Service ${name} doesn't work""")
-                            }
-                        }
-                        sh """$composePath -f pr.yml stop"""
-                        println "[INFO] Sanytize checks successfully passed"
-                        status = true
-                        break
-                    } catch (e) {
-                        println "[ERROR] Sanytize checks failed. Trying again"
-                        status = false
-                    }
-                }
-
-                if (!status) {
-                    sh """$composePath -f pr.yml stop"""
-                    throw new Exception("[ERROR] Sanytize checks failed. All attempts have been exhausted.")
-                }
-
                 println "[INFO] Send deploy command"
 
                 for (i=0; i < 5; i++) {
