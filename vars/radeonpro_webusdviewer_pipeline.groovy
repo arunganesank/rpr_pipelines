@@ -152,6 +152,9 @@ def executeBuildLinux(Map options) {
         uploadFiles("NextTestingNumber.txt", "/volume1/CIS/WebUSD/State")
     }
 
+    downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+    sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+
     withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
@@ -304,8 +307,6 @@ def executeBuild(String osName, Map options) {
                 executeBuildWindows(options)
                 break
             case 'Ubuntu20':
-                downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-                sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
                 executeBuildLinux(options)
                 break
             default:
