@@ -1055,28 +1055,26 @@ def executeBuildUbuntu(Map options) {
         // TODO: temporary ducktape. Waiting for fix from side of developers
         if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
-                mkdir -p ../../../../../Thirdparty/VulkanSDK
-                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
             """
         }
 
         sh """
             chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
-            make >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+            make >> ../../../../../../${logName} 2>&1
         """
 
         String archiveUrl = ""
     }
 
-    dir("StreamingSDK/amf/bin/dpk_64") {
+    dir("StreamingSDK/amf/bin/dbg_64") {
         String BUILD_NAME = "StreamingSDK_Ubuntu20.zip"
 
-        zip archive: true, zipFile: BUILD_NAME, glob: "*"
+        zip archive: true, zipFile: BUILD_NAME
 
-        if (options.androidTestingBuildName == androidBuildConf) {
-            utils.moveFiles(this, "Ubuntu20", BUILD_NAME, "ubuntu20.zip")
-            makeStash(includes: "ubuntu20.zip", name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
-        }
+        utils.moveFiles(this, "Ubuntu20", BUILD_NAME, "ubuntu20.zip")
+        //makeStash(includes: "ubuntu20.zip", name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
 
         archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
         rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
