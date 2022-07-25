@@ -2,7 +2,7 @@ import groovy.transform.Field
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
-@Field final Integer MAX_TEST_INSTANCE_NUMBER = 3
+@Field final Integer MAX_TEST_INSTANCE_NUMBER = 10
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
