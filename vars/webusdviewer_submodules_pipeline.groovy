@@ -11,8 +11,9 @@ def call() {
 
                 println("Current version of: " + version)
 
-                def splitted = version.split(".")
+                def splitted = version.split(".") as List
                 println(splitted)
+                println splitted.size()
                 if (splitted.size() == 3) {
                     def major = splitted[0]
                     def firstMinor = splitted[1]
