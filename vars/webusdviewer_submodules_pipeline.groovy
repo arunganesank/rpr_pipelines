@@ -13,7 +13,7 @@ def call() {
 
                 def splitted = version.split(".")
                 
-                if (splitted.size(3)) {
+                if (splitted.size()) {
                     def major = splitted[0]
                     def firstMinor = splitted[1]
                     def lastMinor = splitted[2]
