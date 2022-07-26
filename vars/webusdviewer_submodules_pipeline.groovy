@@ -12,7 +12,7 @@ def call() {
                 println("Current version of: " + version)
 
                 def splitted = version.split(".")
-                
+                println(splitted)
                 if (splitted.size() == 3) {
                     def major = splitted[0]
                     def firstMinor = splitted[1]
@@ -36,8 +36,6 @@ def call() {
 
                     println("Newest version of: " + version)
                 }
-
-                
             }
         }
     }
