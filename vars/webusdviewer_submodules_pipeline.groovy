@@ -1,6 +1,6 @@
-@Field final String PROJECT_REPO = "git@github.com:s1lentssh/WebUsdLiveServer.git"
 
 def call() {
+    String PROJECT_REPO = "git@github.com:s1lentssh/WebUsdLiveServer.git"
     println("He-he")
 
     stage("Increment version") {
