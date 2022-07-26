@@ -13,7 +13,7 @@ def call() {
 
                 def splitted = version.split(".")
                 
-                if (splitted.size()) {
+                if (splitted.size() == 3) {
                     def major = splitted[0]
                     def firstMinor = splitted[1]
                     def lastMinor = splitted[2]
@@ -31,11 +31,13 @@ def call() {
                         break > VERSION.txt
                         echo "${major}.${firstMinor}.${lastMinor}" > VERSION.txt
                     """
+
+                    version = bat(script: "FOR /F %%i IN (VERSION.txt) DO @echo %%i", returnStdout: true).trim() as String
+
+                    println("Newest version of: " + version)
                 }
 
-                version = bat(script: "FOR /F %%i IN (VERSION.txt) DO @echo %%i", returnStdout: true).trim() as String
-
-                println("Newest version of: " + version)
+                
             }
         }
     }
