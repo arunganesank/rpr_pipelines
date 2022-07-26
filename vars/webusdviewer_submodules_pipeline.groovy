@@ -16,7 +16,10 @@ def call() {
 
                 println("Current version of: " + version)
 
-                def splitted = version.split(".") as List
+                println version.getClass()
+                def splitted = version.split(".")
+
+                println splitted.getClass()
                 println(splitted)
                 println splitted.size()
                 if (splitted.size() == 3) {
