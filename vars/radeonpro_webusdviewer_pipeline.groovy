@@ -16,16 +16,17 @@ import net.sf.json.JsonConfig
 
 
 Integer getNextTestInstanceNumber(Map options) {
-    downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.txt", ".")
+    downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
 
-    def instancesInfo = readJSON(file: "TestingInstancesInfo.txt")
+    def instancesInfo = readJSON(file: "TestingInstancesInfo.json")
 
     Integer testingNumber
 
     if (instancesInfo["prs"].containsKey(env.BRANCH_NAME)) {
-        Integer testingNumber = instancesInfo["prs"][env.BRANCH_NAME]
+        testingNumber = instancesInfo["prs"][env.BRANCH_NAME]
     } else {
-        Integer testingNumber = instancesInfo["globalCounter"]
+        testingNumber = instancesInfo["globalCounter"]
+        instancesInfo["prs"][env.BRANCH_NAME] = testingNumber
         instancesInfo["globalCounter"] = instancesInfo["globalCounter"] >= MAX_TEST_INSTANCE_NUMBER ? 1 : instancesInfo["globalCounter"] + 1
     }
  
@@ -33,14 +34,13 @@ Integer getNextTestInstanceNumber(Map options) {
 
     def jsonOutputInfo = JsonOutput.toJson(instancesInfo)
     JSON serializedInfo = JSONSerializer.toJSON(jsonOutputInfo, new JsonConfig());
-    writeJson(file: "TestingInstancesInfo.txt", json: serializedInfo), pretty: 4
+    writeJson(file: "TestingInstancesInfo.json", json: serializedInfo, pretty: 4)
 
-    uploadFiles("TestingInstancesInfo.txt", "/volume1/CIS/WebUSD/State")
+    uploadFiles("TestingInstancesInfo.json", "/volume1/CIS/WebUSD/State")
 }
 
 
 def doSanityCheckWindows(String asicName, Map options) {
-    utils.reboot(this, "Windows")
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
         def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
@@ -68,6 +68,8 @@ def doSanityCheckWindows(String asicName, Map options) {
             python3("webusd_check.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
         }
     }
+
+    utils.reboot(this, "Windows")
 
     dir("${options.stageName}") {
         utils.moveFiles(this, "Windows", "../webusd_check.log", "${options.stageName}.log")
