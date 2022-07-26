@@ -80,9 +80,10 @@ def planUpdate(osName, gpuNames, options, updateTasks) {
                                     driver_path = "${env.WORKSPACE}/amdgpu-install.deb"
                                     sh "${CIS_TOOLS}/driver_detection/amd_request.sh \"${DRIVER_PAGE_URL}\" ${env.WORKSPACE}/page.html >> page_download_${it}.log 2>&1 "
 
-                                    status = sh(returnStatus: true, script: "sudo ${CIS_TOOLS}/driver_detection/perform_driver_detection.sh ubuntu20 ${env.WORKSPACE}/page.html ${driver_path} >> parse_stage_${it}.log 2>&1")
+                                    python3("-m pip install -r ${CIS_TOOLS}/driver_detection/requirements.txt >> parse_stage_${it}.log 2>&1")
+                                    status = sh(returnStatus: true, script: "python3.9 ${CIS_TOOLS}/driver_detection/parse_driver.py --os ubuntu20 --html_path ${env.WORKSPACE}/page.html --installer_dst ${driver_path} >> parse_stage_${it}.log 2>&1")
                                     if (status == 0) {
-                                        println("[INFO] Newer was found. Uninstalling previous driver...")
+                                        println("[INFO] Newer driver was found. Uninstalling previous driver...")
                                         sh "sudo amdgpu-install -y --uninstall >> uninstallation_${it}.log 2>&1"
                                         println("[INFO] Driver uninstalled. Reboot ${it}...")
                                         utils.reboot(this, "Unix")
@@ -90,7 +91,7 @@ def planUpdate(osName, gpuNames, options, updateTasks) {
 
                                         println("[INFO] Trying to install new driver...")
                                         sh """
-                                            sudo apt install -y ${driver_path} >> installation_${it}.log 2>&1 && \
+                                            sudo apt-get install -y ${driver_path} >> installation_${it}.log 2>&1 && \
                                             sudo amdgpu-install --usecase=workstation -y --vulkan=pro --opencl=rocr,legacy --accept-eula >> installation_${it}.log 2>&1 \
                                         """
                                     }
