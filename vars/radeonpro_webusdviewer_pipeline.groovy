@@ -1,4 +1,8 @@
 import groovy.transform.Field
+import groovy.json.JsonOutput
+import net.sf.json.JSON
+import net.sf.json.JSONSerializer
+import net.sf.json.JsonConfig
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 
@@ -9,6 +13,30 @@ import groovy.transform.Field
     productExtensions: ["Windows": "msi"],
     artifactNameBase: "AMD_RenderStudio"
 )
+
+
+Integer getNextTestInstanceNumber(Map options) {
+    downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.txt", ".")
+
+    def instancesInfo = readJSON(file: "TestingInstancesInfo.txt")
+
+    Integer testingNumber
+
+    if (instancesInfo["prs"].containsKey(env.BRANCH_NAME)) {
+        Integer testingNumber = instancesInfo["prs"][env.BRANCH_NAME]
+    } else {
+        Integer testingNumber = instancesInfo["globalCounter"]
+        instancesInfo["globalCounter"] = instancesInfo["globalCounter"] >= MAX_TEST_INSTANCE_NUMBER ? 1 : instancesInfo["globalCounter"] + 1
+    }
+ 
+    options.deployEnvironment = "test${testingNumber}"
+
+    def jsonOutputInfo = JsonOutput.toJson(instancesInfo)
+    JSON serializedInfo = JSONSerializer.toJSON(jsonOutputInfo, new JsonConfig());
+    writeJson(file: "TestingInstancesInfo.txt", json: serializedInfo), pretty: 4
+
+    uploadFiles("TestingInstancesInfo.txt", "/volume1/CIS/WebUSD/State")
+}
 
 
 def doSanityCheckWindows(String asicName, Map options) {
@@ -149,13 +177,8 @@ def executeBuildLinux(Map options) {
     }
 
     if (options.deployEnvironment == "pr") {
-        downloadFiles("/volume1/CIS/WebUSD/State/NextTestingNumber.txt", ".")
-
-        Integer testingNumber = readFile(file: "NextTestingNumber.txt") as Integer
+        Integer testingNumber = getNextTestInstanceNumber(options)
         options.deployEnvironment = "test${testingNumber}"
-        writeFile(file: "NextTestingNumber.txt", text: "${testingNumber >= MAX_TEST_INSTANCE_NUMBER ? 1 : testingNumber + 1}")
-
-        uploadFiles("NextTestingNumber.txt", "/volume1/CIS/WebUSD/State")
     }
 
     downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
