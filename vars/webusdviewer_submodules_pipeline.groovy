@@ -14,7 +14,7 @@ def call() {
                 
                 String version = bat(script: script, returnStdout: true).trim() as String
 
-                println("Current version of: " + version)
+                println("Current version of submodule: " + version)
                 def splitted = version.split("\\.")
 
                 if (splitted.size() == 3) {
@@ -29,19 +29,20 @@ def call() {
                         case "develop":
                             lastMinor += 1
                             break
-                        default :
+                        case "test":   // test branch
                             firstMinor += 1
                             break
                     }
 
-                    bat """
-                        break > VERSION.txt
-                        echo "${major}.${firstMinor}.${lastMinor}" > VERSION.txt
-                    """
-
                     version = bat(script: "FOR /F %%i IN (VERSION.txt) DO @echo %%i", returnStdout: true).trim() as String
+                    println("Newest version of submodule: " + version)
 
-                    println("Newest version of: " + version)
+                    bat """
+                            break > VERSION.txt
+                            echo "${major}.${firstMinor}.${lastMinor}" > VERSION.txt
+                            git commit VERSION.txt -m "buildmaster: version update to ${major}.${firstMinor}.${lastMinor}"
+                            git push origin HEAD:${env.BRANCH_NAME}
+                        """
                 }
             }
         }
