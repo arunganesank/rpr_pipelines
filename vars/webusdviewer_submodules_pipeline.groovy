@@ -7,7 +7,12 @@ def call() {
             ws("WS/WebUsdLiveServer_increment") {
                 checkoutScm(branchName: env.BRANCH_NAME, repositoryUrl: PROJECT_REPO)
 
-                String version = bat(script: "FOR /F %%i IN (VERSION.txt) DO @echo %%i", returnStdout: true).trim() as String
+                def script = """
+                    @echo off
+                    FOR /F %%i IN (VERSION.txt) DO @echo %%i
+                """
+                
+                String version = bat(script: script, returnStdout: true).trim() as String
 
                 println("Current version of: " + version)
 
