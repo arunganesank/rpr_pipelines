@@ -15,13 +15,8 @@ def call() {
                 String version = bat(script: script, returnStdout: true).trim() as String
 
                 println("Current version of: " + version)
+                def splitted = version.split("\\.")
 
-                println version.getClass()
-                def splitted = version.split(".")
-
-                println splitted.getClass()
-                println(splitted)
-                println splitted.size()
                 if (splitted.size() == 3) {
                     def major = splitted[0]
                     def firstMinor = splitted[1]
@@ -29,10 +24,10 @@ def call() {
                     
                     switch(env.BRANCH_NAME) {
                         case "master":
-                            firstMinor++
+                            firstMinor += 1
                             break
                         case "develop":
-                            lastMinor++
+                            lastMinor += 1
                             break
                     }
 
