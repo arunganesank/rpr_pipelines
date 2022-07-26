@@ -30,7 +30,7 @@ def call() {
                             lastMinor += 1
                             break
                         default :
-                            lastMinor += 1
+                            firstMinor += 1
                             break
                     }
 
