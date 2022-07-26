@@ -29,6 +29,9 @@ def call() {
                         case "develop":
                             lastMinor += 1
                             break
+                        default :
+                            lastMinor++
+                            break
                     }
 
                     bat """
