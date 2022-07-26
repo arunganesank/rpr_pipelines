@@ -18,9 +18,9 @@ def call() {
                 def splitted = version.split("\\.")
 
                 if (splitted.size() == 3) {
-                    def major = splitted[0]
-                    def firstMinor = splitted[1]
-                    def lastMinor = splitted[2]
+                    int major = splitted[0] as Integer
+                    int firstMinor = splitted[1] as Integer
+                    int lastMinor = splitted[2] as Integer
                     
                     switch(env.BRANCH_NAME) {
                         case "master":
