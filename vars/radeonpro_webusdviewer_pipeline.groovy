@@ -29,14 +29,16 @@ Integer getNextTestInstanceNumber(Map options) {
         instancesInfo["prs"][env.BRANCH_NAME] = testingNumber
         instancesInfo["globalCounter"] = instancesInfo["globalCounter"] >= MAX_TEST_INSTANCE_NUMBER ? 1 : instancesInfo["globalCounter"] + 1
     }
- 
+
     options.deployEnvironment = "test${testingNumber}"
 
     def jsonOutputInfo = JsonOutput.toJson(instancesInfo)
     JSON serializedInfo = JSONSerializer.toJSON(jsonOutputInfo, new JsonConfig());
-    writeJson(file: "TestingInstancesInfo.json", json: serializedInfo, pretty: 4)
+    writeJSON(file: "TestingInstancesInfo.json", json: serializedInfo, pretty: 4)
 
     uploadFiles("TestingInstancesInfo.json", "/volume1/CIS/WebUSD/State")
+
+    return testingNumber
 }
 
 
