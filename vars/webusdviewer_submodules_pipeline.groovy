@@ -31,7 +31,7 @@ def call(String projectName, String projectRepo) {
                             break
                         */
                         case "test":   // test branch
-                            firstMinor += 1
+                            lastMinor += 1
                             break
                     }
 
