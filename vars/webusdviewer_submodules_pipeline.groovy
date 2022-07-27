@@ -35,15 +35,15 @@ def call(String projectName, String projectRepo) {
                             break
                     }
 
-                    version = bat(script: "FOR /F %%i IN (VERSION.txt) DO @echo %%i", returnStdout: true).trim() as String
-                    println("Newest version of submodule: " + version)
-
                     bat """
                             break > VERSION.txt
                             echo ${major}.${firstMinor}.${lastMinor} > VERSION.txt 
                             git commit VERSION.txt -m "buildmaster: version update to ${major}.${firstMinor}.${lastMinor}"
                             git push origin HEAD:${env.BRANCH_NAME}
                         """
+
+                    version = bat(script: script, returnStdout: true).trim() as String
+                    println("Newest version of submodule: " + version)
                 } else {
                     throw new Exception("Wrong version formatting")
                 }
