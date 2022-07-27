@@ -29,7 +29,7 @@ def call(String projectName, String projectRepo) {
                     bat """
                             break > VERSION.txt
                             echo ${new_version} > VERSION.txt 
-                            git commit VERSION.txt -m "buildmaster: version update to ${major}.${firstMinor}.${lastMinor}"
+                            git commit VERSION.txt -m "buildmaster: version update to ${new_version}"
                             git push origin HEAD:${env.BRANCH_NAME}
                         """
 
