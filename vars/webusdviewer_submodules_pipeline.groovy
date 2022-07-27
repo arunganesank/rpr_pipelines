@@ -1,24 +1,10 @@
 
 
-def setProjectRepo(String projectName){
-    switch(projectName) {
-        case "WebUsdLiveServer": 
-            return "git@github.com:s1lentssh/WebUsdLiveServer.git"
-        case "WebUsdRouteServer": 
-            return "git@github.com:s1lentssh/WebUsdRouteServer.git"
-        case "WebUsdStorageServer": 
-            return "git@github.com:s1lentssh/WebUsdStorageServer.git"
-    }
-}
-
-def call(String projectName) {
-    
-    String PROJECT_REPO = setProjectRepo(projectName)
-
+def call(String projectName, String projectRepo) {
     stage("Increment version") {
         node("GitPublisher") {
             ws("WS/${projectName}_increment") {
-                checkoutScm(branchName: env.BRANCH_NAME, repositoryUrl: PROJECT_REPO)
+                checkoutScm(branchName: env.BRANCH_NAME, repositoryUrl: projectRepo)
 
                 def script = """
                     @echo off
