@@ -43,6 +43,8 @@ def call() {
                             git commit VERSION.txt -m "buildmaster: version update to ${major}.${firstMinor}.${lastMinor}"
                             git push origin HEAD:${env.BRANCH_NAME}
                         """
+                } else {
+                    throw new Exception("Wrong version formatting")
                 }
             }
         }
