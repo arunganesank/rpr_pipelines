@@ -22,12 +22,14 @@ def call(String projectName, String projectRepo) {
                     int lastMinor = splitted[2] as Integer
                     
                     switch(env.BRANCH_NAME) {
+                        /*
                         case "master":
                             firstMinor += 1
                             break
                         case "develop":
                             lastMinor += 1
                             break
+                        */
                         case "test":   // test branch
                             firstMinor += 1
                             break
