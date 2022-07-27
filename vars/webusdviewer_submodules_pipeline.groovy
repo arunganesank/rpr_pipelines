@@ -16,7 +16,7 @@ def call(String projectName, String projectRepo) {
                 println("Current version of submodule: " + version)
                 def splitted = version.split("\\.")
 
-                if (splitted.size() == 3) {
+                if (splitted.size() == 3 && env.BRANCH_NAME == "test") { // debug delete it: "&& env.BRANCH_NAME == "test""
                     int major = splitted[0] as Integer
                     int firstMinor = splitted[1] as Integer
                     int lastMinor = splitted[2] as Integer
