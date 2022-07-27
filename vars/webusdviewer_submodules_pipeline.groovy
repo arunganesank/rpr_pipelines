@@ -15,14 +15,14 @@ def call(String projectName, String projectRepo) {
                     switch(env.BRANCH_NAME) {
                         /*
                         case "master":
-                            def new_version = version_inc(version, 2, '.')
+                            def new_version = version_inc(version, 2)
                             break
                         case "develop":
-                            def new_version = version_inc(version, 3, '.')
+                            def new_version = version_inc(version, 3)
                             break
                         */
                         case "test":   // test branch
-                            def new_version = version_inc(version, 3, '.')
+                            def new_version = version_inc(version, 3)
                             break
                     }
 
