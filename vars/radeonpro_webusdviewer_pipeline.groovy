@@ -15,6 +15,11 @@ import net.sf.json.JsonConfig
 )
 
 
+Boolean buildingFinished(Map options) {
+    return options["finishedBuildStages"]["Windows"] && options["finishedBuildStages"]["Ubuntu20"]
+}
+
+
 Integer getNextTestInstanceNumber(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
 
@@ -67,18 +72,18 @@ def doSanityCheckWindows(String asicName, Map options) {
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
-            python3("webusd_check.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
+            python3("webusd_check_win.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
         }
     }
 
     utils.reboot(this, "Windows")
 
-    dir("${options.stageName}") {
-        utils.moveFiles(this, "Windows", "../webusd_check.log", "${options.stageName}.log")
-        utils.moveFiles(this, "Windows", "../screen.jpg", "${options.stageName}.jpg")
+    dir("Windows-check") {
+        utils.moveFiles(this, "Windows", "../webusd_check.log", "Windows.log")
+        utils.moveFiles(this, "Windows", "../screen.jpg", "Windows.jpg")
     }
 
-    archiveArtifacts(artifacts: "${options.stageName}/*")
+    archiveArtifacts(artifacts: "Windows-check/*")
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
@@ -180,8 +185,10 @@ def executeBuildLinux(Map options) {
         webUsdUrlBase = remoteHost
     }
 
+    Integer testingNumber
+
     if (options.deployEnvironment == "pr") {
-        Integer testingNumber = getNextTestInstanceNumber(options)
+        testingNumber = getNextTestInstanceNumber(options)
         options.deployEnvironment = "test${testingNumber}"
     }
 
@@ -313,6 +320,24 @@ def executeBuildLinux(Map options) {
             notifyByTg(options)
         }
     }
+
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+        downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
+    }
+
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+        timeout(time: 2, unit: "MINUTES") {
+            String testingUrl = "https://test${testingNumber}.webusd.stvcis.com"
+
+            python3("webusd_check_web.py --service_url ${testingUrl}")
+
+            dir("Ubuntu20-check") {
+                utils.moveFiles(this, "Windows", "../screen.jpg", "Ubuntu20.jpg")
+            }
+
+            archiveArtifacts(artifacts: "Ubuntu20-check/*")
+        }
+    }
 }
 
 
@@ -430,7 +455,8 @@ def call(
                                 isPreBuilt:isPreBuilt,
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 retriesForTestStage:1,
-                                splitTestsExecution: false
+                                splitTestsExecution: false,
+                                testsPreCondition: this.&buildingFinished
                                 ])
     } catch(e) {
         currentBuild.result = "FAILURE"
