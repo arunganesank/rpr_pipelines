@@ -6,7 +6,7 @@ def call(String projectName, String projectRepo) {
             ws("WS/${projectName}_increment") {
                 checkoutScm(branchName: env.BRANCH_NAME, repositoryUrl: projectRepo)
 
-                String version = context.readFile("VERSION.txt") 
+                String version = this.readFile("VERSION.txt") 
 
                 println("Current version of submodule: " + version)
                 def splitted = version.split("\\.")
@@ -33,7 +33,7 @@ def call(String projectName, String projectRepo) {
                             git push origin HEAD:${env.BRANCH_NAME}
                         """
 
-                    version = context.readFile("VERSION.txt")
+                    version = this.readFile("VERSION.txt")
                     println("Newest version of submodule: " + version)
                 } else {
                     throw new Exception("Wrong version formatting")
