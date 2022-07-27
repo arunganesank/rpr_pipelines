@@ -15,11 +15,6 @@ import net.sf.json.JsonConfig
 )
 
 
-Boolean buildingFinished(Map options) {
-    return options["finishedBuildStages"]["Windows"] && options["finishedBuildStages"]["Ubuntu20"]
-}
-
-
 Integer getNextTestInstanceNumber(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
 
@@ -327,12 +322,12 @@ def executeBuildLinux(Map options) {
 
     withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
-            String testingUrl = "https://test${testingNumber}.webusd.stvcis.com"
+            String testingUrl = "https://${options.deployEnvironment}.webusd.stvcis.com"
 
             python3("webusd_check_web.py --service_url ${testingUrl}")
 
             dir("Ubuntu20-check") {
-                utils.moveFiles(this, "Windows", "../screen.jpg", "Ubuntu20.jpg")
+                utils.moveFiles(this, "Ubuntu20", "../screen.jpg", "Ubuntu20.jpg")
             }
 
             archiveArtifacts(artifacts: "Ubuntu20-check/*")
@@ -455,8 +450,7 @@ def call(
                                 isPreBuilt:isPreBuilt,
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 retriesForTestStage:1,
-                                splitTestsExecution: false,
-                                testsPreCondition: this.&buildingFinished
+                                splitTestsExecution: false
                                 ])
     } catch(e) {
         currentBuild.result = "FAILURE"
