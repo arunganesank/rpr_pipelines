@@ -1702,7 +1702,7 @@ def call(String projectBranch = "",
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             // Anroid tests required built Windows Streaming SDK to run server side
-            if (platforms.contains("Android:") && !platforms.contains("Windows")) {
+            if ((platforms.contains("Android:") || platforms.contains("Ubuntu:")) && !platforms.contains("Windows")) {
                 platforms = platforms + ";Windows"
 
                 winBuildConfiguration = "debug"
