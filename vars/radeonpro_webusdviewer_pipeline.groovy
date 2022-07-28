@@ -415,9 +415,11 @@ def executePreBuild(Map options) {
         githubNotificator.init(options)
         options["githubNotificator"] = githubNotificator
     }
-    options.platforms.split(';').each() { os ->
-        List tokens = os.tokenize(':')
-        String platform = tokens.get(0) 
+    //options.platforms.split(';') // debug
+    ['Windows', 'Ubuntu20'].each() { os ->
+        //List tokens = os.tokenize(':')
+        //String platform = tokens.get(0) 
+        def platform = os
         platform = platform == "Windows" ?: "Web application"
         GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
         if (platform == "Web application") {
