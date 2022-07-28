@@ -510,7 +510,8 @@ def executeBuildUnix(String osName, Map options) {
 
 def executeBuild(String osName, Map options) {
 
-    if (options.buildType == "Houdini") {
+    // TODO: actualize Houdini installation with developer licenses
+/*    if (options.buildType == "Houdini") {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.INSTALL_HOUDINI) {
             timeout(time: "20", unit: "MINUTES") {
                 withCredentials([[$class: "UsernamePasswordMultiBinding", credentialsId: "sidefxCredentials", usernameVariable: "USERNAME", passwordVariable: "PASSWORD"]]) {
@@ -518,7 +519,7 @@ def executeBuild(String osName, Map options) {
                 }
             }
         }
-    }
+    }*/
 
     try {
         dir ("RadeonProRenderUSD") {
