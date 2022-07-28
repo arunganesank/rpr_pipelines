@@ -15,7 +15,7 @@ import TestsExecutionType
 
 
 String getClientLabels(Map options) {
-    return "${options.osName} && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
+    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
 }
 
 String getMulticonnectionClientLabels(Map options) {
@@ -61,6 +61,23 @@ Boolean isIdleClient(Map options) {
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
         return options["finishedBuildStages"]["Windows"]
+    } else if (options["osName"] == "Ubuntu20") {
+        Boolean result = false
+
+        // wait client machine
+        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+
+        for (node in suitableNodes) {
+            if (utils.isNodeIdle(node)) {
+                result = true
+            }
+        }
+
+        if (!options["finishedBuildStages"]["Windows"]) {
+            result = false
+        }
+
+        return result
     }
 }
 
