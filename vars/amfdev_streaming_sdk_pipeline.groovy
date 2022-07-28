@@ -185,12 +185,13 @@ def runDriverTests(Map options) {
 }
 
 
-def getServerIpAddress(String osName, Map options) {
+def getServerIpAddress(String osName) {
     switch(osName) {
         case "Windows":
             return bat(script: "echo %IP_ADDRESS%",returnStdout: true).split('\r\n')[2].trim()
-        case "OSX":
-            println("Unsupported OS")
+            break
+        case "Ubuntu20":
+            return sh(script: "echo $IP_ADDRESS",returnStdout: true)
             break
         default:
             println("Unsupported OS")
@@ -198,11 +199,20 @@ def getServerIpAddress(String osName, Map options) {
 }
 
 
-def getGPUName() {
+def getGPUName(String osName) {
     try {
         dir("jobs_launcher") {
             dir("core") {
-                return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                switch(osName) {
+                    case "Windows":
+                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                        break
+                    case "Ubuntu20":
+                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"")
+                        break
+                    default:
+                        println("Unsupported OS")
+                }
             }
         }
     } catch (e) {
@@ -212,11 +222,20 @@ def getGPUName() {
 }
 
 
-def getOSName() {
+def getOSName(String osName) {
     try {
         dir("jobs_launcher") {
             dir("core") {
-                return python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                switch(osName) {
+                    case "Windows":
+                        rreturn python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                        break
+                    case "Ubuntu20":
+                        return python3("-c \"from system_info import get_os; print(get_os())\"")
+                        break
+                    default:
+                        println("Unsupported OS")
+                }
             }
         }
     } catch (e) {
@@ -226,12 +245,13 @@ def getOSName() {
 }
 
 
-def getCommunicationPort(String osName, Map options) {
+def getCommunicationPort(String osName) {
     switch(osName) {
         case "Windows":
             return bat(script: "echo %COMMUNICATION_PORT%",returnStdout: true).split('\r\n')[2].trim()
-        case "OSX":
-            println("Unsupported OS")
+            break
+        case "Ubuntu20":
+            return sh(script: "echo $COMMUNICATION_PORT",returnStdout: true)
             break
         default:
             println("Unsupported OS")
@@ -369,8 +389,12 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                 break
 
-            case "OSX":
-                println "OSX isn't supported"
+            case "Ubuntu20":
+                def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
+
+                bat """
+                    run_ubuntu_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                """
                 break
 
             default:
@@ -383,6 +407,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
     try {
         dir(options.stageName) {
+            // TODO: check that it works on Ubuntu
             utils.moveFiles(this, osName, "../*.log", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
@@ -550,8 +575,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         utils.reboot(this, osName)
 
-        initAndroidDevice()
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 cleanWS(osName)
@@ -577,27 +600,32 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     prepareTool(osName, options)
                 }
 
-                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.2.json~" || options.parsedTests == "regression.3.json~") {
-                    dir("StreamingSDKAndroid") {
-                        prepareTool("Android", options)
-                        installAndroidClient()
+                // Android autotests support only Windows server machines
+                if (osName == "Windows") {
+                    initAndroidDevice()
+
+                    if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.2.json~" || options.parsedTests == "regression.3.json~") {
+                        dir("StreamingSDKAndroid") {
+                            prepareTool("Android", options)
+                            installAndroidClient()
+                        }
                     }
                 }
             }
         }
 
-        options["serverInfo"]["ipAddress"] = getServerIpAddress(osName, options)
+        options["serverInfo"]["ipAddress"] = getServerIpAddress(osName)
         println("[INFO] IPv4 address of server: ${options.serverInfo.ipAddress}")
 
-        options["serverInfo"]["gpuName"] = getGPUName()
+        options["serverInfo"]["gpuName"] = getGPUName(osName)
         println("[INFO] Name of GPU on server machine: ${options.serverInfo.gpuName}")
-        
-        options["serverInfo"]["osName"] = getOSName()
+
+        options["serverInfo"]["osName"] = getOSName(osName)
         println("[INFO] Name of OS on server machine: ${options.serverInfo.osName}")
 
-        options["serverInfo"]["communicationPort"] = getCommunicationPort(osName, options)
+        options["serverInfo"]["communicationPort"] = getCommunicationPort(osName)
         println("[INFO] Communication port: ${options.serverInfo.communicationPort}")
-        
+
         options["serverInfo"]["ready"] = true
         println("[INFO] Server is ready to run tests")
 
