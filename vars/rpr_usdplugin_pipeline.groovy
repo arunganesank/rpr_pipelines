@@ -412,9 +412,11 @@ def executeBuildOSX(String osName, Map options) {
         GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
         if (options.buildType == "Houdini") {
             options.osx_tool_path = "/Applications/Houdini/Houdini${options.houdiniVersion}/Frameworks/Houdini.framework/Versions/Current/Resources"
+            String[] versionParts = options.houdiniVersion.split("\\.")
             sh """
                 mkdir build
                 export HFS=${options.osx_tool_path}
+                /Applications/Houdini/Houdini${options.houdiniVersion}/Frameworks/Houdini.framework/Versions/${versionParts[0]}.${versionParts[1]}/Resources/bin/hserver
                 python3 --version >> ../${STAGE_NAME}.log 2>&1
                 python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
             """
@@ -478,6 +480,7 @@ def executeBuildUnix(String osName, Map options) {
             sh """
                 mkdir build
                 export HFS=${installation_path}/${options.unix_tool_path}
+                \$HFS/bin/hserver
                 python3 --version >> ../${STAGE_NAME}.log 2>&1
                 python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
             """
