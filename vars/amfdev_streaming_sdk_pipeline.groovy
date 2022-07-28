@@ -87,6 +87,8 @@ def getClientScreenWidth(String osName, Map options) {
         switch(osName) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+            case "Ubuntu20":
+                return powershell(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true)
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -107,6 +109,8 @@ def getClientScreenHeight(String osName, Map options) {
         switch(osName) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+            case "Ubuntu20":
+                return powershell(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true)
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -132,6 +136,10 @@ def prepareTool(String osName, Map options) {
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
+            break
+        case "Ubuntu20":
+            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
+            unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             break
         case "OSX":
             println("Unsupported OS")
@@ -338,6 +346,9 @@ def closeGames(String osName, Map options, String gameName) {
                     """
                 }
 
+                break
+            case "Ubuntu20":
+                println("TODO: implement apps closing on Ubuntu")
                 break
             case "OSX":
                 println("Unsupported OS")
@@ -910,7 +921,7 @@ def executeTests(String osName, String asicName, Map options) {
         options.parsedTests = options.tests.split("-")[0]
         options.engine = options.tests.split("-")[1]
 
-        if (osName == "Windows") {
+        if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
             options["serverInfo"] = new ConcurrentHashMap()
             options["mcClientInfo"] = new ConcurrentHashMap()
@@ -1118,8 +1129,7 @@ def executeBuildUbuntu(Map options) {
 
         zip archive: true, zipFile: BUILD_NAME
 
-        utils.moveFiles(this, "Ubuntu20", BUILD_NAME, "ubuntu20.zip")
-        //makeStash(includes: "ubuntu20.zip", name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
+        makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
 
         archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
         rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
