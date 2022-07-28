@@ -106,7 +106,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
         currentBuild.result = "FAILED"
         throw e
     } finally {
-        if (currentBuild.result = "FAILED") {
+        if (currentBuild.result == "FAILED") {
             GithubNotificator.updateStatus("Sanity check", "Windows", "failure", options, "Error during sanity tests", "${env.JOB_URL}")
         } else {
             GithubNotificator.updateStatus("Sanity check", "Windows", "success", options, "Seccessfully passed sanity tests", "${env.JOB_URL}")
