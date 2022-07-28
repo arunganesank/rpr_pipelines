@@ -106,6 +106,11 @@ def doSanityCheck(String osName, String asicName, Map options) {
         currentBuild.result = "FAILED"
         throw e
     } finally {
+        if (currentBuild.result = "FAILED") {
+            GithubNotificator.updateStatus("Sanity check", "Windows", "failure", options, "Error during sanity tests", "${env.JOB_URL}")
+        } else {
+            GithubNotificator.updateStatus("Sanity check", "Windows", "success", options, "Seccessfully passed sanity tests", "${env.JOB_URL}")
+        }
         archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
     }
 }
@@ -164,8 +169,11 @@ def executeBuildWindows(Map options) {
         }
 
         if (failure) {
+            GithubNotificator.updateStatus("Build", "Windows", "failure", options, "Error during build", "${env.JOB_URL}")
             currentBuild.result = "FAILED"
             error "error during build"
+        } else {
+            GithubNotificator.updateStatus("Build", "Windows", "success", options, "Build completed successfully", "${env.JOB_URL}")
         }
     }
 }
@@ -255,8 +263,11 @@ def executeBuildLinux(Map options) {
         }
 
         if (failure) {
+            GithubNotificator.updateStatus("Build", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
             currentBuild.result = "FAILED"
             error "error during build"
+        } else {
+            GithubNotificator.updateStatus("Build", "Web application", "success", options, "Build completed successfully", "${env.JOB_URL}")
         }
     }
 
@@ -304,8 +315,11 @@ def executeBuildLinux(Map options) {
             }
 
             if (failure) {
+                GithubNotificator.updateStatus("Deploy", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
                 currentBuild.result = "FAILED"
                 error "error during deploy"
+            } else {
+                GithubNotificator.updateStatus("Deploy", "Web application", "success", options, "Deployed successfully", "${env.JOB_URL}")
             }
         }
     }
@@ -395,13 +409,36 @@ def notifyByTg(Map options){
     }
 }
 
+def executePreBuild(Map options) {
+    withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+        GithubNotificator githubNotificator = new GithubNotificator(this, options)
+        githubNotificator.init(options)
+        options["githubNotificator"] = githubNotificator
+    }
+    options.platforms.split(';').each() { platform ->
+        List tokens = platform.tokenize(':')
+        String platform = tokens.get(0) 
+        platform = platform == "Windows" ?: "Web application"
+        GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+        if (platform == "Web application") {
+            GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+        } else {
+            GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+        }
+    }
+}
 
+def executeDeploy(Map options) {
+    GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
+}
+
+// debug return: Boolean deploy = true
 def call(
     String projectBranch = "",
     String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
-    Boolean deploy = true,
+    Boolean deploy = false,
     String deployEnvironment = 'pr',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
@@ -431,7 +468,7 @@ def call(
     """
 
     try {
-        multiplatform_pipeline(platforms, null, this.&executeBuild, this.&doSanityCheck, null,
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null,
                                 [configuration: PIPELINE_CONFIGURATION,
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
