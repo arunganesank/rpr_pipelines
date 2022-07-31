@@ -83,10 +83,14 @@ def executeTests(String osName, String asicName, Map options) {
             } else if (osName == "Windows") {
                 downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/VS_dlls/*", "Anari")
             } else {
-                sh """
-                    sudo apt-get install libgl1-mesa-dev -y
-                    sudo apt-get install libglfw3-dev -y
-                """
+                try {
+                    sh """
+                        sudo apt-get install libgl1-mesa-dev -y
+                        sudo apt-get install libglfw3-dev -y
+                    """
+                } catch (e) {
+                    println("[WARNING] Some error during libs installation")
+                }
 
                 // Clear Anari build directories as root
                 sh("sudo rm -rf AnariSDK")
@@ -192,10 +196,14 @@ def executeTests(String osName, String asicName, Map options) {
         if (osName == "MacOS" || osName == "MacOS_ARM") {
             sh("brew uninstall glfw3")
         } else if (osName == "Ubuntu20") {
-            sh """
-                sudo apt-get purge libgl1-mesa-dev -y
-                sudo apt-get purge libglfw3-dev -y
-            """
+            try {
+                sh """
+                    sudo apt-get purge libgl1-mesa-dev -y
+                    sudo apt-get purge libglfw3-dev -y
+                """
+            } catch (e) {
+                println("[WARNING] Some error during libs uninstallation")
+            }
         }
 
         try {
