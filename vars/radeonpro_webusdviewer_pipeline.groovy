@@ -410,20 +410,35 @@ def notifyByTg(Map options){
 }
 
 def executePreBuild(Map options) {
+    ws("WebUSD-prebuild"){
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+        options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
+        options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
+        options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        println "The last commit was written by ${options.commitAuthor}."
+        println "Commit message: ${options.commitMessage}"
+        println "Commit SHA: ${options.commitSHA}"
+    }
     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
         githubNotificator.init(options)
         options["githubNotificator"] = githubNotificator
+        println("[DEBUG] Created github notify")
     }
+    println(options.platforms.getClass())
     //options.platforms.split(';') // debug
     ['Windows', 'Ubuntu20'].each() { os ->
         //List tokens = os.tokenize(':')
         //String platform = tokens.get(0) 
         def platform = os
-        platform = platform == "Windows" ?: "Web application"
+        platform = platform == "Windows" ? "Windows" : "Web application"
         GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+        println("[DEBUG] Created status Build ${platform} notify")
+        GithubNotificator.createStatus('Test', "${gpuName}-${osName}-${testQuality}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+        println("[DEBUG] Created status Test ${platform} notify")
         if (platform == "Web application") {
             GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+            println("[DEBUG] Created status Deploy ${platform} notify")
         } else {
             GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
         }
