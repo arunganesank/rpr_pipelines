@@ -86,6 +86,13 @@ def executeTests(String osName, String asicName, Map options) {
                 try {
                     sh """
                         sudo apt-get install libgl1-mesa-dev -y
+                    """
+                } catch (e) {
+                    println("[WARNING] Some error during libs installation")
+                }
+
+                try {
+                    sh """
                         sudo apt-get install libglfw3-dev -y
                     """
                 } catch (e) {
@@ -199,6 +206,13 @@ def executeTests(String osName, String asicName, Map options) {
             try {
                 sh """
                     sudo apt-get purge libgl1-mesa-dev -y
+                """
+            } catch (e) {
+                println("[WARNING] Some error during libs uninstallation")
+            }
+
+            try {
+                sh """
                     sudo apt-get purge libglfw3-dev -y
                 """
             } catch (e) {
