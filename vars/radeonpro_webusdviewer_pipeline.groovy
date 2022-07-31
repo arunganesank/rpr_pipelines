@@ -434,7 +434,7 @@ def executePreBuild(Map options) {
         platform = platform == "Windows" ? "Windows" : "Web application"
         GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
         println("[DEBUG] Created status Build ${platform} notify")
-        GithubNotificator.createStatus('Test', "${gpuName}-${osName}-${testQuality}", 'queued', options, 'Scheduled', "${env.JOB_URL}")
+        GithubNotificator.createStatus('Test', platform, 'queued', options, 'Scheduled', "${env.JOB_URL}")
         println("[DEBUG] Created status Test ${platform} notify")
         if (platform == "Web application") {
             GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
