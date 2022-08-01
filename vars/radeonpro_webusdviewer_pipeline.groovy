@@ -86,6 +86,23 @@ def doSanityCheckWindows(String asicName, Map options) {
 }
 
 
+def doSanityCheckLinux(String asicName, Map options) {
+    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+        timeout(time: 2, unit: "MINUTES") {
+            String testingUrl = "https://${options.deployEnvironment}.webusd.stvcis.com"
+
+            python3("webusd_check_web.py --service_url ${testingUrl}")
+
+            dir("Ubuntu20-check") {
+                utils.moveFiles(this, "Ubuntu20", "../screen.jpg", "Ubuntu20.jpg")
+            }
+
+            archiveArtifacts(artifacts: "Ubuntu20-check/*")
+        }
+    }
+}
+
+
 def doSanityCheck(String osName, String asicName, Map options) {
     try {
         cleanWS(osName)
@@ -98,18 +115,21 @@ def doSanityCheck(String osName, String asicName, Map options) {
             case 'Windows':
                 doSanityCheckWindows(asicName, options)
                 break
-            default:
-                println "[WARNING] ${osName} is not supported"
+            case 'Ubuntu20':
+                doSanityCheckLinux(asicName, options)
+                break
         }
+
     } catch (e) {
-        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", "Windows"))
+        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", osName))
         currentBuild.result = "FAILED"
         throw e
     } finally {
+        def platform = osName == 'Windows' ? "Windows" : "Web application"
         if (currentBuild.result == "FAILED") {
-            GithubNotificator.updateStatus("Sanity check", "Windows", "failure", options, "Error during sanity tests", "${env.JOB_URL}")
+            GithubNotificator.updateStatus("Sanity check", platform, "failure", options, "Error during sanity tests", "${env.JOB_URL}")
         } else {
-            GithubNotificator.updateStatus("Sanity check", "Windows", "success", options, "Seccessfully passed sanity tests", "${env.JOB_URL}")
+            GithubNotificator.updateStatus("Sanity check", platform, "success", options, "Seccessfully passed sanity tests", "${env.JOB_URL}")
         }
         archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
     }
@@ -263,10 +283,12 @@ def executeBuildLinux(Map options) {
         }
 
         if (failure) {
-            GithubNotificator.updateStatus("Build", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
+            if (options.deploy) {
+                GithubNotificator.updateStatus("Build", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
+            }
             currentBuild.result = "FAILED"
             error "error during build"
-        } else {
+        } else if (options.deploy) {
             GithubNotificator.updateStatus("Build", "Web application", "success", options, "Build completed successfully", "${env.JOB_URL}")
         }
     }
@@ -312,14 +334,16 @@ def executeBuildLinux(Map options) {
                 println(e.toString())
                 failure = true
                 status = false
-            }
-
-            if (failure) {
-                GithubNotificator.updateStatus("Deploy", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
-                currentBuild.result = "FAILED"
-                error "error during deploy"
-            } else {
-                GithubNotificator.updateStatus("Deploy", "Web application", "success", options, "Deployed successfully", "${env.JOB_URL}")
+            } finally {
+                if (options.deploy) {
+                    if (failure) {
+                        GithubNotificator.updateStatus("Deploy", "Web application", "failure", options, "Error during deploy", "${env.JOB_URL}")
+                        currentBuild.result = "FAILED"
+                        error "error during deploy"
+                    } else {
+                        GithubNotificator.updateStatus("Deploy", "Web application", "success", options, "Deployed successfully", "${env.JOB_URL}")
+                    }
+                }
             }
         }
     }
@@ -334,19 +358,7 @@ def executeBuildLinux(Map options) {
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
-        timeout(time: 2, unit: "MINUTES") {
-            String testingUrl = "https://${options.deployEnvironment}.webusd.stvcis.com"
-
-            python3("webusd_check_web.py --service_url ${testingUrl}")
-
-            dir("Ubuntu20-check") {
-                utils.moveFiles(this, "Ubuntu20", "../screen.jpg", "Ubuntu20.jpg")
-            }
-
-            archiveArtifacts(artifacts: "Ubuntu20-check/*")
-        }
-    }
+    
 }
 
 
@@ -360,10 +372,6 @@ def executeBuild(String osName, Map options) {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
             }
-        }
-
-        if (env.CHANGE_URL) {
-            // TODO add github notification
         }
 
         outputEnvironmentInfo(osName)
@@ -419,40 +427,37 @@ def executePreBuild(Map options) {
         println "Commit message: ${options.commitMessage}"
         println "Commit SHA: ${options.commitSHA}"
     }
+
     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
         githubNotificator.init(options)
         options["githubNotificator"] = githubNotificator
-        println("[DEBUG] Created github notify")
     }
-    println(options.platforms.getClass())
-    //options.platforms.split(';') // debug
-    ['Windows', 'Ubuntu20'].each() { os ->
-        //List tokens = os.tokenize(':')
-        //String platform = tokens.get(0)
-        def platform = os
+
+    options.platforms.split(';').each() { os ->
+        List tokens = os.tokenize(':')
+        String platform = tokens.get(0)
         platform = platform == "Windows" ? "Windows" : "Web application"
         GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
-        if (platform == "Web application") {
+        GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+        if (options.deploy && platform == "Web application") {
             GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
-        } else {
-            GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
         }
     }
 }
 
 def executeDeploy(Map options) {
-    GithubNotificator.closeUnfinishedSteps(options, "Build completed")
+    GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
     GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
 }
 
-// debug return: Boolean deploy = true
+
 def call(
     String projectBranch = "",
     String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
-    Boolean deploy = false,
+    Boolean deploy = true,
     String deployEnvironment = 'pr',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
@@ -484,6 +489,7 @@ def call(
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null,
                                 [configuration: PIPELINE_CONFIGURATION,
+                                platforms: platforms,
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
                                 rebuildDeps:rebuildDeps,
