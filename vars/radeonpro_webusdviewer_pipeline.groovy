@@ -115,7 +115,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
             case 'Windows':
                 doSanityCheckWindows(asicName, options)
                 break
-            case 'Ubuntu20':
+            default:
                 doSanityCheckLinux(asicName, options)
                 break
         }
@@ -487,7 +487,7 @@ def call(
     """
 
     try {
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null,
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, this.&executeDeploy,
                                 [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
