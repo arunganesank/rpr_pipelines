@@ -108,7 +108,7 @@ def executeTests(String osName, String asicName, Map options) {
                     checkoutScm(branchName: options.anariSdkBranch, repositoryUrl: options.anariSdkRepo)
                 }
                 dir("RadeonProRenderAnari") {
-                    checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: RPR_ANARI_REPO)
+                    checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: options.rprAnariRepo)
                 }
 
                 sh("sudo " + '$CIS_TOOLS' + "/uninstall_anari_sdk.sh")
@@ -407,7 +407,7 @@ def executeBuild(String osName, Map options) {
                 checkoutScm(branchName: options.anariSdkBranch, repositoryUrl: options.anariSdkRepo)
             }
             dir('RadeonProRenderAnari') {
-                checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: RPR_ANARI_REPO)
+                checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: options.rprAnariRepo)
             }
         }
 
@@ -477,7 +477,7 @@ def executePreBuild(Map options) {
     if (!options['isPreBuilt']) {
         dir('RadeonProRenderAnari') {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: RPR_ANARI_REPO, disableSubmodules: true)
+                checkoutScm(branchName: options.rprAnariBranch, repositoryUrl: options.rprAnariRepo, disableSubmodules: true)
             }
 
             options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
@@ -748,6 +748,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String anariSdkRepo = ANARI_SDK_REPO,
     String anariSdkBranch = "main",
+    String rprAnariRepo = RPR_ANARI_REPO,
     String rprAnariBranch = "",
     String testsBranch = "master",
     String platforms = "Windows:AMD_WX9100,NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT;Ubuntu20:AMD_RX5700XT;MacOS:AMD_RX5700XT",
@@ -817,6 +818,7 @@ def call(String anariSdkRepo = ANARI_SDK_REPO,
             options << [configuration: PIPELINE_CONFIGURATION,
                         anariSdkRepo: anariSdkRepo,
                         anariSdkBranch: anariSdkBranch,
+                        rprAnariRepo: rprAnariRepo,
                         rprAnariBranch:rprAnariBranch,
                         projectRepo:RPR_ANARI_REPO,
                         testRepo:"git@github.com:luxteam/jobs_test_anari.git",
