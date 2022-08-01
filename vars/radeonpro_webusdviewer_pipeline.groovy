@@ -429,13 +429,11 @@ def executePreBuild(Map options) {
     //options.platforms.split(';') // debug
     ['Windows', 'Ubuntu20'].each() { os ->
         //List tokens = os.tokenize(':')
-        //String platform = tokens.get(0) 
+        //String platform = tokens.get(0)
         def platform = os
         platform = platform == "Windows" ? "Windows" : "Web application"
         GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
         println("[DEBUG] Created status Build ${platform} notify")
-        GithubNotificator.createStatus('Test', platform, 'queued', options, 'Scheduled', "${env.JOB_URL}")
-        println("[DEBUG] Created status Test ${platform} notify")
         if (platform == "Web application") {
             GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
             println("[DEBUG] Created status Deploy ${platform} notify")
@@ -446,6 +444,7 @@ def executePreBuild(Map options) {
 }
 
 def executeDeploy(Map options) {
+    GithubNotificator.closeUnfinishedSteps(options, "Build completed")
     GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
 }
 
