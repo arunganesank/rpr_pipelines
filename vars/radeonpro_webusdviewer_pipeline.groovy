@@ -504,6 +504,6 @@ def call(
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
         GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
-        GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
+        GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
     }
 }
