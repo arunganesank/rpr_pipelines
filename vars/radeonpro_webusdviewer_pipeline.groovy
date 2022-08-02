@@ -116,7 +116,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
     try {
         cleanWS(osName)
 
-        withNotifications(title: platform, options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+        withNotifications(title: platform, options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
             getProduct(osName, options)
         }
 
@@ -143,7 +143,7 @@ def executeBuildWindows(Map options) {
     def changedOptions = options
     changedOptions["stage"] = "Build"
 
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
         utils.reboot(this, "Windows")
 
         Boolean failure = false
@@ -223,7 +223,7 @@ def executeBuildLinux(Map options) {
     def changedOptions = options
     changedOptions["stage"] = "Build"
 
-    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
