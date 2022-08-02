@@ -473,10 +473,7 @@ def call(
         Update deps: ${updateDeps}
         Is prebuilt: ${isPreBuilt}
     """
-
-    try {
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null,
-                                [configuration: PIPELINE_CONFIGURATION,
+    def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
@@ -496,7 +493,9 @@ def call(
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 retriesForTestStage:1,
                                 splitTestsExecution: false
-                                ])
+                                ]
+    try {
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null, options)
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
