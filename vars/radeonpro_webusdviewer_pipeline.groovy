@@ -428,7 +428,7 @@ def executePreBuild(Map options) {
         println "Commit SHA: ${options.commitSHA}"
     }
 
-    withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
         githubNotificator.init(options)
         options["githubNotificator"] = githubNotificator
