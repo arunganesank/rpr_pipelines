@@ -43,9 +43,8 @@ Integer getNextTestInstanceNumber(Map options) {
 
 
 def doSanityCheckWindows(String asicName, Map options) {
-    def changedOptions = options
-    changedOptions["stage"] = "Sanity check"
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
+    options["stage"] = "Sanity check"
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
         def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
         if (installedProductCode) {
@@ -60,13 +59,13 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
     }
 
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
         downloadFiles("/volume1/Assets/web_viewer_autotests/Kitchen_set", ".")
 
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.SANITY_CHECK) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
             python3("webusd_check_win.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
         }
@@ -81,17 +80,16 @@ def doSanityCheckWindows(String asicName, Map options) {
 
     archiveArtifacts(artifacts: "Windows-check/*")
 
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
     }
 }
 
 
 def doSanityCheckLinux(String asicName, Map options) {
-    def changedOptions = options
-    changedOptions["stage"] = "Sanity check"
-    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.SANITY_CHECK) {
-        withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+    options["stage"] = "Sanity check"
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+        withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
         }
         timeout(time: 2, unit: "MINUTES") {
@@ -111,12 +109,12 @@ def doSanityCheckLinux(String asicName, Map options) {
 
 def doSanityCheck(String osName, String asicName, Map options) {
     def platform = osName == 'Windows' ? "Windows" : "Web application"
-    def changedOptions = options
-    changedOptions["stage"] = "Sanity check"
+    
+    options["stage"] = "Sanity check"
     try {
         cleanWS(osName)
 
-        withNotifications(title: platform, options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+        withNotifications(title: platform, options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
             getProduct(osName, options)
         }
 
@@ -140,10 +138,9 @@ def doSanityCheck(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(Map options) {
-    def changedOptions = options
-    changedOptions["stage"] = "Build"
+    options["stage"] = "Build"
 
-    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
         utils.reboot(this, "Windows")
 
         Boolean failure = false
@@ -220,10 +217,10 @@ def executeBuildLinux(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
     sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
 
-    def changedOptions = options
-    changedOptions["stage"] = "Build"
+    
+    options["stage"] = "Build"
 
-    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
@@ -293,9 +290,9 @@ def executeBuildLinux(Map options) {
         
     }
 
-    changedOptions["stage"] = "Deploy"
+    options["stage"] = "Deploy"
 
-    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
         if (options.deploy) {
             println "[INFO] Start deploying on $options.deployEnvironment environment"
             failure = false
@@ -345,7 +342,7 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
         if (options.deploy) {
             notifyByTg(options)
         }
@@ -496,7 +493,9 @@ def call(
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null, options)
-        currentBuild.result = currentBuild.result == "FAILURE" ? "FAILURE": "SUCCESS"
+        if (currentBuild.result == null) {
+            currentBuild.result = "SUCCESS"
+        }
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
