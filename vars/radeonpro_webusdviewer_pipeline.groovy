@@ -81,7 +81,7 @@ def doSanityCheckWindows(String asicName, Map options) {
     archiveArtifacts(artifacts: "Windows-check/*")
 
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
-        uninstallMSI("AMD RenderStudio", options.stage, options.currentTry)
+        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
     }
 }
 
@@ -503,7 +503,7 @@ def call(
         throw e
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
-        GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
+        //GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
         GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
     }
 }
