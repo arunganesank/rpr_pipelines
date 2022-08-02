@@ -43,8 +43,9 @@ Integer getNextTestInstanceNumber(Map options) {
 
 
 def doSanityCheckWindows(String asicName, Map options) {
-
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
+    def changedOptions = options
+    changedOptions["stage"] = "Sanity check"
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
         def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
         if (installedProductCode) {
@@ -59,13 +60,13 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
     }
 
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
         downloadFiles("/volume1/Assets/web_viewer_autotests/Kitchen_set", ".")
 
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
             python3("webusd_check_win.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
         }
@@ -80,14 +81,19 @@ def doSanityCheckWindows(String asicName, Map options) {
 
     archiveArtifacts(artifacts: "Windows-check/*")
 
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
     }
 }
 
 
 def doSanityCheckLinux(String asicName, Map options) {
-    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+    def changedOptions = options
+    changedOptions["stage"] = "Sanity check"
+    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.SANITY_CHECK) {
+        withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+            downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
+        }
         timeout(time: 2, unit: "MINUTES") {
             String testingUrl = "https://${options.deployEnvironment}.webusd.stvcis.com"
 
@@ -105,6 +111,8 @@ def doSanityCheckLinux(String asicName, Map options) {
 
 def doSanityCheck(String osName, String asicName, Map options) {
     def platform = osName == 'Windows' ? "Windows" : "Web application"
+    def changedOptions = options
+    changedOptions["stage"] = "Sanity check"
     try {
         cleanWS(osName)
 
@@ -126,18 +134,16 @@ def doSanityCheck(String osName, String asicName, Map options) {
         currentBuild.result = "FAILED"
         throw e
     } finally {
-        if (currentBuild.result == "FAILED") {
-            GithubNotificator.updateStatus("Sanity check", platform, "failure", options, "Error during sanity tests", "${env.JOB_URL}")
-        } else {
-            GithubNotificator.updateStatus("Sanity check", platform, "success", options, "Seccessfully passed sanity tests", "${env.JOB_URL}")
-        }
         archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
     }
 }
 
 
 def executeBuildWindows(Map options) {
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+    def changedOptions = options
+    changedOptions["stage"] = "Build"
+
+    withNotifications(title: "Windows", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         utils.reboot(this, "Windows")
 
         Boolean failure = false
@@ -186,15 +192,11 @@ def executeBuildWindows(Map options) {
             failure = true
         } finally {
             archiveArtifacts "*.log"
-        }
-
-        if (failure) {
-            GithubNotificator.updateStatus("Build", "Windows", "failure", options, "Error during build", "${env.JOB_URL}")
-            currentBuild.result = "FAILED"
-            error "error during build"
-        } else {
-            GithubNotificator.updateStatus("Build", "Windows", "success", options, "Build completed successfully", "${env.JOB_URL}")
-        }
+            if (failure) {
+                currentBuild.result = "FAILED"
+                error "error during build"
+            }
+        } 
     }
 }
 
@@ -218,7 +220,10 @@ def executeBuildLinux(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
     sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
 
-    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+    def changedOptions = options
+    changedOptions["stage"] = "Build"
+
+    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
@@ -280,20 +285,17 @@ def executeBuildLinux(Map options) {
             failure = true
         } finally {
             archiveArtifacts "*.log"
-        }
-
-        if (failure) {
-            if (options.deploy) {
-                GithubNotificator.updateStatus("Build", "Web application", "failure", options, "Error during build", "${env.JOB_URL}")
+            if (failure) {
+                currentBuild.result = "FAILED"
+                error "error during build"
             }
-            currentBuild.result = "FAILED"
-            error "error during build"
-        } else if (options.deploy) {
-            GithubNotificator.updateStatus("Build", "Web application", "success", options, "Build completed successfully", "${env.JOB_URL}")
         }
+        
     }
 
-    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
+    changedOptions["stage"] = "Deploy"
+
+    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
         if (options.deploy) {
             println "[INFO] Start deploying on $options.deployEnvironment environment"
             failure = false
@@ -335,27 +337,18 @@ def executeBuildLinux(Map options) {
                 failure = true
                 status = false
             } finally {
-                if (options.deploy) {
-                    if (failure) {
-                        GithubNotificator.updateStatus("Deploy", "Web application", "failure", options, "Error during deploy", "${env.JOB_URL}")
-                        currentBuild.result = "FAILED"
-                        error "error during deploy"
-                    } else {
-                        GithubNotificator.updateStatus("Deploy", "Web application", "success", options, "Deployed successfully", "${env.JOB_URL}")
-                    }
+                if (failure) {
+                    currentBuild.result = "FAILED"
+                    error "error during deploy"
                 }
             }
         }
     }
 
-    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
+    withNotifications(title: "Web application", options: changedOptions, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
         if (options.deploy) {
             notifyByTg(options)
         }
-    }
-
-    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-        downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
     doSanityCheckLinux("", options)
@@ -446,11 +439,6 @@ def executePreBuild(Map options) {
     }
 }
 
-def executeDeploy(Map options) {
-    GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
-    GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
-}
-
 
 def call(
     String projectBranch = "",
@@ -487,7 +475,7 @@ def call(
     """
 
     try {
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, this.&executeDeploy,
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null,
                                 [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
@@ -516,5 +504,7 @@ def call(
         throw e
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
+        GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
+        GithubNotificator.sendPullRequestComment("Jenkins build for finished as ${currentBuild.result}", options)
     }
 }
