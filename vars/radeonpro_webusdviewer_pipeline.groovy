@@ -44,7 +44,7 @@ Integer getNextTestInstanceNumber(Map options) {
 
 def doSanityCheckWindows(String asicName, Map options) {
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.INSTALL_APPPLICATION) {
         def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
         if (installedProductCode) {
@@ -59,13 +59,13 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
     }
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
         downloadFiles("/volume1/Assets/web_viewer_autotests/Kitchen_set", ".")
 
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
             python3("webusd_check_win.py --scene_path ${env.WORKSPACE}\\Kitchen_set\\Kitchen_set.usd")
         }
@@ -80,14 +80,14 @@ def doSanityCheckWindows(String asicName, Map options) {
 
     archiveArtifacts(artifacts: "Windows-check/*")
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
+    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
     }
 }
 
 
 def doSanityCheckLinux(String asicName, Map options) {
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
         timeout(time: 2, unit: "MINUTES") {
             String testingUrl = "https://${options.deployEnvironment}.webusd.stvcis.com"
 
@@ -104,10 +104,11 @@ def doSanityCheckLinux(String asicName, Map options) {
 
 
 def doSanityCheck(String osName, String asicName, Map options) {
+    def platform = osName == 'Windows' ? "Windows" : "Web application"
     try {
         cleanWS(osName)
 
-        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
+        withNotifications(title: platform, options: options, configuration: NotificationConfiguration.DOWNLOAD_APPPLICATION) {
             getProduct(osName, options)
         }
 
@@ -121,11 +122,10 @@ def doSanityCheck(String osName, String asicName, Map options) {
         }
 
     } catch (e) {
-        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", osName))
+        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SANITY_CHECK_FAILED.replace("<gpuName>", asicName).replace("<osName>", platform))
         currentBuild.result = "FAILED"
         throw e
     } finally {
-        def platform = osName == 'Windows' ? "Windows" : "Web application"
         if (currentBuild.result == "FAILED") {
             GithubNotificator.updateStatus("Sanity check", platform, "failure", options, "Error during sanity tests", "${env.JOB_URL}")
         } else {
@@ -218,7 +218,7 @@ def executeBuildLinux(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
     sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
 
-    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
@@ -293,7 +293,7 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
         if (options.deploy) {
             println "[INFO] Start deploying on $options.deployEnvironment environment"
             failure = false
@@ -348,13 +348,13 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    withNotifications(title: "Ubuntu20", options: options, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.NOTIFY_BY_TG) {
         if (options.deploy) {
             notifyByTg(options)
         }
     }
 
-    withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+    withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
@@ -369,7 +369,7 @@ def executeBuild(String osName, Map options) {
         }
 
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            withNotifications(title: osName == "Windows" ? "Windows" : "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
             }
         }
