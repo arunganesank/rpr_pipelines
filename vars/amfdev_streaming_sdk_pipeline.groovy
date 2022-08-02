@@ -88,7 +88,7 @@ def getClientScreenWidth(String osName, Map options) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
-                return powershell(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true)
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true)
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -110,7 +110,7 @@ def getClientScreenHeight(String osName, Map options) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
-                return powershell(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true)
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true)
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -216,7 +216,7 @@ def getServerIpAddress(String osName) {
             return bat(script: "echo %IP_ADDRESS%",returnStdout: true).split('\r\n')[2].trim()
             break
         case "Ubuntu20":
-            return sh(script: "echo $IP_ADDRESS",returnStdout: true)
+            return sh(script: "echo $IP_ADDRESS",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -233,7 +233,7 @@ def getGPUName(String osName) {
                         return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
                         break
                     case "Ubuntu20":
-                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"")
+                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").trim()
                         break
                     default:
                         println("Unsupported OS")
@@ -256,7 +256,7 @@ def getOSName(String osName) {
                         rreturn python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
                         break
                     case "Ubuntu20":
-                        return python3("-c \"from system_info import get_os; print(get_os())\"")
+                        return python3("-c \"from system_info import get_os; print(get_os())\"").trim()
                         break
                     default:
                         println("Unsupported OS")
@@ -276,7 +276,7 @@ def getCommunicationPort(String osName) {
             return bat(script: "echo %COMMUNICATION_PORT%",returnStdout: true).split('\r\n')[2].trim()
             break
         case "Ubuntu20":
-            return sh(script: "echo $COMMUNICATION_PORT",returnStdout: true)
+            return sh(script: "echo $COMMUNICATION_PORT",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -420,8 +420,8 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Ubuntu20":
                 def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
-                bat """
-                    run_ubuntu_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                sh """
+                    ./run_ubuntu_server.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
                 break
 
@@ -522,12 +522,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            dir("scripts"){
-                bat """
-                    install_pylibs.bat
-                """
-            }
-
             dir("StreamingSDK") {
                 prepareTool(osName, options)
             }
@@ -613,15 +607,16 @@ def executeTestsServer(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
                 dir("jobs_launcher/install"){
-                    bat """
-                        install_pylibs.bat
-                    """
-                }
-
-                dir("scripts"){
-                    bat """
-                        install_pylibs.bat
-                    """
+                    if (isUnix()) {
+                        sh """
+                            chmod u+x install_pylibs.sh
+                            ./install_pylibs.sh
+                        """
+                    } else {
+                        bat """
+                            install_pylibs.bat
+                        """
+                    }
                 }
 
                 dir("StreamingSDK") {
@@ -721,12 +716,6 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){
-                bat """
-                    install_pylibs.bat
-                """
-            }
-
-            dir("scripts"){
                 bat """
                     install_pylibs.bat
                 """
@@ -873,12 +862,6 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     """
                 }
 
-                dir("scripts"){
-                    bat """
-                        install_pylibs.bat
-                    """
-                }
-
                 dir("StreamingSDK") {
                     prepareTool("Windows", options)
                 }
@@ -934,7 +917,7 @@ def executeTests(String osName, String asicName, Map options) {
                 node(getClientLabels(options)) {
                     timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                         ws("WS/${options.PRJ_NAME}_Test") {
-                            executeTestsClient(osName, asicName, options)
+                            executeTestsClient("Windows", asicName, options)
                         }
                     }
                 }
@@ -945,7 +928,7 @@ def executeTests(String osName, String asicName, Map options) {
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                executeTestsMulticonnectionClient(osName, asicName, options)
+                                executeTestsMulticonnectionClient("Windows", asicName, options)
                             }
                         }
                     }
