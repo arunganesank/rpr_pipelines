@@ -81,7 +81,7 @@ def doSanityCheckWindows(String asicName, Map options) {
     archiveArtifacts(artifacts: "Windows-check/*")
 
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UNINSTALL_APPPLICATION) {
-        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+        uninstallMSI("AMD RenderStudio", options.stage, options.currentTry)
     }
 }
 
