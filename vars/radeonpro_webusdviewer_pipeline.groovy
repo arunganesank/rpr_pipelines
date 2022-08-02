@@ -503,7 +503,11 @@ def call(
         throw e
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
-        //GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
-        GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
+        if (currentBuild.result == "FAILURE"){
+            GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
+        }
+        if (env.CHANGE_URL){
+            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
+        } 
     }
 }
