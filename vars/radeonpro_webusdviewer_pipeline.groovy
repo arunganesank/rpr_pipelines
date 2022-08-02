@@ -117,7 +117,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
                 doSanityCheckWindows(asicName, options)
                 break
             default:
-                doSanityCheckLinux(asicName, options)
+                println "[WARNING] ${osName} is not supported"
                 break
         }
 
@@ -358,7 +358,7 @@ def executeBuildLinux(Map options) {
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }
 
-    
+    doSanityCheckLinux("", options)
 }
 
 
