@@ -348,7 +348,23 @@ def closeGames(String osName, Map options, String gameName) {
 
                 break
             case "Ubuntu20":
-                println("TODO: implement apps closing on Ubuntu")
+                if (gameName == "All") {
+                    bat """
+                        pkill "browser_x64"
+                        pkill "heaven_x64"
+                        pkill "valley_x64"
+                    """
+                } else if (gameName == "Borderlands3") {
+                    bat """
+                        pkill "browser_x64"
+                        pkill "heaven_x64"
+                    """
+                } else if (gameName == "ValleyOpenGL") {
+                    bat """
+                        pkill "browser_x64"
+                        pkill "valley_x64"
+                    """
+                }
                 break
             case "OSX":
                 println("Unsupported OS")
@@ -435,7 +451,6 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
     try {
         dir(options.stageName) {
-            // TODO: check that it works on Ubuntu
             utils.moveFiles(this, osName, "../*.log", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
