@@ -496,6 +496,7 @@ def call(
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&doSanityCheck, null, options)
+        currentBuild.result = currentBuild.result == "FAILURE" ? "FAILURE": "SUCCESS"
     } catch(e) {
         currentBuild.result = "FAILURE"
         println(e.toString())
