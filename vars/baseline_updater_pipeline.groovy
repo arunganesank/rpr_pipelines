@@ -96,7 +96,7 @@ def call(String jobName,
                     cleanWS()
 
                     // duck tape for one autotests repository for two projects
-                    if (toolName == "inventor" && jobName.contains("USDViewer")) {
+                    if (toolName == "inventor" && jobName.contains("USD-Viewer")) {
                         toolName = "usd_viewer"
                     }
 
