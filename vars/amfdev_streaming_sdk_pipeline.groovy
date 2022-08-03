@@ -10,6 +10,7 @@ import TestsExecutionType
 @Field final String PROJECT_REPO = "git@github.com:amfdev/StreamingSDK.git"
 @Field final String TESTS_REPO = "git@github.com:luxteam/jobs_test_streaming_sdk.git"
 @Field final String DRIVER_REPO = "git@github.com:amfdev/AMDVirtualDrivers.git"
+@Field final String AMF_TESTS_REPO = "git@github.com:amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
 
@@ -974,13 +975,14 @@ def executeBuildWindows(Map options) {
         // TODO: check that latency tool is required
         dir("AMFTests") {
             withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: "develop", repositoryUrl: AMF_TESTS_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
             }
 
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyToolServer}")
 
             dir("amf\\protected\\samples\\CPPSamples\\LatencyTestServer") {
                 bat """
+                    set msbuild="${msBuildPath}"
                     %msbuild% LatencyTestServer.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolServer} 2>&1
                 """
 
@@ -1002,6 +1004,7 @@ def executeBuildWindows(Map options) {
 
             dir("amf\\protected\\samples\\CPPSamples\\LatencyTestClient") {
                 bat """
+                    set msbuild="${msBuildPath}"
                     %msbuild% LatencyTestClient.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolClient} 2>&1
                 """
 
