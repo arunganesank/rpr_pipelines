@@ -15,6 +15,11 @@ import java.util.concurrent.atomic.AtomicInteger
     artifactNameBase: "RPRMayaUSD_Setup"
 )
 
+
+Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
+}
+
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
 {
     dir('scripts') {
@@ -742,18 +747,22 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 unstashCrashInfo(options['nodeRetry'], engine)
                 testResultList.each() {
                     if (it.endsWith(engine)) {
-                        List testNameParts = it.split("-") as List
+                        List testNameParts = it.replace("testResult-", "").split("-") as List
+
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                            return
+                        }
+
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                        dir(testName.replace("testResult-", "")) {
+                        dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
                             } catch(e) {
-                                println "[ERROR] Failed to unstash ${it}"
-                                lostStashes.add("'${testName}'".replace("testResult-", ""))
+                                println("[ERROR] Failed to unstash ${it}")
+                                lostStashes.add("'${testName}'")
                                 println(e.toString())
                                 println(e.getMessage())
                             }
-
                         }
                     }
                 }
@@ -1079,7 +1088,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
-                        flexibleUpdates: true
+                        flexibleUpdates: true,
+                        skipCallback: this.&filter
                         ]
         }
 
