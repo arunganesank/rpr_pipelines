@@ -243,15 +243,6 @@ public class NotificationConfiguration {
                 "rethrow": ExceptionThrowType.RETHROW,
                 "githubNotification": ["status": "failure"]
             ]
-        ],
-
-        "rebootConfiguration": [
-            "AnyTool": false,
-            "Tools": [
-                "USDViewer": ["Windows"],
-                "StandaloneUSDViewer": ["Windows"],
-                "RPRMayaUSD": ["Windows"]
-            ]
         ]
     ]
 
@@ -454,6 +445,7 @@ public class NotificationConfiguration {
 
     def static UNINSTALL_APPPLICATION = [
         "begin": ["message": "Uninstalling the application."],
+        "end": ["message": "App uninstalled"],
 
         "exceptions": [
             [
