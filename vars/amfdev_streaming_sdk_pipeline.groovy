@@ -114,9 +114,9 @@ def prepareTool(String osName, Map options) {
 
             // TODO: check that latency tool is required
             makeUnstash(name: "LatencyToolServerWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "${options.winTestingBuildName}.server.zip")
+            unzip(zipFile: "LatencyTool_Windows_Server.zip")
             makeUnstash(name: "LatencyToolClientWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "${options.winTestingBuildName}.client.zip")
+            unzip(zipFile: "LatencyTool_Windows_Client.zip")
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -946,7 +946,7 @@ def executeBuildWindows(Map options) {
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
-        String winLatencyToolDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String winLatencyToolDir = "amf/bin/vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
 
         if (options.isDevelopBranch) {
             dir("AMDVirtualDrivers") {
@@ -992,18 +992,17 @@ def executeBuildWindows(Map options) {
                         set msbuild="${msBuildPath}"
                         %msbuild% LatencyTestServer.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolServer} 2>&1
                     """
+                }
 
-                    dir(winLatencyToolDir) {
-                        String LATENCY_TOOL_NAME = "LatencyTool_Windows_${winBuildConf}.server.zip"
+                dir(winLatencyToolDir) {
+                    String LATENCY_TOOL_NAME = "LatencyTool_Windows_Server.zip"
 
-                        bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
+                    bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
 
-                        makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
 
-                        if (options.winTestingDriverName == winBuildConf) {
-                            utils.moveFiles(this, "Windows", LATENCY_TOOL_NAME, "${options.winTestingDriverName}.server.zip")
-                            makeStash(includes: "${options.winTestingDriverName}.server.zip", name: "LatencyToolServerWindows", preZip: false, storeOnNAS: options.storeOnNAS)
-                        }
+                    if (options.winTestingDriverName == winBuildConf) {
+                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolServerWindows", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
 
@@ -1015,17 +1014,17 @@ def executeBuildWindows(Map options) {
                         %msbuild% LatencyTestClient.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolClient} 2>&1
                     """
 
-                    dir(winLatencyToolDir) {
-                        String LATENCY_TOOL_NAME = "LatencyTool_Windows_${winBuildConf}.client.zip"
+                }
 
-                        bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
+                dir(winLatencyToolDir) {
+                    String LATENCY_TOOL_NAME = "LatencyTool_Windows_Client.zip"
 
-                        makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+                    bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
 
-                        if (options.winTestingDriverName == winBuildConf) {
-                            utils.moveFiles(this, "Windows", LATENCY_TOOL_NAME, "${options.winTestingDriverName}.client.zip")
-                            makeStash(includes: "${options.winTestingDriverName}.client.zip", name: "LatencyToolClientWindows", preZip: false, storeOnNAS: options.storeOnNAS)
-                        }
+                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+
+                    if (options.winTestingDriverName == winBuildConf) {
+                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolClientWindows", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
