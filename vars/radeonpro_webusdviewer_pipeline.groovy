@@ -214,10 +214,18 @@ def executeBuildLinux(Map options) {
         options.deployEnvironment = "test${testingNumber}"
     }
 
-    downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-    sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+    if (customDomain) {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+    } else {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
+        sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
 
-    
+        String envProductionContent = readFile(".env.production")
+        envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
+        writeFile(file: ".env.production", text: envProductionContent)
+    }
+
     options["stage"] = "Build"
 
     withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
@@ -444,6 +452,7 @@ def call(
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
+    String customDomain = '',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String customBuildLinkWindows = ""
@@ -466,6 +475,7 @@ def call(
     println """
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
+        Custom domain: ${customDomain}
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
         Is prebuilt: ${isPreBuilt}
@@ -478,6 +488,7 @@ def call(
                                 updateDeps:updateDeps,
                                 enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
+                                customDomain: customDomain,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
