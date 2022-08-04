@@ -377,23 +377,33 @@ def executeBuild(String osName, Map options) {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
             if (options.customHybridLinux && isUnix()) {
-                dir("Hybrid") {
-                    sh """
-                        curl --retry 5 -L -o HybridPro.so ${options.customHybridLink}
-                    """
+                sh """
+                    curl --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
+                """
 
-                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
-                    utils.moveFiles(this, osName, "HybridPro.so", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
-                }
+                sh "tar -xJf HybridPro.tar.xz"
+
+                sh """
+                    yes | cp -rf BaikalNext/bin/HybridPro.so WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so
+                    yes | cp -rf BaikalNext/inc/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                    yes | cp -rf BaikalNext/inc/Rpr/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                """
+
+                utils.removeFile(this, osName, "")
+                utils.moveFiles(this, osName, "HybridPro.so", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
             } else if (options.customHybridWin && !isUnix()) {
-                dir("Hybrid") {
-                    bat """
-                        curl --retry 5 -L -o HybridPro.dll ${options.customHybridLink}
-                    """
+                bat """
+                    curl --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
+                """
 
-                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
-                    utils.moveFiles(this, osName, "HybridPro.dll", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
-                }
+                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+
+                bat """
+                    copy /Y BaikalNext\\bin\\HybridPro.dll WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64\\HybridPro.dll
+                    copy /Y BaikalNext\\inc\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\inc\\Rpr\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\lib\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
+                """
             }
         }
 
