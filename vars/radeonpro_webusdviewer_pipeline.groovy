@@ -383,7 +383,7 @@ def executeBuild(String osName, Map options) {
 
                 sh "tar -xJf HybridPro.tar.xz"
 
-                bat """
+                sh """
                     yes | cp -rf BaikalNext/bin/HybridPro.so WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so
                     yes | cp -rf BaikalNext/inc/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
                     yes | cp -rf BaikalNext/inc/Rpr/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
