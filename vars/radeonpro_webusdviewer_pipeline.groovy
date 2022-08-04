@@ -371,13 +371,29 @@ def executeBuildLinux(Map options) {
 
 def executeBuild(String osName, Map options) {  
     try {
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CLEAN_ENVIRONMENT) {
+        withNotifications(title: osName == "Windows" ? "Windows" : "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
             cleanWS(osName)
-        }
 
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            withNotifications(title: osName == "Windows" ? "Windows" : "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+
+            if (options.customHybridLinux && isUnix()) {
+                dir("Hybrid") {
+                    sh """
+                        curl --retry 5 -L -o HybridPro.so ${options.customHybridLink}
+                    """
+
+                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
+                    utils.moveFiles(this, osName, "HybridPro.so", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
+                }
+            } else if (options.customHybridWin && !isUnix()) {
+                dir("Hybrid") {
+                    bat """
+                        curl --retry 5 -L -o HybridPro.dll ${options.customHybridLink}
+                    """
+
+                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
+                    utils.moveFiles(this, osName, "HybridPro.dll", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
+                }
             }
         }
 
@@ -465,6 +481,8 @@ def call(
     Boolean disableSsl = true,
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
+    String customHybridWin = "",
+    String customHybridLinux = "",
     String customBuildLinkWindows = ""
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -501,6 +519,8 @@ def call(
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,
+                                customHybridWin: customHybridWin,
+                                customHybridLinux: customHybridLinux,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
