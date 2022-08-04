@@ -214,10 +214,26 @@ def executeBuildLinux(Map options) {
         options.deployEnvironment = "test${testingNumber}"
     }
 
-    downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-    sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+    String envProductionContent
 
-    
+    if (!options.customDomain) {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+    } else {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
+        sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
+
+        envProductionContent = readFile("./WebUsdWebServer/.env.production")
+        envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
+        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+    }
+
+    if (options.disableSsl) {
+        envProductionContent = readFile("./WebUsdWebServer/.env.production")
+        envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
+        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+    }
+
     options["stage"] = "Build"
 
     withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
@@ -268,7 +284,6 @@ def executeBuildLinux(Map options) {
             sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
 
             println("[INFO] Finish building & sending docker containers to repo")
-            sh "rm WebUsdWebServer/.env.production"
 
             if (options.generateArtifact){
                 sh """
@@ -348,19 +363,37 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    doSanityCheckLinux("", options)
+    if (options.deploy) {
+        doSanityCheckLinux("", options)
+    }
 }
 
 
 def executeBuild(String osName, Map options) {  
     try {
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CLEAN_ENVIRONMENT) {
+        withNotifications(title: osName == "Windows" ? "Windows" : "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
             cleanWS(osName)
-        }
 
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            withNotifications(title: osName == "Windows" ? "Windows" : "Web application", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+
+            if (options.customHybridLinux && isUnix()) {
+                dir("Hybrid") {
+                    sh """
+                        curl --retry 5 -L -o HybridPro.so ${options.customHybridLink}
+                    """
+
+                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
+                    utils.moveFiles(this, osName, "HybridPro.so", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
+                }
+            } else if (options.customHybridWin && !isUnix()) {
+                dir("Hybrid") {
+                    bat """
+                        curl --retry 5 -L -o HybridPro.dll ${options.customHybridLink}
+                    """
+
+                    utils.removeFile(this, osName, "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
+                    utils.moveFiles(this, osName, "HybridPro.dll", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binWin64/HybridPro.dll")
+                }
             }
         }
 
@@ -444,8 +477,12 @@ def call(
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
+    String customDomain = '',
+    Boolean disableSsl = true,
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
+    String customHybridWin = "",
+    String customHybridLinux = "",
     String customBuildLinkWindows = ""
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -466,6 +503,8 @@ def call(
     println """
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
+        Custom domain: ${customDomain}
+        Disable SSL: ${disableSsl}
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
         Is prebuilt: ${isPreBuilt}
@@ -478,6 +517,10 @@ def call(
                                 updateDeps:updateDeps,
                                 enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
+                                customDomain: customDomain,
+                                disableSsl: disableSsl,
+                                customHybridWin: customHybridWin,
+                                customHybridLinux: customHybridLinux,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
