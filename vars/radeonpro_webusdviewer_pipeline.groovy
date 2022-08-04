@@ -214,16 +214,24 @@ def executeBuildLinux(Map options) {
         options.deployEnvironment = "test${testingNumber}"
     }
 
-    if (customDomain) {
+    String envProductionContent
+
+    if (!options.customDomain) {
         downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
         sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
     } else {
         downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
         sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
 
-        String envProductionContent = readFile(".env.production")
+        envProductionContent = readFile("./WebUsdWebServer/.env.production")
         envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-        writeFile(file: ".env.production", text: envProductionContent)
+        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+    }
+
+    if (options.disableSsl) {
+        envProductionContent = readFile("./WebUsdWebServer/.env.production")
+        envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
+        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
     }
 
     options["stage"] = "Build"
@@ -276,7 +284,6 @@ def executeBuildLinux(Map options) {
             sh """python3 Tools/Docker.py $deployArgs -v -c $options.deployEnvironment >> ${STAGE_NAME}.Docker.log 2>&1"""
 
             println("[INFO] Finish building & sending docker containers to repo")
-            sh "rm WebUsdWebServer/.env.production"
 
             if (options.generateArtifact){
                 sh """
@@ -356,7 +363,9 @@ def executeBuildLinux(Map options) {
         }
     }
 
-    doSanityCheckLinux("", options)
+    if (options.deploy) {
+        doSanityCheckLinux("", options)
+    }
 }
 
 
@@ -453,6 +462,7 @@ def call(
     Boolean deploy = true,
     String deployEnvironment = 'pr',
     String customDomain = '',
+    Boolean disableSsl = true,
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String customBuildLinkWindows = ""
@@ -476,6 +486,7 @@ def call(
         Deploy: ${deploy}
         Deploy environment: ${deployEnvironment}
         Custom domain: ${customDomain}
+        Disable SSL: ${disableSsl}
         Rebuild deps: ${rebuildDeps}
         Update deps: ${updateDeps}
         Is prebuilt: ${isPreBuilt}
@@ -489,6 +500,7 @@ def call(
                                 enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
+                                disableSsl: disableSsl,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
