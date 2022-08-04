@@ -388,9 +388,6 @@ def executeBuild(String osName, Map options) {
                     yes | cp -rf BaikalNext/inc/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
                     yes | cp -rf BaikalNext/inc/Rpr/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
                 """
-
-                utils.removeFile(this, osName, "")
-                utils.moveFiles(this, osName, "HybridPro.so", "../WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18/HybridPro.so")
             } else if (options.customHybridWin && !isUnix()) {
                 bat """
                     curl --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
