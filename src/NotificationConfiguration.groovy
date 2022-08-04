@@ -155,8 +155,8 @@ public class NotificationConfiguration {
     ]
 
     def static SANITY_CHECK = [
-        "begin": ["message": "Sanity check failed."],
-
+        "begin": ["message": "Sanity check started."],
+        "end": ["message": "Sanity check stage was successfully finished."],
         "exceptions": [
             [
                 "class": "TimeoutExceeded", "problemMessage": "Sanity check failed due to timeout.", 
@@ -230,6 +230,18 @@ public class NotificationConfiguration {
                 "USDViewer": ["Windows"],
                 "StandaloneUSDViewer": ["Windows"],
                 "RPRMayaUSD": ["Windows"]
+            ]
+        ]
+    ]
+
+    def static BUILD_SOURCE_CODE_WEBUSD = [
+        "begin": ["message": "WebUSD build started."],
+        "end": ["message": "WebUSD build finished."],
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to build the project.", 
+                "rethrow": ExceptionThrowType.RETHROW,
+                "githubNotification": ["status": "failure"]
             ]
         ]
     ]
@@ -433,6 +445,7 @@ public class NotificationConfiguration {
 
     def static UNINSTALL_APPPLICATION = [
         "begin": ["message": "Uninstalling the application."],
+        "end": ["message": "App uninstalled"],
 
         "exceptions": [
             [
@@ -614,6 +627,9 @@ public class NotificationConfiguration {
     ]
 
     def static DEPLOY_APPLICATION = [
+        "begin": ["message": "Deploy stage started."],
+        "end": ["message": "Deploy stage successfully finished."],
+
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to deploy application.", 
