@@ -493,7 +493,7 @@ def call(
     Boolean deploy = true,
     String deployEnvironment = 'pr',
     String customDomain = '',
-    Boolean disableSsl = true,
+    Boolean disableSsl = false,
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String customHybridWin = "",
