@@ -88,7 +88,7 @@ def getClientScreenWidth(String osName, Map options) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
-                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true)
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -110,7 +110,7 @@ def getClientScreenHeight(String osName, Map options) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
-                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true)
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -140,6 +140,7 @@ def prepareTool(String osName, Map options) {
         case "Ubuntu20":
             makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
+            sh("chmod u+x RemoteGameServer")
             break
         case "OSX":
             println("Unsupported OS")
@@ -216,7 +217,7 @@ def getServerIpAddress(String osName) {
             return bat(script: "echo %IP_ADDRESS%",returnStdout: true).split('\r\n')[2].trim()
             break
         case "Ubuntu20":
-            return sh(script: "echo $IP_ADDRESS",returnStdout: true).trim()
+            return sh(script: "echo \$IP_ADDRESS",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -276,7 +277,7 @@ def getCommunicationPort(String osName) {
             return bat(script: "echo %COMMUNICATION_PORT%",returnStdout: true).split('\r\n')[2].trim()
             break
         case "Ubuntu20":
-            return sh(script: "echo $COMMUNICATION_PORT",returnStdout: true).trim()
+            return sh(script: "echo \$COMMUNICATION_PORT",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -349,18 +350,18 @@ def closeGames(String osName, Map options, String gameName) {
                 break
             case "Ubuntu20":
                 if (gameName == "All") {
-                    bat """
+                    sh """
                         pkill "browser_x64"
                         pkill "heaven_x64"
                         pkill "valley_x64"
                     """
-                } else if (gameName == "Borderlands3") {
-                    bat """
+                } else if (gameName == "HeavenOpenGL") {
+                    sh """
                         pkill "browser_x64"
                         pkill "heaven_x64"
                     """
                 } else if (gameName == "ValleyOpenGL") {
-                    bat """
+                    sh """
                         pkill "browser_x64"
                         pkill "valley_x64"
                     """
@@ -1124,6 +1125,8 @@ def executeBuildUbuntu(Map options) {
 
     dir("StreamingSDK/amf/bin/dbg_64") {
         String BUILD_NAME = "StreamingSDK_Ubuntu20.zip"
+        
+        sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
         zip archive: true, zipFile: BUILD_NAME
 
