@@ -29,7 +29,7 @@ def executeTests(String osName, String asicName, Map options)
 
     try {
         String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_perf_autotests_assets" : "/mnt/c/TestResources/rpr_ml_perf_autotests_assets"
-        downloadFiles("/volume1/Assets/rpr_ml_perf_autotests/", assetsDir)
+        downloadFiles("/volume1/web/Assets/rpr_ml_perf_autotests/", assetsDir)
     } catch (e) {
         println("Failed to download test scenes.")
         currentBuild.result = "FAILURE"
