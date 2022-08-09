@@ -159,7 +159,7 @@ def executeTests(String osName, String asicName, Map options)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
-            downloadFiles("/volume1/Assets/rpr_core_autotests/", assetsDir)
+            downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assetsDir)
         }
 
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_core_autotests/${asicName}-${osName}"

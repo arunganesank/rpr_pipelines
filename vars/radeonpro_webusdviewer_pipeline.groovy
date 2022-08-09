@@ -60,7 +60,7 @@ def doSanityCheckWindows(String asicName, Map options) {
     }
 
     withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-        downloadFiles("/volume1/Assets/web_viewer_autotests/Kitchen_set", ".")
+        downloadFiles("/volume1/web/Assets/web_viewer_autotests/Kitchen_set", ".")
 
         downloadFiles("/volume1/CIS/WebUSD/Scripts/*", ".")
     }

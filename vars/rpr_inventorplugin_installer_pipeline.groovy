@@ -236,7 +236,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_inventor_autotests_assets" : "/mnt/c/TestResources/usd_inventor_autotests_assets"
-            downloadFiles("/volume1/Assets/usd_inventor_autotests/", assetsDir)
+            downloadFiles("/volume1/web/Assets/usd_inventor_autotests/", assetsDir)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {

@@ -217,7 +217,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_rprviewer_autotests_assets" : "/mnt/c/TestResources/usd_rprviewer_autotests_assets"
-            downloadFiles("/volume1/Assets/usd_rprviewer_autotests/", assetsDir)
+            downloadFiles("/volume1/web/Assets/usd_rprviewer_autotests/", assetsDir)
         }
 
         installsPerformedMap.putIfAbsent("${asicName}-${osName}", ['dirt': ['tries': 0, 'status': 'active'], 'custom_path': ['tries': 0, 'status': 'active']])

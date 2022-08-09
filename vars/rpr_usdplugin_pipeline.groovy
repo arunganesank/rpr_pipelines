@@ -199,7 +199,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_usdplugin_autotests_assets" : "/mnt/c/TestResources/rpr_usdplugin_autotests_assets"
-            downloadFiles("/volume1/Assets/rpr_usdplugin_autotests/", assetsDir)
+            downloadFiles("/volume1/web/Assets/rpr_usdplugin_autotests/", assetsDir)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {

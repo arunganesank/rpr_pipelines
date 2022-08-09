@@ -302,7 +302,7 @@ def executePerfTests(String osName, String asicName, Map options) {
     
     try {
         String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_hybrid_autotests_assets" : "/mnt/c/TestResources/rpr_hybrid_autotests_assets"
-        downloadFiles("/volume1/Assets/rpr_hybrid_autotests/", assetsDir)
+        downloadFiles("/volume1/web/Assets/rpr_hybrid_autotests/", assetsDir)
 
         dir("BaikalNext") {
             dir("bin") {
