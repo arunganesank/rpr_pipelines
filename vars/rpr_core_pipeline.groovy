@@ -18,6 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final RPR_SDK_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    if (osName == "OSX" && engine == "Hybrid") {
+        return true
+    }
+
     if (engine.contains("HIP") && !(asicName.contains("AMD") && osName == "Windows")) {
         return true
     }
