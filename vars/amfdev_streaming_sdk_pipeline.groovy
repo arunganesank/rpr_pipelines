@@ -418,7 +418,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                         bat """
                             run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
-                    } else if (options.serverInfo.osName.contains("Ubuntu") {
+                    } else if (options.serverInfo.osName.contains("Ubuntu")) {
                         bat """
                             run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
