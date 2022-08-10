@@ -414,9 +414,17 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                         run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 } else if (executionType == "client") {
-                    bat """
-                        run_windows_client.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
-                    """
+                    if (options.serverInfo.osName.contains("Windows")) {
+                        bat """
+                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    } else if (options.serverInfo.osName.contains("Ubuntu") {
+                        bat """
+                            run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    } else {
+                        throw new Exception("Unknown server OS name ${options.serverInfo.osName}")
+                    }
                 } else {
                     def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
@@ -1549,6 +1557,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                 dir("scripts") {
                     python3("prepare_test_cases.py --os_name \"Android\"")
+                }
+
+                dir("jobs_launcher") {
+                    bat """
+                        count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
+                    """
+                }
+
+                dir("scripts") {
+                    python3("prepare_test_cases.py --os_name \"Ubuntu\"")
                 }
 
                 dir("jobs_launcher") {
