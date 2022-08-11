@@ -101,6 +101,11 @@ def call(Map blockOptions, Closure code) {
                         println(exception["problemMessage"])
                     }
 
+                    if (exception["githubNotification"]) {
+                        GithubNotificator.updateStatus(options["stage"], title, exception["githubNotification"]["status"], 
+                            options, exception["githubNotification"]["message"] ?: exception["problemMessage"])
+                    }
+
                     switch(exception["rethrow"]) {
                         case ExceptionThrowType.RETHROW:
                             throw e
@@ -111,11 +116,6 @@ def call(Map blockOptions, Closure code) {
                         default:
                             println(e.toString())
                             println(e.getMessage())
-                    }
-
-                    if (exception["githubNotification"]) {
-                        GithubNotificator.updateStatus(options["stage"], title, exception["githubNotification"]["status"], 
-                            options, exception["githubNotification"]["message"] ?: exception["problemMessage"])
                     }
 
                     return
