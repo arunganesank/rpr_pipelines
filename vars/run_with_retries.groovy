@@ -188,12 +188,6 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
 
             if (utils.isTimeoutExceeded(e)) {
                 GithubNotificator.updateStatus(stageName, title, "timed_out", options, NotificationConfiguration.STAGE_TIMEOUT_EXCEEDED)
-            } else {
-                // save unknown reason if any other reason wasn't set
-                def currentStatus = GithubNotificator.getCurrentStatus(stageName, title, options)
-                if (currentStatus == "failure" || currentStatus == "timed_out") {
-                    GithubNotificator.updateStatus(stageName, title, "failure", options, NotificationConfiguration.REASON_IS_NOT_IDENTIFIED)
-                }
             }
 
             if (allowedExceptions.size() != 0) {
