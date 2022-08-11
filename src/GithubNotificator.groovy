@@ -481,7 +481,7 @@ public class GithubNotificator {
                             head_sha: commitSHA,
                             details_url: prStatus["details_url"] ?: "",
                             output: [
-                                title: prStatus["output"]["title"] ?: "",
+                                title: "Failed to build project. Testing isn't possible.",
                                 summary: "Use link below to check build details"
                             ]
                         )
