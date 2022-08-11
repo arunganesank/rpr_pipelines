@@ -91,6 +91,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
         } catch(e) {
             println(e.toString())
             currentBuild.result = "UNSTABLE"
+            options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_FT_TESTS)
             GithubNotificator.updateStatus("Test", "${asicName}-${osName}-FT", "failure", options, NotificationConfiguration.TEST_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.ft.log")
             throw e
         } finally {
@@ -118,6 +119,7 @@ def executeTests(String osName, String asicName, Map options) {
         println(e.toString())
         println(e.getMessage())
         currentBuild.result = "UNSTABLE"
+        options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_UNIT_TESTS)
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         archiveArtifacts "*.log"

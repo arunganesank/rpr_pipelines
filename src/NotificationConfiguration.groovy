@@ -736,4 +736,8 @@ public class NotificationConfiguration {
 
     def static SANITY_CHECK_FAILED = "Sanity check failed on <gpuName> (<osName>)."
 
+    def static FAILED_FT_TESTS = "Some functional tests were marked as failed"
+
+    def static FAILED_UNIT_TESTS = "Some unit tests were marked as failed"
+
 }
