@@ -112,9 +112,10 @@ def prepareTool(String osName, Map options) {
             makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "${options.winTestingBuildName}.zip")
 
-            // TODO: check that latency tool is required
-            makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "LatencyTool_Windows.zip")
+            if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "LatencyTool_Windows.zip")
+            }
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
