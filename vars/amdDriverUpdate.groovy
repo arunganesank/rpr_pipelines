@@ -72,7 +72,7 @@ def planUpdate(osName, gpuNames, options, updateTasks) {
                                         status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${env.WORKSPACE}\\page.html --installer_dst ${env.WORKSPACE}\\driver.exe --win_driver_path ${driver_path} >> parse_stage_${it}.log 2>&1")
                                         if (status == 0) {
                                             println("[INFO] Newer driver was found. Trying to install...")
-                                            bat "${driver_path}\\Setup.exe -INSTALL -BOOT -OUTPUT ${WORKSPACE}\\installation_${it}.log -LOG ${WORKSPACE}\\installation_result_${it}.log"
+                                            bat "${driver_path}\\Setup.exe -INSTALL -BOOT -LOG ${WORKSPACE}\\installation_result_${it}.log"
                                         }
                                     }
                                     break
