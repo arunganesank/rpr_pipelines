@@ -1107,14 +1107,15 @@ def executeBuildAndroid(Map options) {
 def executeBuildUbuntu(Map options) {
     String logName = "${STAGE_NAME}.log"
 
-    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+    dir("StreamingSDK/amf/public/src/components/ComponentsFFMPEG") {
         GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-        // TODO: temporary ducktape. Waiting for fix from side of developers
-        String content = readFile(file: "../../../../protected/common/VirtualMicrophoneAudioInput.cpp")
-        content = content.replace("#include \"runtime/src/components/VirtualAudio/VirtualAudioImpl.h\"", "")
-        writeFile(file: "../../../../protected/common/VirtualMicrophoneAudioInput.cpp", text: content)
+        sh """
+            make >> ../../../../../../${logName} 2>&1
+        """
+    }
 
+    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
         // TODO: temporary ducktape. Waiting for fix from side of developers
         if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
