@@ -254,7 +254,7 @@ def getOSName(String osName) {
             dir("core") {
                 switch(osName) {
                     case "Windows":
-                        rreturn python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                        return python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
                         break
                     case "Ubuntu20":
                         return python3("-c \"from system_info import get_os; print(get_os())\"").trim()
