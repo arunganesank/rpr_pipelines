@@ -15,7 +15,7 @@ import TestsExecutionType
 
 
 String getClientLabels(Map options) {
-    return "${options.osName} && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
+    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
 }
 
 String getMulticonnectionClientLabels(Map options) {
@@ -61,6 +61,23 @@ Boolean isIdleClient(Map options) {
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
         return options["finishedBuildStages"]["Windows"]
+    } else if (options["osName"] == "Ubuntu20") {
+        Boolean result = false
+
+        // wait client machine
+        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+
+        for (node in suitableNodes) {
+            if (utils.isNodeIdle(node)) {
+                result = true
+            }
+        }
+
+        if (!options["finishedBuildStages"]["Windows"]) {
+            result = false
+        }
+
+        return result
     }
 }
 
@@ -70,6 +87,8 @@ def getClientScreenWidth(String osName, Map options) {
         switch(osName) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+            case "Ubuntu20":
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -90,6 +109,8 @@ def getClientScreenHeight(String osName, Map options) {
         switch(osName) {
             case "Windows":
                 return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+            case "Ubuntu20":
+                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -115,6 +136,11 @@ def prepareTool(String osName, Map options) {
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
+            break
+        case "Ubuntu20":
+            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
+            unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
+            sh("chmod u+x RemoteGameServer")
             break
         case "OSX":
             println("Unsupported OS")
@@ -185,12 +211,13 @@ def runDriverTests(Map options) {
 }
 
 
-def getServerIpAddress(String osName, Map options) {
+def getServerIpAddress(String osName) {
     switch(osName) {
         case "Windows":
             return bat(script: "echo %IP_ADDRESS%",returnStdout: true).split('\r\n')[2].trim()
-        case "OSX":
-            println("Unsupported OS")
+            break
+        case "Ubuntu20":
+            return sh(script: "echo \$IP_ADDRESS",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -198,11 +225,20 @@ def getServerIpAddress(String osName, Map options) {
 }
 
 
-def getGPUName() {
+def getGPUName(String osName) {
     try {
         dir("jobs_launcher") {
             dir("core") {
-                return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                switch(osName) {
+                    case "Windows":
+                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                        break
+                    case "Ubuntu20":
+                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").trim()
+                        break
+                    default:
+                        println("Unsupported OS")
+                }
             }
         }
     } catch (e) {
@@ -212,11 +248,20 @@ def getGPUName() {
 }
 
 
-def getOSName() {
+def getOSName(String osName) {
     try {
         dir("jobs_launcher") {
             dir("core") {
-                return python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                switch(osName) {
+                    case "Windows":
+                        rreturn python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
+                        break
+                    case "Ubuntu20":
+                        return python3("-c \"from system_info import get_os; print(get_os())\"").trim()
+                        break
+                    default:
+                        println("Unsupported OS")
+                }
             }
         }
     } catch (e) {
@@ -226,12 +271,13 @@ def getOSName() {
 }
 
 
-def getCommunicationPort(String osName, Map options) {
+def getCommunicationPort(String osName) {
     switch(osName) {
         case "Windows":
             return bat(script: "echo %COMMUNICATION_PORT%",returnStdout: true).split('\r\n')[2].trim()
-        case "OSX":
-            println("Unsupported OS")
+            break
+        case "Ubuntu20":
+            return sh(script: "echo \$COMMUNICATION_PORT",returnStdout: true).trim()
             break
         default:
             println("Unsupported OS")
@@ -302,6 +348,25 @@ def closeGames(String osName, Map options, String gameName) {
                 }
 
                 break
+            case "Ubuntu20":
+                if (gameName == "All") {
+                    sh """
+                        pkill "browser_x64"
+                        pkill "heaven_x64"
+                        pkill "valley_x64"
+                    """
+                } else if (gameName == "HeavenOpenGL") {
+                    sh """
+                        pkill "browser_x64"
+                        pkill "heaven_x64"
+                    """
+                } else if (gameName == "ValleyOpenGL") {
+                    sh """
+                        pkill "browser_x64"
+                        pkill "valley_x64"
+                    """
+                }
+                break
             case "OSX":
                 println("Unsupported OS")
                 break
@@ -349,9 +414,17 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                         run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 } else if (executionType == "client") {
-                    bat """
-                        run_windows_client.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
-                    """
+                    if (options.serverInfo.osName.contains("Windows")) {
+                        bat """
+                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    } else if (options.serverInfo.osName.contains("Ubuntu")) {
+                        bat """
+                            run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    } else {
+                        throw new Exception("Unknown server OS name ${options.serverInfo.osName}")
+                    }
                 } else {
                     def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
@@ -369,8 +442,12 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                 break
 
-            case "OSX":
-                println "OSX isn't supported"
+            case "Ubuntu20":
+                def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
+
+                sh """
+                    ./run_ubuntu_server.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                """
                 break
 
             default:
@@ -469,12 +546,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            dir("scripts"){
-                bat """
-                    install_pylibs.bat
-                """
-            }
-
             dir("StreamingSDK") {
                 prepareTool(osName, options)
             }
@@ -550,8 +621,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         utils.reboot(this, osName)
 
-        initAndroidDevice()
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 cleanWS(osName)
@@ -562,42 +631,48 @@ def executeTestsServer(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
                 dir("jobs_launcher/install"){
-                    bat """
-                        install_pylibs.bat
-                    """
-                }
-
-                dir("scripts"){
-                    bat """
-                        install_pylibs.bat
-                    """
+                    if (isUnix()) {
+                        sh """
+                            chmod u+x install_pylibs.sh
+                            ./install_pylibs.sh
+                        """
+                    } else {
+                        bat """
+                            install_pylibs.bat
+                        """
+                    }
                 }
 
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
                 }
 
-                if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.2.json~" || options.parsedTests == "regression.3.json~") {
-                    dir("StreamingSDKAndroid") {
-                        prepareTool("Android", options)
-                        installAndroidClient()
+                // Android autotests support only Windows server machines
+                if (osName == "Windows") {
+                    initAndroidDevice()
+
+                    if (options.multiconnectionConfiguration.android_client.any { options.parsedTests.contains(it) } || options.parsedTests == "regression.2.json~" || options.parsedTests == "regression.3.json~") {
+                        dir("StreamingSDKAndroid") {
+                            prepareTool("Android", options)
+                            installAndroidClient()
+                        }
                     }
                 }
             }
         }
 
-        options["serverInfo"]["ipAddress"] = getServerIpAddress(osName, options)
+        options["serverInfo"]["ipAddress"] = getServerIpAddress(osName)
         println("[INFO] IPv4 address of server: ${options.serverInfo.ipAddress}")
 
-        options["serverInfo"]["gpuName"] = getGPUName()
+        options["serverInfo"]["gpuName"] = getGPUName(osName)
         println("[INFO] Name of GPU on server machine: ${options.serverInfo.gpuName}")
-        
-        options["serverInfo"]["osName"] = getOSName()
+
+        options["serverInfo"]["osName"] = getOSName(osName)
         println("[INFO] Name of OS on server machine: ${options.serverInfo.osName}")
 
-        options["serverInfo"]["communicationPort"] = getCommunicationPort(osName, options)
+        options["serverInfo"]["communicationPort"] = getCommunicationPort(osName)
         println("[INFO] Communication port: ${options.serverInfo.communicationPort}")
-        
+
         options["serverInfo"]["ready"] = true
         println("[INFO] Server is ready to run tests")
 
@@ -665,12 +740,6 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){
-                bat """
-                    install_pylibs.bat
-                """
-            }
-
-            dir("scripts"){
                 bat """
                     install_pylibs.bat
                 """
@@ -817,12 +886,6 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     """
                 }
 
-                dir("scripts"){
-                    bat """
-                        install_pylibs.bat
-                    """
-                }
-
                 dir("StreamingSDK") {
                     prepareTool("Windows", options)
                 }
@@ -865,7 +928,7 @@ def executeTests(String osName, String asicName, Map options) {
         options.parsedTests = options.tests.split("-")[0]
         options.engine = options.tests.split("-")[1]
 
-        if (osName == "Windows") {
+        if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
             options["serverInfo"] = new ConcurrentHashMap()
             options["mcClientInfo"] = new ConcurrentHashMap()
@@ -878,7 +941,7 @@ def executeTests(String osName, String asicName, Map options) {
                 node(getClientLabels(options)) {
                     timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                         ws("WS/${options.PRJ_NAME}_Test") {
-                            executeTestsClient(osName, asicName, options)
+                            executeTestsClient("Windows", asicName, options)
                         }
                     }
                 }
@@ -889,7 +952,7 @@ def executeTests(String osName, String asicName, Map options) {
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                executeTestsMulticonnectionClient(osName, asicName, options)
+                                executeTestsMulticonnectionClient("Windows", asicName, options)
                             }
                         }
                     }
@@ -1070,11 +1133,12 @@ def executeBuildUbuntu(Map options) {
 
     dir("StreamingSDK/amf/bin/dbg_64") {
         String BUILD_NAME = "StreamingSDK_Ubuntu20.zip"
+        
+        sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
         zip archive: true, zipFile: BUILD_NAME
 
-        utils.moveFiles(this, "Ubuntu20", BUILD_NAME, "ubuntu20.zip")
-        //makeStash(includes: "ubuntu20.zip", name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
+        makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
 
         archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
         rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
@@ -1500,6 +1564,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                         count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
                     """
                 }
+
+                dir("scripts") {
+                    python3("prepare_test_cases.py --os_name \"Ubuntu\"")
+                }
+
+                dir("jobs_launcher") {
+                    bat """
+                        count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
+                    """
+                }
             } catch (e) {
                 println "[ERROR] Can't generate number of lost tests"
             }
@@ -1674,7 +1748,7 @@ def call(String projectBranch = "",
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             // Anroid tests required built Windows Streaming SDK to run server side
-            if (platforms.contains("Android:") && !platforms.contains("Windows")) {
+            if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
                 platforms = platforms + ";Windows"
 
                 winBuildConfiguration = "debug"
