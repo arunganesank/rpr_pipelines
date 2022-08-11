@@ -113,10 +113,8 @@ def prepareTool(String osName, Map options) {
             unzip(zipFile: "${options.winTestingBuildName}.zip")
 
             // TODO: check that latency tool is required
-            makeUnstash(name: "LatencyToolServerWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "LatencyTool_Windows_Server.zip")
-            makeUnstash(name: "LatencyToolClientWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "LatencyTool_Windows_Client.zip")
+            makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+            unzip(zipFile: "LatencyTool_Windows.zip")
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -994,18 +992,6 @@ def executeBuildWindows(Map options) {
                     """
                 }
 
-                dir(winLatencyToolDir) {
-                    String LATENCY_TOOL_NAME = "LatencyTool_Windows_Server.zip"
-
-                    bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
-
-                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
-
-                    if (options.winTestingDriverName == winBuildConf) {
-                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolServerWindows", preZip: false, storeOnNAS: options.storeOnNAS)
-                    }
-                }
-
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyToolClient}")
 
                 dir("amf\\protected\\samples\\CPPSamples\\LatencyTestClient") {
@@ -1017,14 +1003,14 @@ def executeBuildWindows(Map options) {
                 }
 
                 dir(winLatencyToolDir) {
-                    String LATENCY_TOOL_NAME = "LatencyTool_Windows_Client.zip"
+                    String LATENCY_TOOL_NAME = "LatencyTool_Windows.zip"
 
                     bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
 
                     makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
 
                     if (options.winTestingDriverName == winBuildConf) {
-                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolClientWindows", preZip: false, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
