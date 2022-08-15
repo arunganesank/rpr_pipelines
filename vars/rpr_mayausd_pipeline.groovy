@@ -540,7 +540,7 @@ def executePreBuild(Map options) {
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
-                options.pluginVersion = "0.1.0"
+                options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -552,17 +552,15 @@ def executePreBuild(Map options) {
                     }
                     
                     if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
-
                         // Do not have permissions to make a new commit
-
-/*                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
 
-                        def new_version = version_inc(options.pluginVersion, 3)
-                        println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=', new_version)
+                        def newVersion = version_inc(options.pluginVersion, 3)
+                        println "[INFO] New build version: ${newVersion}"
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${newVersion}")
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=')
+                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
                         println "[INFO] Updated build version: ${options.pluginVersion}"
 
                         bat """
@@ -574,7 +572,7 @@ def executePreBuild(Map options) {
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                         options.projectBranch = options.commitSHA
-                        println "[INFO] Project branch hash: ${options.projectBranch}"*/
+                        println "[INFO] Project branch hash: ${options.projectBranch}"
                     } else {
                         if (options.commitMessage.contains("CIS:BUILD")) {
                             options['executeBuild'] = true
