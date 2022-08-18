@@ -110,7 +110,8 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
 
 
 def executeTestsCustomQuality(String osName, String asicName, Map options, String apiValue = "vulkan") {
-    validateDriver(osName, asicName, ["Ubuntu-NVIDIA": "515.48.07"], options)
+    // TODO: Fix validating and installing driver
+    //validateDriver(osName, asicName, ["Ubuntu-NVIDIA": "515.48.07"], options)
        
     cleanWS(osName)
     String error_message = ""
