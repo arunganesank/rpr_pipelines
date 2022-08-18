@@ -140,9 +140,9 @@ String patchSubmodule(String serviceName) {
     String commitSHA
 
     if (isUnix()) {
-        commitSHA = sh (script: "git log --format=%%H -1 ", returnStdout: true).trim()
+        commitSHA = sh (script: "git log --format=%%h -1 ", returnStdout: true).trim()
     } else {
-        commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        commitSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
     }
 
     String version = readFile("VERSION.txt").trim()
@@ -175,9 +175,9 @@ def patchVersions(Map options) {
     String version = readFile("VERSION.txt").trim()
 
     if (env.CHANGE_URL) {
-        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. PR: #${env.CHANGE_ID}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitSHA}")
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. PR: #${env.CHANGE_ID}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     } else {
-        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitSHA}")
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     }
 }
 
@@ -508,6 +508,7 @@ def executePreBuild(Map options) {
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
 
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             String version = readFile("VERSION.txt").trim()
@@ -552,6 +553,7 @@ def executePreBuild(Map options) {
 
                     //get commit's sha which have to be build
                     options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                    options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
                     options.projectBranch = options.commitSHA
                     println "[INFO] Project branch hash: ${options.projectBranch}"
                 }*/
@@ -560,6 +562,7 @@ def executePreBuild(Map options) {
             println "The last commit was written by ${options.commitAuthor}."
             println "Commit message: ${options.commitMessage}"
             println "Commit SHA: ${options.commitSHA}"
+            println "Commit short SHA: ${options.commitShortSHA}"
             //println "Version: ${options.version}"
         }
     }
