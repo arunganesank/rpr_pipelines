@@ -136,6 +136,51 @@ def doSanityCheck(String osName, String asicName, Map options) {
     }
 }
 
+String patchSubmodule(String serviceName) {
+    String commitSHA
+
+    if (isUnix()) {
+        commitSHA = sh (script: "git log --format=%%H -1 ", returnStdout: true).trim()
+    } else {
+        commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+    }
+
+    String version = readFile("VERSION.txt").trim()
+    writeFile(file: "VERSION.txt", text: "${serviceName}: ${version}. Hash: ${commitSHA}")
+}
+
+
+def patchVersions(Map options) {
+    dir("WebUsdLiveServer") {
+        patchSubmodule("Live")
+    }
+
+    dir("WebUsdRouteServer") {
+        patchSubmodule("Route")
+    }
+
+    dir("WebUsdStorageServer") {
+        patchSubmodule("Storage")
+    }
+
+    // TODO: waiting to adding of WebUsdStorageServer and WebUsdStreamServer as submodules
+    /*dir("WebUsdStorageServer") {
+        patchSubmodule()
+    }
+
+    dir("WebUsdStreamServer") {
+        patchSubmodule()
+    }*/
+
+    String version = readFile("VERSION.txt").trim()
+
+    if (env.CHANGE_URL) {
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. PR: #${env.CHANGE_ID}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitSHA}")
+    } else {
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitSHA}")
+    }
+}
+
 
 def executeBuildWindows(Map options) {
     options["stage"] = "Build"
@@ -376,6 +421,8 @@ def executeBuild(String osName, Map options) {
 
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
+            patchVersions(options)
+
             if (options.customHybridLinux && isUnix()) {
                 sh """
                     curl --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
@@ -461,25 +508,59 @@ def executePreBuild(Map options) {
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-        println "The last commit was written by ${options.commitAuthor}."
-        println "Commit message: ${options.commitMessage}"
-        println "Commit SHA: ${options.commitSHA}"
-    }
 
-    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-        GithubNotificator githubNotificator = new GithubNotificator(this, options)
-        githubNotificator.init(options)
-        options["githubNotificator"] = githubNotificator
-    }
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
+            String version = readFile("VERSION.txt").trim()
 
-    options.platforms.split(';').each() { os ->
-        List tokens = os.tokenize(':')
-        String platform = tokens.get(0)
-        platform = platform == "Windows" ? "Windows" : "Web application"
-        GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
-        GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
-        if (options.deploy && platform == "Web application") {
-            GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+            if (env.BRANCH_NAME) {
+                withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                    GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                    githubNotificator.init(options)
+                    options["githubNotificator"] = githubNotificator
+                }
+
+                options.platforms.split(';').each() { os ->
+                    List tokens = os.tokenize(':')
+                    String platform = tokens.get(0)
+                    platform = platform == "Windows" ? "Windows" : "Web application"
+                    GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+                    GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+                    if (options.deploy && platform == "Web application") {
+                        GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+                    }
+                }
+
+                // TODO: waiting for VERSION.txt file creation                
+                /*if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
+                    println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                    println "[INFO] Current build version: ${version}"
+
+                    def new_version = version_inc(options.pluginVersion, 3, ', ')
+                    if (env.BRANCH_NAME == "main") {
+                        version = version_inc(version, 2)
+                    } else {
+                        version = version_inc(version, 3)
+                    }
+
+                    println "[INFO] New build version: ${version}"
+                    writeFile(file: "VERSION.txt", text: version)
+
+                    bat """
+                        git commit VERSION.txt -m "buildmaster: version update to ${version}"
+                        git push origin HEAD:${env.BRANCH_NAME}
+                    """
+
+                    //get commit's sha which have to be build
+                    options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                    options.projectBranch = options.commitSHA
+                    println "[INFO] Project branch hash: ${options.projectBranch}"
+                }*/
+            }
+
+            println "The last commit was written by ${options.commitAuthor}."
+            println "Commit message: ${options.commitMessage}"
+            println "Commit SHA: ${options.commitSHA}"
+            //println "Version: ${options.version}"
         }
     }
 }
