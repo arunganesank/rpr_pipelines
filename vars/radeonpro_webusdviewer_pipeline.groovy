@@ -170,16 +170,33 @@ def executeBuildWindows(Map options) {
                 """
 
                 println("[INFO] Saving exe files to NAS")
-                dir("WebUsdWebServer\\dist_electron") {
-                    def exe_file = findFiles(glob: '*.msi')
-                    println("Found MSI files: ${exe_file}")
-                    for (file in exe_file) {
-                        renamed_filename = file.toString().replace(" ", "_")
-                        bat """
-                            rename "${file}" "${renamed_filename}"
-                        """
-                        makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+
+                // TODO: waiting for merge of PR-86
+                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-86") {
+                    dir("WebUsdFrontendServer\\dist_electron") {
+                        def exe_file = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exe_file}")
+                        for (file in exe_file) {
+                            renamed_filename = file.toString().replace(" ", "_")
+                            bat """
+                                rename "${file}" "${renamed_filename}"
+                            """
+                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                        }
+                    }
+                } else {
+                    dir("WebUsdWebServer\\dist_electron") {
+                        def exe_file = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exe_file}")
+                        for (file in exe_file) {
+                            renamed_filename = file.toString().replace(" ", "_")
+                            bat """
+                                rename "${file}" "${renamed_filename}"
+                            """
+                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
+                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                        }
                     }
                 }
             }
@@ -216,22 +233,43 @@ def executeBuildLinux(Map options) {
 
     String envProductionContent
 
-    if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+    // TODO: waiting for merge of PR-86
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-86") {
+        if (!options.customDomain) {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdFrontendServer", "--quiet")
+            sh "mv ./WebUsdFrontendServer/webusd.env.${options.deployEnvironment} ./WebUsdFrontendServer/.env.production"
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdFrontendServer", "--quiet")
+            sh "mv ./WebUsdFrontendServer/template ./WebUsdFrontendServer/.env.production"
+
+            envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+            envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
+            writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        }
+
+        if (options.disableSsl) {
+            envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+            envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
+            writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        }
     } else {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
-        sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
+        if (!options.customDomain) {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
+            sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
+            sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
 
-        envProductionContent = readFile("./WebUsdWebServer/.env.production")
-        envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
-    }
+            envProductionContent = readFile("./WebUsdWebServer/.env.production")
+            envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
+            writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+        }
 
-    if (options.disableSsl) {
-        envProductionContent = readFile("./WebUsdWebServer/.env.production")
-        envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+        if (options.disableSsl) {
+            envProductionContent = readFile("./WebUsdWebServer/.env.production")
+            envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
+            writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+        }
     }
 
     options["stage"] = "Build"
@@ -494,7 +532,7 @@ def call(
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    Boolean rebuildDeps = false,
+    Boolean rebuildDeps = true,
     Boolean updateDeps = false,
     String customHybridWin = "",
     String customHybridLinux = "",
@@ -510,6 +548,13 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
+        }
+    }
+
+    if (env.BRANCH_NAME) {
+        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+            customHybridWin = "${REMOTE_HOST}/SharedReports/Hybrid/Windows.zip"
+            customHybridLinux = "${REMOTE_HOST}/SharedReports/Hybrid/Ubuntu.tar.xz"
         }
     }
 
