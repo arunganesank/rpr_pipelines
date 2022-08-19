@@ -494,7 +494,7 @@ def call(
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    Boolean rebuildDeps = false,
+    Boolean rebuildDeps = true,
     Boolean updateDeps = false,
     String customHybridWin = "",
     String customHybridLinux = "",
@@ -510,6 +510,13 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
+        }
+    }
+
+    if (env.BRANCH_NAME) {
+        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+            customHybridWin = "${nasURLFrontend}/SharedReports/Hybrid/Windows.zip"
+            customHybridLinux = "${nasURLFrontend}/SharedReports/Hybrid/Ubuntu.tar.xz"
         }
     }
 
