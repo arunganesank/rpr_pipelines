@@ -203,7 +203,7 @@ def executeBuildWindows(String osName, Map options) {
         xcopy /s/y/i ..\\RML_thirdparty\\DirectML third_party\\directml
     """
 
-    options.cmakeKeysWin ='-G "Visual Studio 15 2017 Win64" -DRML_DIRECTML=ON -DRML_MIOPEN=ON -DRML_TENSORFLOW_CPU=ON -DRML_TENSORFLOW_CUDA=OFF -DRML_MPS=OFF'
+    options.cmakeKeysWin ='-G "Visual Studio 15 2017 Win64" -DRML_DIRECTML=ON -DRML_TENSORFLOW_CPU=ON -DRML_TENSORFLOW_CUDA=OFF -DRML_MPS=OFF'
 
     String releaseLink = executeWindowsBuildCommand(osName, options, "Release")
     String debugLink = executeWindowsBuildCommand(osName, options, "Debug")
