@@ -18,6 +18,14 @@ public class PipelineConfiguration {
         this.supportedOS = params["supportedOS"]
         this.productExtensions = params["productExtensions"]
         this.artifactNameBase = params["artifactNameBase"]
+
+        if (params.containsKey("buildProfile")) {
+            this.buildProfile = params["buildProfile"]
+        }
+
+        if (params.containsKey("testProfile")) {
+            this.testProfile = params["testProfile"]
+        }
     }
 
 }

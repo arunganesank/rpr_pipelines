@@ -109,9 +109,14 @@ public class GithubNotificator {
                     String osName = tokens.get(0)
 
                     if (!options.customBuildStages) {
-                        buildCases << osName
+                        if (options.containsKey("buildProfiles")) {
+                            options["buildProfiles"].each { profile ->
+                                buildCases << "${osName}-${profile}"
+                            }
+                        } else {
+                            buildCases << osName
+                        }
                     }
-                    
 
                     String gpuNames = ""
                     if (tokens.size() > 1) {
@@ -129,11 +134,11 @@ public class GithubNotificator {
                                     String parsedTestsName = testName
                                     if (testName.contains("~")) {
                                         String[] testsNameParts = parsedTestsName.split("~")
-                                        String engine = ""
+                                        String profile = ""
                                         if (testsNameParts.length == 2 && testsNameParts[1].contains("-")) {
-                                            engine = testsNameParts[1].split("-")[1]
+                                            profile = testsNameParts[1].split("-")[1]
                                         }
-                                        parsedTestsName = engine ? "${testsNameParts[0]}-${engine}" : "${testsNameParts[0]}"
+                                        parsedTestsName = profile ? "${testsNameParts[0]}-${profile}" : "${testsNameParts[0]}"
                                         parsedTestsName = parsedTestsName.replace(".json", "")
                                     }
                                     testCases << "${asicName}-${osName}-${parsedTestsName}"
@@ -177,9 +182,9 @@ public class GithubNotificator {
                 githubApiProvider.createOrUpdateStatusCheck(paramsBase)
             }
             if (hasDeployStage) {
-                if (options.enginesNames) {
-                    options.enginesNames.each { engine ->
-                        String message = "Building test report for ${engine}"
+                if (options.containsKey("testProfiles")) {
+                    options.testProfiles.each { profile ->
+                        String message = "Building test report for ${profile}"
                         paramsBase["name"] = "[DEPLOY] ${message}"
                         githubApiProvider.createOrUpdateStatusCheck(paramsBase)
                         deployCases << message
@@ -227,11 +232,11 @@ public class GithubNotificator {
             }
             if (statusTitle.contains("~")) {
                 String[] statusTitleParts = statusTitle.split("~")
-                String engine = ""
+                String profile = ""
                 if (statusTitleParts.length == 2 && statusTitleParts[1].contains("-")) {
-                    engine = statusTitleParts[1].split("-")[1]
+                    profile = statusTitleParts[1].split("-")[1]
                 }
-                statusTitle = engine ? "${statusTitleParts[0]}-${engine}" : "${statusTitleParts[0]}"
+                statusTitle = profile ? "${statusTitleParts[0]}-${profile}" : "${statusTitleParts[0]}"
                 statusTitle = statusTitle.replace(".json", "")
             }
 
@@ -296,11 +301,11 @@ public class GithubNotificator {
         try {
             if (statusTitle.contains("~")) {
                 String[] statusTitleParts = statusTitle.split("~")
-                String engine = ""
+                String profile = ""
                 if (statusTitleParts.length == 2 && statusTitleParts[1].contains("-")) {
-                    engine = statusTitleParts[1].split("-")[1]
+                    profile = statusTitleParts[1].split("-")[1]
                 }
-                statusTitle = engine ? "${statusTitleParts[0]}-${engine}" : "${statusTitleParts[0]}"
+                statusTitle = profile ? "${statusTitleParts[0]}-${profile}" : "${statusTitleParts[0]}"
                 statusTitle = statusTitle.replace(".json", "")
             }
 

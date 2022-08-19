@@ -87,7 +87,7 @@ def uninstallPlugin(String osName, String tool, Map options){
 }
 
 def installPlugin(String osName, String tool, Map options){
-    String addonName = options[getProduct.getIdentificatorKey(osName)]
+    String addonName = options[getProduct.getIdentificatorKey(osName, options)]
 
     switch(osName) {
         case 'Windows':

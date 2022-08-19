@@ -14,7 +14,7 @@ import groovy.transform.Field
 
 
 @Field List platformList = []
-@Field List testResultList = []
+@Field Map testResultMap = [:]
 @Field def executeDeploy
 
 
@@ -30,15 +30,72 @@ def getNextTest(Iterator iterator) {
 
 @NonCPS
 @Synchronized
-def changeTestsCount(Map testsLeft, int count, String engine) {
-    if (testsLeft && engine) {
-        testsLeft[engine] += count
-        println("Number of tests left for '${engine}' engine change by '${count}'. Tests left: ${testsLeft[engine]}")
+def changeTestsCount(Map testsLeft, int count, String profile) {
+    if (testsLeft && profile) {
+        testsLeft[profile] += count
+        println("Number of tests left for '${profile}' profile change by '${count}'. Tests left: ${testsLeft[profile]}")
     }
 }
 
 
-def executeTestsNode(String osName, String gpuNames, def executeTests, Map options, Map testsLeft)
+def initProfiles(Map options) {
+    if (options.containsKey("configuration") && options["configuration"]["buildProfile"]) {
+        // separate buildProfiles and buildsList keys for possible future difference in values of these keys
+        options["buildProfiles"] = options["buildsList"].copy()
+    }
+
+    if (options.containsKey("configuration") && options["configuration"].contains("testProfile")) {
+        options["testProfiles"] = []
+
+        for (test in options["testsList"]) {
+            String profile = test.split("-")[-1]
+
+            if (!options["testProfiles"].contains(profile)) {
+                options["testProfiles"].add(profile)
+            }
+        }
+
+        if (options["configuration"].containsKey("displayingProfilesMapping")) {
+            options["displayingTestProfiles"] = [:]
+
+            for (value in options["testsList"]) {
+                List profileKeys = options["configuration"]["testProfile"].split("_") as List
+                List profileValues = profile.split("_") as List
+
+                List buffer = []
+
+                for (int i = 0; i < profileKeys.size(); i++) {
+                    buffer.add(options["configuration"]["displayingProfilesMapping"][profileKeys[i]][profileValues[i]])
+                }
+
+                options["displayingTestProfiles"][profile].add(buffer.join(" "))
+            }
+        }
+    }
+}
+
+
+boolean doesProfilesCorrespond(String buildProfile, String testProfile) {
+    List buildProfileParts = buildProfile.split("_") as List
+    List testProfileParts = testProfile.split("_") as List
+
+    int lastIndex = -100
+
+    for (part in buildProfileParts) {
+        int currentIndex = testProfileParts.indexOf(part)
+
+        if (currentIndex != -1 && currentIndex > lastIndex) {
+            continue
+        } else {
+            return false
+        }
+    }
+
+    return true
+}
+
+
+def executeTestsNode(String osName, String gpuNames, String buildProfile, def executeTests, Map options, Map testsLeft)
 {
     if (gpuNames && options['executeTests']) {
         def testTasks = [:]
@@ -46,13 +103,9 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
             String asicName = it
 
             String taskName = "Test-${asicName}-${osName}"
-            
+
             testTasks[taskName] = {
                 stage(taskName) {
-                    // if not split - testsList doesn't exists
-                    // TODO: replace testsList check to splitExecution var
-                    options.testsList = options.testsList ?: ['']
-
                     def testerLabels
                     if (options.TESTER_TAG) {
                         if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
@@ -65,7 +118,8 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                         testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
                     }
 
-                    Iterator testsIterator = options.testsList.iterator()
+                    Iterator testsIterator = options.testResultMap[buildProfile].map({ it.replace("testResult-", "") }).iterator()
+
                     Integer launchingGroupsNumber = 1
                     if (!options["parallelExecutionType"] || options["parallelExecutionType"] == TestsExecutionType.TAKE_ONE_NODE_PER_GPU) {
                         launchingGroupsNumber = 1
@@ -80,29 +134,31 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                         testsExecutors["Test-${asicName}-${osName}-${i}"] = {
                             String testName = getNextTest(testsIterator)
                             while (testName != null) {
-                                String engine = null
-                                if (options.engines) {
-                                    engine = testName.split("-")[-1]
+                                String testProfile = null
+                                String tests = null
+
+                                if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
+                                    if (options.splitTestsExecution) {
+                                        testProfile = testName.split("-")[-1]
+                                    } else {
+                                        testProfile = testName
+                                    }
                                 }
-                                if (options.skippedTests && options.skippedTests.containsKey(testName) && options.skippedTests[testName].contains("${asicName}-${osName}")) {
-                                    println("Test group ${testName} on ${asicName}-${osName} fully skipped")
-                                    testName = getNextTest(testsIterator)
-                                    changeTestsCount(testsLeft, -1, engine)
-                                    continue
-                                } 
-                                // if there number of errored groups in succession is more than 
+
+                                // if there number of errored groups in succession is 3 or more
                                 if (options["errorsInSuccession"] && 
-                                        ((engine && options["errorsInSuccession"]["${osName}-${asicName}-${engine}"] && options["errorsInSuccession"]["${osName}-${asicName}-${engine}"].intValue() >= 3)
+                                        ((profile && options["errorsInSuccession"]["${osName}-${asicName}-${profile}"] && options["errorsInSuccession"]["${osName}-${asicName}-${profile}"].intValue() >= 3)
                                         || (options["errorsInSuccession"]["${osName}-${asicName}"] && options["errorsInSuccession"]["${osName}-${asicName}"].intValue() >= 3))) {
                                     println("Test group ${testName} on ${asicName}-${osName} aborted due to exceeded number of errored groups in succession")
                                     testName = getNextTest(testsIterator)
-                                    changeTestsCount(testsLeft, -1, engine)
+                                    changeTestsCount(testsLeft, -1, testProfile)
                                     continue
                                 }
+
                                 if (options["abort${osName}"]) {
                                     println("Test group ${testName} on ${asicName}-${osName} aborted due to current context")
                                     testName = getNextTest(testsIterator)
-                                    changeTestsCount(testsLeft, -1, engine)
+                                    changeTestsCount(testsLeft, -1, testProfile)
                                     continue
                                 }
 
@@ -110,11 +166,11 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                                 if (options.containsKey("skipCallback")) {
                                     Boolean skip = false
 
-                                    if (engine) {
-                                        // remove engine name from testName
+                                    if (testProfile) {
+                                        // remove profile name from testName
                                         List testNameParts = testName.split("-") as List
                                         String rawTestName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                                        skip = options["skipCallback"](options, asicName, osName, rawTestName, engine)
+                                        skip = options["skipCallback"](options, asicName, osName, rawTestName, testProfile)
                                     } else {
                                         skip = options["skipCallback"](options, asicName, osName, testName)
                                     }
@@ -122,7 +178,7 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                                     if (skip) {
                                         println("Test group ${testName} on ${asicName}-${osName} is skipped on pipeline's layer")
                                         testName = getNextTest(testsIterator)
-                                        changeTestsCount(testsLeft, -1, engine)
+                                        changeTestsCount(testsLeft, -1, testProfile)
                                         continue
                                     }
                                 }
@@ -136,12 +192,16 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                                 newOptions["taskName"] = taskName
                                 newOptions['testResultsName'] = testName ? "testResult-${asicName}-${osName}-${testName}" : "testResult-${asicName}-${osName}"
                                 newOptions['stageName'] = testName ? "${asicName}-${osName}-${testName}" : "${asicName}-${osName}"
-                                if (!options.splitTestsExecution && testName) {
-                                    // case for non splitted projects with multiple engines (e.g. Streaming SDK with multiple games)
-                                    newOptions['engine'] = testName
-                                    newOptions['tests'] = options.tests
-                                } else {
-                                    newOptions['tests'] = testName ?: options.tests
+                                newOptions['tests'] = options.splitTestsExecution ? testName.split("-")[0] : options.tests
+                                newOptions["testProfile"] = testProfile
+
+                                if (options.contains("configuration") && options["configuration"].contains("testProfile")) {
+                                    List profileKeys = options["configuration"]["testProfile"].split("_") as List
+                                    List profileValues = testProfile.split("_") as List
+
+                                    for (int i = 0; i < profileKeys.size(); i++) {
+                                        newOptions[profileKeys[i]] = profileValues[i]
+                                    }
                                 }
 
                                 def retringFunction = { nodesList, currentTry ->
@@ -213,7 +273,7 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                                             testsOrTestPackageParts = testsOrTestPackage.split("-")
                                             for (failedSuite in testsOrTestPackageParts[0].split()) {
                                                 String suiteName
-                                                // check engine availability
+                                                // check profile existence
                                                 if (testsOrTestPackageParts.length > 1) {
                                                     suiteName = "${failedSuite}-${testsOrTestPackageParts[1]}"
                                                 } else {
@@ -263,8 +323,9 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
                                 } catch (e) {
                                     // Ignore other exceptions
                                 }
+
                                 testName = getNextTest(testsIterator)
-                                changeTestsCount(testsLeft, -1, engine)
+                                changeTestsCount(testsLeft, -1, testProfile)
                             }
                         }                        
                     }
@@ -279,7 +340,7 @@ def executeTestsNode(String osName, String gpuNames, def executeTests, Map optio
     }
 }
 
-def executePlatform(String osName, String gpuNames, def executeBuild, def executeTests, Map options, Map testsLeft)
+def executePlatform(String osName, String gpuNames, String buildProfile, def executeBuild, def executeTests, Map options, Map testsLeft)
 {
     def retNode = {
         try {
@@ -295,9 +356,15 @@ def executePlatform(String osName, String gpuNames, def executeBuild, def execut
                     }
                 }
             } catch (e1) {
-                if (options.engines) {
-                    options.engines.each { engine ->
-                        changeTestsCount(testsLeft, -options.testsInfo["testsPer-${engine}-${osName}"], engine)
+                if (options.testProfiles) {
+                    options.testProfiles.each { testProfile ->
+                        if (buildProfile) {
+                            if (!doesProfilesCorrespond(buildProfile, testProfile)) {
+                                return
+                            }
+                        }
+
+                        changeTestsCount(testsLeft, -options.testsInfo["testsPer-${testProfile}-${osName}"], testProfile)
                     }
                 }
                 throw e1
@@ -305,10 +372,10 @@ def executePlatform(String osName, String gpuNames, def executeBuild, def execut
 
             if (options.containsKey('tests') && options.containsKey('testsPackage')){
                 if (options['testsPackage'] != 'none' || options['tests'].size() == 0 || !(options['tests'].size() == 1 && options['tests'].get(0).length() == 0)){ // BUG: can throw exception if options['tests'] is string with length 1
-                    executeTestsNode(osName, gpuNames, executeTests, options, testsLeft)
+                    executeTestsNode(osName, gpuNames, buildProfile, executeTests, options, testsLeft)
                 }
             } else {
-                executeTestsNode(osName, gpuNames, executeTests, options, testsLeft)
+                executeTestsNode(osName, gpuNames, buildProfile, executeTests, options, testsLeft)
             }
 
         } catch (e) {
@@ -345,16 +412,16 @@ def shouldExecuteDelpoyStage(Map options) {
     return true
 }
 
-def makeDeploy(Map options, String engine = "") {
+def makeDeploy(Map options, String profile = "") {
     Boolean executeDeployStage = shouldExecuteDelpoyStage(options)
 
     if (executeDeploy && executeDeployStage) {
         String stageName
 
-        if (options.enginesNames) {
-            stageName = engine ? "Deploy-${options.enginesNames[options.engines.indexOf(engine)]}" : "Deploy"
+        if (profile) {
+            stageName = options.containsKey("displayingTestProfiles") ? "Deploy-${options.displayingTestProfiles[profile]}" : "Deploy-${profile}"
         } else {
-            stageName = engine ? "Deploy-${engine}" : "Deploy"
+            stageName = "Deploy"
         }
 
         stage(stageName) {
@@ -370,35 +437,14 @@ def makeDeploy(Map options, String engine = "") {
 
             options["stage"] = "Deploy"
             def retringFunction = { nodesList, currentTry ->
-                if (engine) {
-                    executeDeploy(options, platformList, testResultList, engine)
+                if (profile) {
+                    executeDeploy(options, platformList, testResultMap[profile], profile)
                 } else {
-                    executeDeploy(options, platformList, testResultList)
+                    executeDeploy(options, platformList, testResultMap[""])
                 }
 
-                if (engine && options.engines.size() > 1 && options.reportUpdater) {
+                if (profile && options.testProfiles.size() > 1 && options.reportUpdater) {
                     options.reportUpdater.updateReport()
-                }
-
-                try {
-                    dir("summaryTestResults") {
-                        if (fileExists("summary_status.json")) {
-                            if (engine) {
-                                if (options.enginesNames && options.engines) {
-                                    String originalEngineName = options.enginesNames[options.engines.indexOf(engine)]
-                                    bat("move summary_status.json summary_status_${originalEngineName}.json")
-                                    archiveArtifacts artifacts: "summary_status_${originalEngineName}.json"
-                                } else {
-                                    bat("move summary_status.json summary_status_${engine}.json")
-                                    archiveArtifacts artifacts: "summary_status_${engine}.json"
-                                }
-                            } else {
-                                archiveArtifacts artifacts: "summary_status.json"
-                            }
-                        }
-                    }
-                } catch (e) {
-                    println("[ERROR] Failed to save summary_status.json")
                 }
 
                 println("[INFO] Deploy stage finished without unexpected exception. Clean workspace")
@@ -521,14 +567,17 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
+                // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+                initProfiles(options)
+
                 options.testsInfo = [:]
-                if (options.engines) {
+                if (options.testProfiles) {
                     options['testsList'].each() { testName ->
-                        String engine = testName.split("-")[-1]
-                        if (!options.testsInfo.containsKey("testsPer-" + engine)) {
-                            options.testsInfo["testsPer-${engine}"] = 0
+                        String profile = testName.split("-")[-1]
+                        if (!options.testsInfo.containsKey("testsPer-" + profile)) {
+                            options.testsInfo["testsPer-${profile}"] = 0
                         }
-                        options.testsInfo["testsPer-${engine}"]++
+                        options.testsInfo["testsPer-${profile}"]++
                     }
                 }
 
@@ -544,42 +593,70 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                         String osName = tokens.get(0)
                         String gpuNames = ""
 
-                        Map newOptions = options.clone()
-                        newOptions["stage"] = "Build"
-                        newOptions["osName"] = osName
-
                         if (tokens.size() > 1) {
                             gpuNames = tokens.get(1)
                         }
 
                         platformList << osName
-                        if (gpuNames) {
-                            gpuNames.split(',').each() {
-                                // if not split - testsList doesn't exists
-                                newOptions.testsList = newOptions.testsList ?: ['']
-                                newOptions['testsList'].each() { testName ->
-                                    String asicName = it
-                                    String testResultItem = testName ? "testResult-${asicName}-${osName}-${testName}" : "testResult-${asicName}-${osName}"
-                                    testResultList << testResultItem
+
+                        List buildsList = options.containsKey("buildsList") ? options["buildsList"] : [""]
+
+                        for (build in buildsList) {
+                            Map newOptions = options.clone()
+                            newOptions["stage"] = "Build"
+                            newOptions["osName"] = osName
+                            newOptions["buildProfile"] = build
+
+                            if (options.contains("configuration") && options["configuration"].contains("buildProfile")) {
+                                List profileKeys = options["configuration"]["buildProfile"].split("_") as List
+                                List profileValues = profile.split("_") as List
+
+                                for (int i = 0; i < profileKeys.size(); i++) {
+                                    newOptions[profileKeys[i]] = profileValues[i]
                                 }
+                            }
 
-                                if (options.engines) {
-                                    options.engines.each { engine ->
-                                        if (!testsLeft.containsKey(engine)) {
-                                            testsLeft[engine] = 0
-                                        }
-                                        testsLeft[engine] += (options.testsInfo["testsPer-${engine}"] ?: 0)
+                            if (gpuNames) {
+                                gpuNames.split(',').each() {
+                                    // if not split - testsList doesn't exists
+                                    newOptions.testsList = newOptions.testsList ?: ['']
+                                    newOptions['testsList'].each() { testName ->
+                                        if (build) {
+                                            String testProfile = testName.split("-")[-1]
 
-                                        if (!options.testsInfo.containsKey("testsPer-" + engine + "-" + osName)) {
-                                            options.testsInfo["testsPer-${engine}-${osName}"] = 0
+                                            if (!doesProfilesCorrespond(build, testProfile)) {
+                                                return
+                                            }
                                         }
-                                        options.testsInfo["testsPer-${engine}-${osName}"] += (options.testsInfo["testsPer-${engine}"] ?: 0)
+
+                                        String asicName = it
+                                        String testResultItem = testName ? "testResult-${asicName}-${osName}-${testName}" : "testResult-${asicName}-${osName}"
+
+                                        if (!testResultMap.containsKey(profile)) {
+                                            testResultMap[build] = []
+                                        }
+
+                                        testResultMap[profile] << testResultItem
+                                    }
+
+                                    if (options.testProfiles) {
+                                        options.testProfiles.each { profile ->
+                                            if (!testsLeft.containsKey(profile)) {
+                                                testsLeft[profile] = 0
+                                            }
+                                            testsLeft[profile] += (options.testsInfo["testsPer-${profile}"] ?: 0)
+
+                                            if (!options.testsInfo.containsKey("testsPer-" + profile + "-" + osName)) {
+                                                options.testsInfo["testsPer-${profile}-${osName}"] = 0
+                                            }
+                                            options.testsInfo["testsPer-${profile}-${osName}"] += (options.testsInfo["testsPer-${profile}"] ?: 0)
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        tasks[osName]=executePlatform(osName, gpuNames, executeBuild, executeTests, newOptions, testsLeft)
+                            tasks[osName]=executePlatform(osName, gpuNames, build, executeBuild, executeTests, newOptions, testsLeft)
+                        }
                     }
                 }
 
@@ -587,20 +664,20 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
 
                 println "Tests Left: ${testsLeft}"
 
-                if (options.engines) {
-                    options.engines.each { engine ->
+                if (options.testProfiles) {
+                    options.testProfiles.each { profile ->
                         String stageName
 
-                        if (options.enginesNames) {
-                            stageName = "Deploy-${options.enginesNames[options.engines.indexOf(engine)]}"
+                        if (options.containsKey("displayingTestProfiles")) {
+                            stageName = "Deploy-${options.displayingTestProfiles[profile]}"
                         } else {
-                            stageName = "Deploy-${engine}"
+                            stageName = "Deploy-${profile}"
                         }
 
                         tasks[stageName] = {
-                            if (testsLeft[engine] != null) {
-                                waitUntil({testsLeft[engine] == 0}, quiet: true)
-                                makeDeploy(options, engine)
+                            if (testsLeft[profile] != null) {
+                                waitUntil({testsLeft[profile] == 0}, quiet: true)
+                                makeDeploy(options, profile)
                             }
                         }
                     }
@@ -625,21 +702,22 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
             } finally {
-                if (!options.engines) {
+                if (!(options.testProfiles)) {
                     makeDeploy(options)
                 } else {
                     Map tasks = [:]
 
-                    options.engines.each {
+                    options.testProfiles.each {
                         if (testsLeft && testsLeft[it] != 0) {
                             // Build was aborted. Make reports from existing data
                             String stageName
 
-                            if (options.enginesNames) {
-                                stageName = "Deploy-${options.enginesNames[options.engines.indexOf(it)]}"
+                            if (options.containsKey("displayingTestProfiles")) {
+                                stageName = "Deploy-${options.displayingTestProfiles[it]}"
                             } else {
                                 stageName = "Deploy-${it}"
                             }
+
                             tasks[stageName] = {
                                 makeDeploy(options, it)
                             }

@@ -1,9 +1,9 @@
-def getIdentificatorKey(String osName) {
-    return "plugin${osName}Identificator"
+def getIdentificatorKey(String osName, Map options) {
+    return options.containsKey("testProfile") ? "plugin${osName}${options.testProfile}Identificator" : "plugin${osName}Identificator"
 }
 
-def getStashName(String osName) {
-    return "app${osName}"
+def getStashName(String osName, Map options) {
+    return options.containsKey("testProfile") ? "app${osName}${options.testProfile}" : "app${osName}"
 }
 
 def saveDownloadedInstaller(String artifactNameBase, String extension, String identificatorValue, Boolean cacheInstaller) {
@@ -59,8 +59,17 @@ def call(String osName, Map options, String unpackDestination = "", Boolean cach
         throw new Exception("Unsupported OS")
     }
 
-    String identificatorKey = getIdentificatorKey(osName)
-    String stashName = getStashName(osName)
+    String identificatorKey
+    String stashName
+
+    if (options.contains("toolVersion")) {
+        identificatorKey = getIdentificatorKey(osName, options.toolVersion)
+        stashName = getStashName(osName, options.toolVersion)
+    } else {
+        identificatorKey = getIdentificatorKey(osName)
+        stashName = getStashName(osName)
+    }
+
     String extension = options["configuration"]["productExtensions"][osName]
     // the name of the artifact without OS name / version. It must be same for any OS / version
     String artifactNameBase = options["configuration"]["artifactNameBase"]

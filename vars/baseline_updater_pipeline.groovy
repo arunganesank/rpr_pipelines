@@ -87,6 +87,8 @@ def call(String jobName,
     String updateType,
     Boolean allPlatforms=false) {
 
+    // TODO: in future it can be required to replace engines by profiles
+
     stage("UpdateBaselines") {
         node("Windows && !NoBaselinesUpdate") {
             ws("WS/UpdateBaselines") {

@@ -451,7 +451,7 @@ def executePreBuild(Map options) {
             options.testsList = []
             options.tests = tests.join(" ")
             options.engines.each(){ engine ->
-                options.testsList << "-${engine}"
+                options.testsList << "${engine}"
             }
         }
 

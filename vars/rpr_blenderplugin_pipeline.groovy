@@ -71,18 +71,23 @@ def buildRenderCache(String osName, String toolVersion, String log_name, Integer
 
 def executeTestCommand(String osName, String asicName, Map options)
 {
-    def testTimeout = options.timeouts["${options.parsedTests}"]
-    String testsNames = options.parsedTests
-    String testsPackageName = options.testsPackage
+    def testTimeout = options.timeouts["${options.tests}"]
+    String testsNames
+    String testsPackageName
+
     if (options.testsPackage != "none" && !options.isPackageSplitted) {
-        if (options.parsedTests.contains(".json")) {
+        if (options.tests.contains(".json")) {
             // if tests package isn't splitted and it's execution of this package - replace test package by test group and test group by empty string
-            testsPackageName = options.parsedTests
+            testsPackageName = options.tests
             testsNames = ""
         } else {
             // if tests package isn't splitted and it isn't execution of this package - replace tests package by empty string
             testsPackageName = "none"
+            testsNames = options.tests
         }
+    } else {
+        testsPackageName = "none"
+        testsNames = options.tests
     }
 
     println "Set timeout to ${testTimeout}"
@@ -113,7 +118,7 @@ def executeTestCommand(String osName, String asicName, Map options)
 def cloneTestsRepository(Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
-    if (options.parsedTests.contains("RPR_Export") || options.parsedTests.contains("Smoke") || options.parsedTests.contains("regression.0")) {
+    if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
                 checkoutScm(branchName: "master", repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
@@ -127,8 +132,6 @@ def cloneTestsRepository(Map options) {
 
 def executeTests(String osName, String asicName, Map options)
 {
-    options.parsedTests = options.tests.split("-")[0]
-    options.engine = options.tests.split("-")[1]
 
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
@@ -136,7 +139,7 @@ def executeTests(String osName, String asicName, Map options)
     try {
         // FIXME: remove this ducktape when CPUs on that machines will be changes
         if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
-            if (options.parsedTests.contains("CPU_Mode") || options.parsedTests.contains("regression.0")) {
+            if (options.tests.contains("CPU_Mode") || options.tests.contains("regression.0")) {
                 throw new ExpectedExceptionWrapper(
                     "System doesn't support CPU_Mode group", 
                     new Exception("System doesn't support CPU_Mode group")
@@ -146,7 +149,7 @@ def executeTests(String osName, String asicName, Map options)
 
         // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
         if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
-            if (options.parsedTests.contains("Smoke") || options.parsedTests.contains("regression.2")) {
+            if (options.tests.contains("Smoke") || options.tests.contains("regression.2")) {
                 throw new ExpectedExceptionWrapper(
                     "System doesn't support Smoke group", 
                     new Exception("System doesn't support Smoke group")
@@ -267,8 +270,9 @@ def executeTests(String osName, String asicName, Map options)
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_blender_autotests_baselines" : "/mnt/c/TestResources/rpr_blender_autotests_baselines"
                 baseline_dir = enginePostfix ? "${baseline_dir}-${enginePostfix}" : baseline_dir
-                println "[INFO] Downloading reference images for ${options.parsedTests}"
-                options.parsedTests.split(" ").each() {
+                println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
+
+                options.tests.split(" ").each() {
                     if (it.contains(".json")) {
                         downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
                     } else {
@@ -369,7 +373,7 @@ def executeTests(String osName, String asicName, Map options)
                     }
                 }
             } else {
-                println "[INFO] Task ${options.tests} on ${options.nodeLabels} labels will be retried."
+                println "[INFO] Task ${options.tests}-${options.engine} on ${options.nodeLabels} labels will be retried."
             }
         } catch (e) {
             // throw exception in finally block only if test stage was finished
