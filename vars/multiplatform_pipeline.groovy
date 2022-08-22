@@ -195,7 +195,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 newOptions['tests'] = options.splitTestsExecution ? testName.split("-")[0] : options.tests
                                 newOptions["testProfile"] = testProfile
 
-                                if (options.contains("configuration") && options["configuration"].contains("testProfile")) {
+                                if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
                                     List profileKeys = options["configuration"]["testProfile"].split("_") as List
                                     List profileValues = testProfile.split("_") as List
 
@@ -607,9 +607,9 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                             newOptions["osName"] = osName
                             newOptions["buildProfile"] = build
 
-                            if (options.contains("configuration") && options["configuration"].contains("buildProfile")) {
+                            if (options.containsKey("configuration") && options["configuration"]["buildProfile"]) {
                                 List profileKeys = options["configuration"]["buildProfile"].split("_") as List
-                                List profileValues = profile.split("_") as List
+                                List profileValues = build.split("_") as List
 
                                 for (int i = 0; i < profileKeys.size(); i++) {
                                     newOptions[profileKeys[i]] = profileValues[i]
@@ -632,11 +632,11 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                                         String asicName = it
                                         String testResultItem = testName ? "testResult-${asicName}-${osName}-${testName}" : "testResult-${asicName}-${osName}"
 
-                                        if (!testResultMap.containsKey(profile)) {
+                                        if (!testResultMap.containsKey(build)) {
                                             testResultMap[build] = []
                                         }
 
-                                        testResultMap[profile] << testResultItem
+                                        testResultMap[build] << testResultItem
                                     }
 
                                     if (options.testProfiles) {
