@@ -6,6 +6,8 @@ public class PipelineConfiguration {
     List supportedOS
     Map productExtensions
     String artifactNameBase
+    String buildProfile
+    String testProfile
 
     /**
      * Main constructor

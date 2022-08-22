@@ -199,8 +199,8 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                     List profileKeys = options["configuration"]["testProfile"].split("_") as List
                                     List profileValues = testProfile.split("_") as List
 
-                                    for (int i = 0; i < profileKeys.size(); i++) {
-                                        newOptions[profileKeys[i]] = profileValues[i]
+                                    for (int j = 0; j < profileKeys.size(); j++) {
+                                        newOptions[profileKeys[j]] = profileValues[j]
                                     }
                                 }
 
