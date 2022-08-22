@@ -41,10 +41,10 @@ def changeTestsCount(Map testsLeft, int count, String profile) {
 def initProfiles(Map options) {
     if (options.containsKey("configuration") && options["configuration"]["buildProfile"]) {
         // separate buildProfiles and buildsList keys for possible future difference in values of these keys
-        options["buildProfiles"] = options["buildsList"].copy()
+        options["buildProfiles"] = options["buildsList"].clone()
     }
 
-    if (options.containsKey("configuration") && options["configuration"].contains("testProfile")) {
+    if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
         options["testProfiles"] = []
 
         for (test in options["testsList"]) {
@@ -55,7 +55,7 @@ def initProfiles(Map options) {
             }
         }
 
-        if (options["configuration"].containsKey("displayingProfilesMapping")) {
+        if (options["configuration"]["displayingProfilesMapping"]) {
             options["displayingTestProfiles"] = [:]
 
             for (value in options["testsList"]) {

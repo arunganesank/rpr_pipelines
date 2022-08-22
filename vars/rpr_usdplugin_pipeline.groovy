@@ -701,8 +701,8 @@ def executePreBuild(Map options) {
                 options.executeTests = false
             }
 
-            options.buildsList = houdiniVersions.split(",") as List
-            options.testsList = houdiniVersions.split(",") as List
+            options.buildsList = options.houdiniVersions
+            options.testsList = options.houdiniVersions
         }
         if (env.BRANCH_NAME && options.githubNotificator) {
             options.githubNotificator.initChecks(options, "${BUILD_URL}")

@@ -8,6 +8,7 @@ public class PipelineConfiguration {
     String artifactNameBase
     String buildProfile
     String testProfile
+    Map displayingProfilesMapping
 
     /**
      * Main constructor
@@ -27,6 +28,10 @@ public class PipelineConfiguration {
 
         if (params.containsKey("testProfile")) {
             this.testProfile = params["testProfile"]
+        }
+
+        if (params.containsKey("displayingProfilesMapping")) {
+            this.displayingProfilesMapping = params["displayingProfilesMapping"]
         }
     }
 
