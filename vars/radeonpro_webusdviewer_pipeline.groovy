@@ -378,7 +378,13 @@ def executeBuildLinux(Map options) {
                 }
 
                 withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                    String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    String url
+
+                    if (options.deployEnvironment == "prod") {
+                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    } else {
+                        url = TEMPLATE.replace("<instance>.", "")
+                    }
                     rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
             } catch (e) {
