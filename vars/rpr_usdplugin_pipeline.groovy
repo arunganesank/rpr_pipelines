@@ -14,18 +14,17 @@ import java.util.concurrent.ConcurrentHashMap
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "OSX", "Ubuntu20"],
     productExtensions: ["Windows": "tar.gz", "OSX": "tar.gz", "MacOS_ARM": "tar.gz", "Ubuntu18": "tar.gz", "Ubuntu20": "tar.gz"],
-    artifactNameBase: "hdRpr-",
+    artifactNameBase: "hdRpr_",
     buildProfile: "toolVersion",
     testProfile: "toolVersion"
 )
 
 def installHoudiniPlugin(String osName, Map options) {
-    getProduct(osName, options)
+    getProduct(osName, options, ".", false)
 
     switch(osName) {
         case 'Windows':
             bat """
-                bash.exe -c "tar -xzf hdRpr_${osName}.tar.gz"
                 cd hdRpr*
                 echo y | activateHoudiniPlugin.exe >> \"..\\${options.stageName}_${options.currentTry}.install.log\"  2>&1
             """
@@ -33,7 +32,6 @@ def installHoudiniPlugin(String osName, Map options) {
 
         case "OSX":
             sh """
-                tar -xzf hdRpr_${osName}.tar.gz 
                 cd hdRpr*
                 chmod +x activateHoudiniPlugin
                 echo y | ./activateHoudiniPlugin >> \"../${options.stageName}_${options.currentTry}.install.log\" 2>&1
@@ -42,7 +40,6 @@ def installHoudiniPlugin(String osName, Map options) {
 
         default:
             sh """
-                tar -xzf hdRpr_${osName}.tar.gz
                 cd hdRpr*
                 chmod +x activateHoudiniPlugin
                 echo y | ./activateHoudiniPlugin \"../${options.stageName}_${options.currentTry}.install.log\" 2>&1
