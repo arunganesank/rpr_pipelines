@@ -218,6 +218,9 @@ def executeTests(String osName, String asicName, Map options) {
             case 'Northstar':
                 enginePostfix = "NorthStar"
                 break
+            case 'HybridPro':
+                enginePostfix = "HybridPro"
+                break
         }
         REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
 
@@ -957,7 +960,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String iter = '50',
         String theshold = '0.05',
         String customBuildLinkWindows = "",
-        String enginesNames = "Northstar",
+        String enginesNames = "Northstar,HybridPro",
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
