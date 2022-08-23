@@ -174,28 +174,62 @@ def executeBuildWindows(Map options) {
                 // TODO: waiting for merge of PR-86
                 if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-86") {
                     dir("WebUsdFrontendServer\\dist_electron") {
-                        def exe_file = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exe_file}")
-                        for (file in exe_file) {
-                            renamed_filename = file.toString().replace(" ", "_")
-                            bat """
-                                rename "${file}" "${renamed_filename}"
-                            """
-                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                        def exeFile = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exeFile}")
+                        for (file in exeFile) {
+                            renamedFilename = file.toString().replace(" ", "_")
+
+                            if (options.branchPostfix) {
+                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+
+                                bat """
+                                    rename "${file}" "${filenameWithPostfix}"
+                                """
+
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+
+                                bat """
+                                    rename "${filenameWithPostfix}" "${renamedFilename}"
+                                """
+                            } else {
+                                bat """
+                                    rename "${file}" "${renamedFilename}"
+                                """  
+
+                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                            }
+
+                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
                     }
                 } else {
                     dir("WebUsdWebServer\\dist_electron") {
-                        def exe_file = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exe_file}")
-                        for (file in exe_file) {
-                            renamed_filename = file.toString().replace(" ", "_")
-                            bat """
-                                rename "${file}" "${renamed_filename}"
-                            """
-                            makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                            makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                        def exeFile = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exeFile}")
+                        for (file in exeFile) {
+                            renamedFilename = file.toString().replace(" ", "_")
+
+                            if (options.branchPostfix) {
+                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+
+                                bat """
+                                    rename "${file}" "${filenameWithPostfix}"
+                                """
+
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+
+                                bat """
+                                    rename "${filenameWithPostfix}" "${renamedFilename}"
+                                """
+                            } else {
+                                bat """
+                                    rename "${file}" "${renamedFilename}"
+                                """  
+
+                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                            }
+
+                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
                     }
                 }
@@ -378,7 +412,13 @@ def executeBuildLinux(Map options) {
                 }
 
                 withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                    String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    String url
+
+                    if (options.deployEnvironment == "prod") {
+                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    } else {
+                        url = TEMPLATE.replace("<instance>.", "")
+                    }
                     rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
             } catch (e) {
@@ -502,6 +542,14 @@ def executePreBuild(Map options) {
         println "The last commit was written by ${options.commitAuthor}."
         println "Commit message: ${options.commitMessage}"
         println "Commit SHA: ${options.commitSHA}"
+    }
+
+    // branch postfix
+    options["branchPostfix"] = ""
+    if (env.BRANCH_NAME) {
+        options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+    } else {
+        options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
     }
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
