@@ -39,14 +39,14 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
             if (isUnix()) {
                 sh("mkdir -p ${unpackDestination}; tar xvf ${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension} -C ${unpackDestination}")
             } else {
-                bat("mkdir ${unpackDestination}")
+                bat("if not exist ${unpackDestination} mkdir ${unpackDestination}")
                 bat("bash.exe -c \"tar -xvf ${CIS_TOOLS.replace('C:\\', '/mnt/c/').replace('\\', '/')}/../PluginsBinaries/${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
             }
         } else if (extension == "tar.gz") {
             if (isUnix()) {
                 sh("mkdir -p ${unpackDestination}; tar xzf ${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension} -C ${unpackDestination}")
             } else {
-                bat("mkdir ${unpackDestination}")
+                bat("if not exist ${unpackDestination} mkdir ${unpackDestination}")
                 bat("bash.exe -c \"tar -xzf ${CIS_TOOLS.replace('C:\\', '/mnt/c/').replace('\\', '/')}/../PluginsBinaries/${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
             }
         } else if (extension == "zip") {
@@ -59,13 +59,15 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
             if (isUnix()) {
                 sh("mkdir -p ${unpackDestination}; tar xvf ${options[identificatorKey]}.${extension} -C ${unpackDestination}")
             } else {
-                bat("mkdir -p ${unpackDestination}; bash.exe -c \"tar -xvf ${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
+                bat("if not exist ${unpackDestination} mkdir ${unpackDestination}")
+                bat("bash.exe -c \"tar -xvf ${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
             }
         } else if (extension == "tar.gz") {
             if (isUnix()) {
                 sh("mkdir -p ${unpackDestination}; tar xzf ${options[identificatorKey]}.${extension} -C ${unpackDestination}")
             } else {
-                bat("mkdir -p ${unpackDestination}; bash.exe -c \"tar -xzf ${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
+                bat("if not exist ${unpackDestination} mkdir ${unpackDestination}")
+                bat("bash.exe -c \"tar -xzf ${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
             }
         } else if (extension == "zip") {
             unzip zipFile: "${options[identificatorKey]}.${extension}", dir: unpackDestination, quiet: true
