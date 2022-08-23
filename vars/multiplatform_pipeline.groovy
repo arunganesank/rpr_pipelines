@@ -569,9 +569,6 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                     }
                 }
 
-                // make lists of raw profiles and lists of beautified profiles (displaying profiles)
-                initProfiles(options)
-
                 options.testsInfo = [:]
                 if (options.testProfiles) {
                     options['testsList'].each() { testName ->

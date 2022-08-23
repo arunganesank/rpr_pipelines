@@ -592,8 +592,8 @@ def executeBuild(String osName, Map options) {
     }
 }
 
-def getReportBuildArgs(Map options, String title = "USD") {
-    return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\""""
+def getReportBuildArgs(String toolName, Map options, String title = "USD") {
+    return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\""""
 }
 
 def executePreBuild(Map options) {
@@ -710,6 +710,9 @@ def executePreBuild(Map options) {
             options.githubNotificator.initChecks(options, "${BUILD_URL}")
         }
     }
+
+    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+    multiplatform_pipeline.initProfiles(options)
 
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
         options.reportUpdater = new ReportUpdater(this, env, options)
