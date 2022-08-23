@@ -371,9 +371,15 @@ class utils {
                     break
                 // OSX & Ubuntu
                 default:
-                    self.sh """
-                        rm -rf \"${fileName}\"
-                    """
+                    if (fileName.contains(" ")) {
+                        self.sh """
+                            rm -rf \"${fileName}\"
+                        """
+                    } else {
+                        self.sh """
+                            rm -rf ${fileName}
+                        """
+                    }
             }
         } catch(Exception e) {
             self.println("[ERROR] Can't remove file")
