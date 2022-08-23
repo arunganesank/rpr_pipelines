@@ -186,7 +186,7 @@ def executeBuildWindows(Map options) {
                                     rename "${file}" "${filenameWithPostfix}"
                                 """
 
-                                makeStash(includes: filenameWithPostfix, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
 
                                 bat """
                                     rename "${filenameWithPostfix}" "${renamedFilename}"
@@ -196,10 +196,10 @@ def executeBuildWindows(Map options) {
                                     rename "${file}" "${renamedFilename}"
                                 """  
 
-                                makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
                             }
 
-                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
                     }
                 } else {
@@ -216,7 +216,7 @@ def executeBuildWindows(Map options) {
                                     rename "${file}" "${filenameWithPostfix}"
                                 """
 
-                                makeStash(includes: filenameWithPostfix, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
 
                                 bat """
                                     rename "${filenameWithPostfix}" "${renamedFilename}"
@@ -226,10 +226,10 @@ def executeBuildWindows(Map options) {
                                     rename "${file}" "${renamedFilename}"
                                 """  
 
-                                makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
                             }
 
-                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
                     }
                 }
