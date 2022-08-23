@@ -415,9 +415,9 @@ def executeBuildLinux(Map options) {
                     String url
 
                     if (options.deployEnvironment == "prod") {
-                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                        url = TEMPLATE.replace("<instance>", "")
                     } else {
-                        url = TEMPLATE.replace("<instance>.", "")
+                        url = TEMPLATE.replace("<instance>.", options.deployEnvironment)
                     }
                     rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
