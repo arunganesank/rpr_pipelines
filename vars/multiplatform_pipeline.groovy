@@ -118,7 +118,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                         testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
                     }
 
-                    Iterator testsIterator = options.testResultMap[buildProfile].map({ it.replace("testResult-", "") }).iterator()
+                    Iterator testsIterator = testResultMap[buildProfile].collect({ it.replace("testResult-", "") }).iterator()
 
                     Integer launchingGroupsNumber = 1
                     if (!options["parallelExecutionType"] || options["parallelExecutionType"] == TestsExecutionType.TAKE_ONE_NODE_PER_GPU) {

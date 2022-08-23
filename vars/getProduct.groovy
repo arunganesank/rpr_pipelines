@@ -62,7 +62,7 @@ def call(String osName, Map options, String unpackDestination = "", Boolean cach
     String identificatorKey
     String stashName
 
-    if (options.contains("toolVersion")) {
+    if (options.containsKey("toolVersion")) {
         identificatorKey = getIdentificatorKey(osName, options.toolVersion)
         stashName = getStashName(osName, options.toolVersion)
     } else {
