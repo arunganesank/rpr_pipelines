@@ -59,20 +59,20 @@ def initProfiles(Map options) {
             options["displayingTestProfiles"] = [:]
 
             for (value in options["testsList"]) {
-                List profileKeys = options["configuration"]["testProfile"].split("_") as List
-                List profileValues = profile.split("_") as List
-
-                List buffer = []
-
-                for (int i = 0; i < profileKeys.size(); i++) {
-                    buffer.add(options["configuration"]["displayingProfilesMapping"][profileKeys[i]][profileValues[i]])
-                }
+                String profile = value.split("-")[-1]
 
                 if (!options["displayingTestProfiles"].containsKey(profile)) {
-                    options["displayingTestProfiles"][profile] = []
-                }
+                    List profileKeys = options["configuration"]["testProfile"].split("_") as List
+                    List profileValues = profile.split("_") as List
 
-                options["displayingTestProfiles"][profile].add(buffer.join(" "))
+                    List buffer = []
+
+                    for (int i = 0; i < profileKeys.size(); i++) {
+                        buffer.add(options["configuration"]["displayingProfilesMapping"][profileKeys[i]][profileValues[i]])
+                    }
+
+                    options["displayingTestProfiles"][profile] = buffer.join(" ")
+                }
             }
         }
     }

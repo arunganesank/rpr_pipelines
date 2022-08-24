@@ -430,7 +430,7 @@ def executeBuildWindows(Map options)
                 rename RadeonProRender*.zip RadeonProRenderBlender_Windows.zip
             """
 
-            makeStash(includes: "RadeonProRenderBlender_Windows.zip", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+            makeStash(includes: "RadeonProRenderBlender_Windows.zip", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
             GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
@@ -469,7 +469,7 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
                 mv RadeonProRender*zip RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip
             """
 
-            String stashName = isx86 ? getProduct.getStashName("OSX") : getProduct.getStashName("MacOS_ARM")
+            String stashName = isx86 ? getProduct.getStashName("OSX") : getProduct.getStashName("MacOS_ARM", options)
 
             makeStash(includes: "RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip", name: stashName, preZip: false, storeOnNAS: options.storeOnNAS)
 
@@ -507,7 +507,7 @@ def executeBuildLinux(String osName, Map options)
                 mv RadeonProRender*zip RadeonProRenderBlender_${osName}.zip
             """
 
-            makeStash(includes: "RadeonProRenderBlender_${osName}.zip", name: getProduct.getStashName(osName), preZip: false, storeOnNAS: options.storeOnNAS)
+            makeStash(includes: "RadeonProRenderBlender_${osName}.zip", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
 
             GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
@@ -550,7 +550,7 @@ def executeBuild(String osName, Map options)
             }
         }
 
-        options[getProduct.getIdentificatorKey(osName)] = options.commitSHA
+        options[getProduct.getIdentificatorKey(osName, options)] = options.commitSHA
     } catch (e) {
         throw e
     } finally {
@@ -825,6 +825,9 @@ def executePreBuild(Map options)
         println "timeouts: ${options.timeouts}"
     }
 
+    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+    multiplatform_pipeline.initProfiles(options)
+
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
         options.reportUpdater = new ReportUpdater(this, env, options)
         options.reportUpdater.init(this.&getReportBuildArgs)
@@ -835,7 +838,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 {
     cleanWS()
     try {
-        String engineName = options.displayingTestProfiles[options.engines.indexOf(engine)]
+        String engineName = options.displayingTestProfiles[engine]
 
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
