@@ -234,43 +234,22 @@ def executeBuildLinux(Map options) {
 
     String envProductionContent
 
-    // TODO: waiting for merge of PR-86
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-86") {
-        if (!options.customDomain) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdFrontendServer", "--quiet")
-            sh "mv ./WebUsdFrontendServer/webusd.env.${options.deployEnvironment} ./WebUsdFrontendServer/.env.production"
-        } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdFrontendServer", "--quiet")
-            sh "mv ./WebUsdFrontendServer/template ./WebUsdFrontendServer/.env.production"
-
-            envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
-            envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-            writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
-        }
-
-        if (options.disableSsl) {
-            envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
-            envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-            writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
-        }
+    if (!options.customDomain) {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/webusd.env.${options.deployEnvironment} ./WebUsdFrontendServer/.env.production"
     } else {
-        if (!options.customDomain) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-            sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
-        } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
-            sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/template ./WebUsdFrontendServer/.env.production"
 
-            envProductionContent = readFile("./WebUsdWebServer/.env.production")
-            envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-            writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
-        }
+        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+    }
 
-        if (options.disableSsl) {
-            envProductionContent = readFile("./WebUsdWebServer/.env.production")
-            envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-            writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
-        }
+    if (options.disableSsl) {
+        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
     }
 
     options["stage"] = "Build"
