@@ -138,11 +138,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 String tests = null
 
                                 if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
-                                    if (options.splitTestsExecution) {
-                                        testProfile = testName.split("-")[-1]
-                                    } else {
-                                        testProfile = testName
-                                    }
+                                    testProfile = testName.split("-")[-1]
                                 }
 
                                 // if there number of errored groups in succession is 3 or more

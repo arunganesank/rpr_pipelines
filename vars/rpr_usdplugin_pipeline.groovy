@@ -302,7 +302,7 @@ def executeTests(String osName, String asicName, Map options) {
                         }
 
                         if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.engine)
+                            options.reportUpdater.updateReport(options.testProfile)
                         }
                     }
                 }
@@ -723,23 +723,29 @@ def executePreBuild(Map options) {
 }
 
 
-def executeDeploy(Map options, List platformList, List testResultList) {
+def executeDeploy(Map options, List platformList, List testResultList, String toolVersion) {
     try {
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
             List lostStashes = []
+
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'])
-                testResultList.each {
-                    dir(it.replace("testResult-", "")) {
-                        try {
-                            makeUnstash(name: it, storeOnNAS: options.storeOnNAS)
-                        } catch (e) {
-                            println "Can't unstash ${it}"
-                            lostStashes << "'$it'".replace("testResult-", "")
-                            println e.toString()
+                testResultList.each() {
+                    if (it.endsWith(toolVersion)) {
+                        List testNameParts = it.replace("testResult-", "").split("-") as List
+                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+                        dir(testName) {
+                            try {
+                                makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
+                            } catch(e) {
+                                echo "[ERROR] Failed to unstash ${it}"
+                                lostStashes.add("'${testName}'")
+                                println(e.toString())
+                                println(e.getMessage())
+                            }
+
                         }
                     }
                 }
@@ -747,7 +753,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             try {
                 dir("jobs_launcher") {
-                    bat "count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"${options.tests.toString()}\" \"\" \"{}\""
+                    bat "count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"${options.tests.toString()}\" \"${toolVersion}\" \"{}\""
                 }
             } catch (e) {
                 println("[ERROR] Can't generate number of lost tests")
@@ -771,16 +777,16 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                         if (options.buildType == "Houdini") {
                             def tool = "Houdini ${options.toolVersion}"
 
-                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(options, utils.escapeCharsByUnicode(tool))}"
+                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(toolVersion, options, utils.escapeCharsByUnicode(tool))}"
                         } else {
-                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(options)}"
+                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(toolVersion, options)}"
                         }
                         bat "get_status.bat ..\\summaryTestResults"
                     }
                 }
             } catch (e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
-                GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${toolVersion}", "failure", options, errorMessage, "${BUILD_URL}")
                 if (utils.isReportFailCritical(e.getMessage())) {
                     options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
                     println """
@@ -791,7 +797,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                         try {
                             // Save test data for access it manually anyway
                             utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                                "Test Report", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                                "Test Report ${toolVersion}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
                                 ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                             options.testDataSaved = true
@@ -851,17 +857,17 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 options.testsStatus = ""
             }
 
-            withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
+            withNotifications(title: "Building test report for ${toolVersion}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                    "Test Report", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                    "Test Report ${toolVersion}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
-                    GithubNotificator.updateStatus("Deploy", "Building test report", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${toolVersion}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
                 } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${toolVersion}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
                 }
             }
         }
