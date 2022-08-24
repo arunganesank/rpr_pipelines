@@ -13,7 +13,19 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "OSX", "MacOS_ARM", "Ubuntu18", "Ubuntu20"],
     productExtensions: ["Windows": "zip", "OSX": "zip", "MacOS_ARM": "zip", "Ubuntu18": "zip", "Ubuntu20": "zip"],
-    artifactNameBase: "RadeonProRender"
+    artifactNameBase: "RadeonProRender",
+    testProfile: "engine",
+    displayingProfilesMapping: [
+        "engine": [
+            "HYBRIDPRO": "HybridPro",
+            "FULL2": "Northstar",
+            "Low": "HybridLow",
+            "Medium": "HybridMedium",
+            "High": "HybridHigh",
+            "HIP": "HIP",
+            "HIPvsNS": "HIPvsNS"
+        ]
+    ]
 )
 
 
@@ -823,7 +835,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 {
     cleanWS()
     try {
-        String engineName = options.enginesNames[options.engines.indexOf(engine)]
+        String engineName = options.displayingTestProfiles[options.engines.indexOf(engine)]
 
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
@@ -1194,7 +1206,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         customBuildLinkOSX: customBuildLinkOSX,
                         customBuildLinkMacOSARM: customBuildLinkMacOSARM,
                         engines: formattedEngines,
-                        enginesNames:enginesNames,
                         nodeRetry: nodeRetry,
                         errorsInSuccession: errorsInSuccession,
                         platforms:platforms,

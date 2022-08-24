@@ -68,6 +68,10 @@ def initProfiles(Map options) {
                     buffer.add(options["configuration"]["displayingProfilesMapping"][profileKeys[i]][profileValues[i]])
                 }
 
+                if (!options["displayingTestProfiles"].containsKey(profile)) {
+                    options["displayingTestProfiles"][profile] = []
+                }
+
                 options["displayingTestProfiles"][profile].add(buffer.join(" "))
             }
         }
@@ -106,6 +110,8 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
             testTasks[taskName] = {
                 stage(taskName) {
+                    options.testsList = options.testsList ?: ['']
+
                     def testerLabels
                     if (options.TESTER_TAG) {
                         if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
@@ -118,7 +124,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                         testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
                     }
 
-                    Iterator testsIterator = testResultMap[buildProfile].collect({ it.replace("testResult-", "") }).iterator()
+                    Iterator testsIterator =
 
                     Integer launchingGroupsNumber = 1
                     if (!options["parallelExecutionType"] || options["parallelExecutionType"] == TestsExecutionType.TAKE_ONE_NODE_PER_GPU) {
@@ -619,7 +625,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                                         if (build) {
                                             String testProfile = testName.split("-")[-1]
 
-                                            if (!doesProfilesCorrespond(build, testProfile)) {
+                                            if (build && !doesProfilesCorrespond(build, testProfile)) {
                                                 return
                                             }
                                         }
@@ -635,16 +641,20 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                                     }
 
                                     if (options.testProfiles) {
-                                        options.testProfiles.each { profile ->
-                                            if (!testsLeft.containsKey(profile)) {
-                                                testsLeft[profile] = 0
+                                        options.testProfiles.each { testProfile ->
+                                            if (build && !doesProfilesCorrespond(build, testProfile)) {
+                                                return
                                             }
-                                            testsLeft[profile] += (options.testsInfo["testsPer-${profile}"] ?: 0)
 
-                                            if (!options.testsInfo.containsKey("testsPer-" + profile + "-" + osName)) {
-                                                options.testsInfo["testsPer-${profile}-${osName}"] = 0
+                                            if (!testsLeft.containsKey(testProfile)) {
+                                                testsLeft[testProfile] = 0
                                             }
-                                            options.testsInfo["testsPer-${profile}-${osName}"] += (options.testsInfo["testsPer-${profile}"] ?: 0)
+                                            testsLeft[testProfile] += (options.testsInfo["testsPer-${testProfile}"] ?: 0)
+
+                                            if (!options.testsInfo.containsKey("testsPer-" + testProfile + "-" + osName)) {
+                                                options.testsInfo["testsPer-${testProfile}-${osName}"] = 0
+                                            }
+                                            options.testsInfo["testsPer-${testProfile}-${osName}"] += (options.testsInfo["testsPer-${testProfile}"] ?: 0)
                                         }
                                     }
                                 }
