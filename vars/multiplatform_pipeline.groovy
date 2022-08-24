@@ -110,7 +110,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
             testTasks[taskName] = {
                 stage(taskName) {
-                    options.testsList = options.testsList ?: ['']
+                    def testsList = options.testsList.clone() ?: ['']
 
                     def testerLabels
                     if (options.TESTER_TAG) {
@@ -124,7 +124,9 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                         testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
                     }
 
-                    Iterator testsIterator =
+                    testsList.removeAll({buildProfile && !doesProfilesCorrespond(buildProfile, it.split("-")[-1])})
+
+                    Iterator testsIterator = testsList.iterator()
 
                     Integer launchingGroupsNumber = 1
                     if (!options["parallelExecutionType"] || options["parallelExecutionType"] == TestsExecutionType.TAKE_ONE_NODE_PER_GPU) {
