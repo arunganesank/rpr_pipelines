@@ -461,7 +461,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
     try {
 
-        utils.reboot(this, osName)
+        //utils.reboot(this, osName)
 
         timeout(time: "10", unit: "MINUTES") {
             cleanWS(osName)
@@ -554,7 +554,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        utils.reboot(this, osName)
+        //utils.reboot(this, osName)
 
         initAndroidDevice()
 
@@ -804,7 +804,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        utils.reboot(this, "Windows")
+        //utils.reboot(this, "Windows")
 
         initAndroidDevice()
 
