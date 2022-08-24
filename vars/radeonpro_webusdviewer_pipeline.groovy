@@ -171,66 +171,33 @@ def executeBuildWindows(Map options) {
 
                 println("[INFO] Saving exe files to NAS")
 
-                // TODO: waiting for merge of PR-86
-                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-86") {
-                    dir("WebUsdFrontendServer\\dist_electron") {
-                        def exeFile = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exeFile}")
-                        for (file in exeFile) {
-                            renamedFilename = file.toString().replace(" ", "_")
+                dir("WebUsdFrontendServer\\dist_electron") {
+                    def exeFile = findFiles(glob: '*.msi')
+                    println("Found MSI files: ${exeFile}")
+                    for (file in exeFile) {
+                        renamedFilename = file.toString().replace(" ", "_")
 
-                            if (options.branchPostfix) {
-                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+                        if (options.branchPostfix) {
+                            String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
 
-                                bat """
-                                    rename "${file}" "${filenameWithPostfix}"
-                                """
+                            bat """
+                                rename "${file}" "${filenameWithPostfix}"
+                            """
 
-                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+                            makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
 
-                                bat """
-                                    rename "${filenameWithPostfix}" "${renamedFilename}"
-                                """
-                            } else {
-                                bat """
-                                    rename "${file}" "${renamedFilename}"
-                                """  
+                            bat """
+                                rename "${filenameWithPostfix}" "${renamedFilename}"
+                            """
+                        } else {
+                            bat """
+                                rename "${file}" "${renamedFilename}"
+                            """  
 
-                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
-                            }
-
-                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
                         }
-                    }
-                } else {
-                    dir("WebUsdWebServer\\dist_electron") {
-                        def exeFile = findFiles(glob: '*.msi')
-                        println("Found MSI files: ${exeFile}")
-                        for (file in exeFile) {
-                            renamedFilename = file.toString().replace(" ", "_")
 
-                            if (options.branchPostfix) {
-                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
-
-                                bat """
-                                    rename "${file}" "${filenameWithPostfix}"
-                                """
-
-                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
-
-                                bat """
-                                    rename "${filenameWithPostfix}" "${renamedFilename}"
-                                """
-                            } else {
-                                bat """
-                                    rename "${file}" "${renamedFilename}"
-                                """  
-
-                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
-                            }
-
-                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
-                        }
+                        makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
