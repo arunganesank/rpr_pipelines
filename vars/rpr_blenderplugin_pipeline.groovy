@@ -463,7 +463,7 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 
             makeStash(includes: "RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip", name: stashName, preZip: false, storeOnNAS: options.storeOnNAS)
 
-            GithubNotificator.updateStatus("Build", "OSX", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+            GithubNotificator.updateStatus("Build", isx86 ? "OSX" : "MacOS_ARM", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
     }
 }
