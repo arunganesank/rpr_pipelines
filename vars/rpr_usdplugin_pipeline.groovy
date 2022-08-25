@@ -703,9 +703,6 @@ def executePreBuild(Map options) {
             options.buildsList = options.houdiniVersions
             options.testsList = options.houdiniVersions
         }
-        if (env.BRANCH_NAME && options.githubNotificator) {
-            options.githubNotificator.initChecks(options, "${BUILD_URL}")
-        }
     }
 
     // make lists of raw profiles and lists of beautified profiles (displaying profiles)
@@ -714,6 +711,10 @@ def executePreBuild(Map options) {
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
         options.reportUpdater = new ReportUpdater(this, env, options)
         options.reportUpdater.init(this.&getReportBuildArgs)
+    }
+
+    if (env.BRANCH_NAME && options.githubNotificator) {
+        options.githubNotificator.initChecks(options, "${BUILD_URL}")
     }
 
     if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
