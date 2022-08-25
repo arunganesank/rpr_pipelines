@@ -149,16 +149,6 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
-        // FIXME: remove this ducktape when CPUs on that machines will be changes
-        if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
-            if (options.tests.contains("CPU_Mode") || options.tests.contains("regression.0")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support CPU_Mode group", 
-                    new Exception("System doesn't support CPU_Mode group")
-                )
-            }
-        }
-
         // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
         if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
             if (options.tests.contains("Smoke") || options.tests.contains("regression.2")) {
