@@ -676,19 +676,34 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                 println "Tests Left: ${testsLeft}"
 
                 if (options.testProfiles) {
-                    options.testProfiles.each { profile ->
+                    options.testProfiles.each { testProfile ->
                         String stageName
 
                         if (options.containsKey("displayingTestProfiles")) {
-                            stageName = "Deploy-${options.displayingTestProfiles[profile]}"
+                            stageName = "Deploy-${options.displayingTestProfiles[testProfile]}"
                         } else {
-                            stageName = "Deploy-${profile}"
+                            stageName = "Deploy-${testProfile}"
                         }
 
-                        tasks[stageName] = {
-                            if (testsLeft[profile] != null) {
-                                waitUntil({testsLeft[profile] == 0}, quiet: true)
-                                makeDeploy(options, profile)
+                        if (options.containsKey("buildProfiles")) {
+                            options.buildProfiles.each { buildProfile ->
+                                if (build && !doesProfilesCorrespond(buildProfile, testProfile)) {
+                                    return
+                                }
+
+                                tasks[stageName] = {
+                                    if (testsLeft[testProfile] != null) {
+                                        waitUntil({testsLeft[testProfile] == 0}, quiet: true)
+                                        makeDeploy(options, buildProfile, testProfile)
+                                    }
+                                }
+                            }
+                        } else {
+                            tasks[stageName] = {
+                                if (testsLeft[testProfile] != null) {
+                                    waitUntil({testsLeft[testProfile] == 0}, quiet: true)
+                                    makeDeploy(options, "", testProfile)
+                                }
                             }
                         }
                     }
