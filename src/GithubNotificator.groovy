@@ -126,7 +126,7 @@ public class GithubNotificator {
                     if (gpuNames) {
                         gpuNames.split(',').each() { asicName ->
                             if (options.splitTestsExecution) {
-                                options.tests.each() { testName ->
+                                options.testsList.each() { testName ->
                                     // check that group isn't fully skipped
                                     if (options.skippedTests && options.skippedTests.containsKey(testName) && options.skippedTests[testName].contains("${asicName}-${osName}")) {
                                         return
@@ -145,11 +145,17 @@ public class GithubNotificator {
                                 }
                             } else {
                                 if (showTests) {
-                                    options.tests.each() { testName ->
+                                    options.testsList.each() { testName ->
                                         testCases << "${asicName}-${osName}-${testName}"
                                     }
                                 } else {
-                                    testCases << "${asicName}-${osName}"
+                                    if (options.testsList) {
+                                        options.testsList.each() { testName ->
+                                            testCases << "${asicName}-${osName}-${testName}"
+                                        }  
+                                    } else {
+                                        testCases << "${asicName}-${osName}"
+                                    }
                                 }
                             }
                         }
