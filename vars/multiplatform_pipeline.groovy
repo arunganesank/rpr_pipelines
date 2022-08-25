@@ -418,14 +418,14 @@ def shouldExecuteDelpoyStage(Map options) {
     return true
 }
 
-def makeDeploy(Map options, String profile = "") {
+def makeDeploy(Map options, String buildProfile = "", String testProfile = "") {
     Boolean executeDeployStage = shouldExecuteDelpoyStage(options)
 
     if (executeDeploy && executeDeployStage) {
         String stageName
 
-        if (profile) {
-            stageName = options.containsKey("displayingTestProfiles") ? "Deploy-${options.displayingTestProfiles[profile]}" : "Deploy-${profile}"
+        if (testProfile) {
+            stageName = options.containsKey("displayingTestProfiles") ? "Deploy-${options.displayingTestProfiles[testProfile]}" : "Deploy-${testProfile}"
         } else {
             stageName = "Deploy"
         }
@@ -443,13 +443,15 @@ def makeDeploy(Map options, String profile = "") {
 
             options["stage"] = "Deploy"
             def retringFunction = { nodesList, currentTry ->
-                if (profile) {
-                    executeDeploy(options, platformList, testResultMap[profile], profile)
+                List testResultList = buildProfile ? testResultMap[buildProfile] : testResultMap[""]
+
+                if (testProfile) {
+                    executeDeploy(options, platformList, testResultList, testProfile)
                 } else {
-                    executeDeploy(options, platformList, testResultMap[""])
+                    executeDeploy(options, platformList, testResultList)
                 }
 
-                if (profile && options.testProfiles.size() > 1 && options.reportUpdater) {
+                if (testProfile && options.testProfiles.size() > 1 && options.reportUpdater) {
                     options.reportUpdater.updateReport()
                 }
 
