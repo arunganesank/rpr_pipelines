@@ -469,7 +469,7 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
                 mv RadeonProRender*zip RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip
             """
 
-            String stashName = isx86 ? getProduct.getStashName("OSX") : getProduct.getStashName("MacOS_ARM", options)
+            String stashName = isx86 ? getProduct.getStashName("OSX", options) : getProduct.getStashName("MacOS_ARM", options)
 
             makeStash(includes: "RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip", name: stashName, preZip: false, storeOnNAS: options.storeOnNAS)
 

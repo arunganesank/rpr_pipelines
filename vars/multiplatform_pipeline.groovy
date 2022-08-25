@@ -151,7 +151,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                                 // if there number of errored groups in succession is 3 or more
                                 if (options["errorsInSuccession"] && 
-                                        ((profile && options["errorsInSuccession"]["${osName}-${asicName}-${profile}"] && options["errorsInSuccession"]["${osName}-${asicName}-${profile}"].intValue() >= 3)
+                                        ((testProfile && options["errorsInSuccession"]["${osName}-${asicName}-${testProfile}"] && options["errorsInSuccession"]["${osName}-${asicName}-${testProfile}"].intValue() >= 3)
                                         || (options["errorsInSuccession"]["${osName}-${asicName}"] && options["errorsInSuccession"]["${osName}-${asicName}"].intValue() >= 3))) {
                                     println("Test group ${testName} on ${asicName}-${osName} aborted due to exceeded number of errored groups in succession")
                                     testName = getNextTest(testsIterator)
