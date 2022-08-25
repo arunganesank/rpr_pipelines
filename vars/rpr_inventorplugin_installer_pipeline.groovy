@@ -83,7 +83,7 @@ def installInventorPlugin(String osName, Map options, Boolean cleanInstall=true,
         installerName = customPluginName
         logPostfix = "_custom"
     } else if (options['isPreBuilt']) {
-        installerName = "${options[getProduct.getIdentificatorKey('Windows')]}.exe"
+        installerName = "${options[getProduct.getIdentificatorKey('Windows', options)]}.exe"
     } else {
         installerName = "${options.commitSHA}.exe"
     }
@@ -511,7 +511,7 @@ def executeBuildWindows(Map options) {
             "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.RPRInventorPluginInstaller.log 2>&1
         """
 
-        makeStash(includes: "RPRInventorPlugin_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+        makeStash(includes: "RPRInventorPlugin_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
         if (options.branch_postfix) {
             bat """
@@ -605,7 +605,7 @@ def executeBuild(String osName, Map options) {
             }
         }
 
-        options[getProduct.getIdentificatorKey(osName)] = options.commitSHA
+        options[getProduct.getIdentificatorKey(osName, options)] = options.commitSHA
     }
     finally {
         archiveArtifacts artifacts: "*.log", allowEmptyArchive: true

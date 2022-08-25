@@ -448,8 +448,6 @@ def executePreBuild(Map options) {
 
                 options.testsPackage = "none"
                 options.tests = tests.join(" ")          
-            } else {
-                options.tests = options.tests.split(" ") as List
             }
 
             options.testsList = []

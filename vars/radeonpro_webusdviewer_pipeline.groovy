@@ -54,7 +54,7 @@ def doSanityCheckWindows(String asicName, Map options) {
 
         timeout(time: 10, unit: "MINUTES") {
             bat """
-                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
+                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows', options)]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
             """
         }
     }
@@ -179,7 +179,7 @@ def executeBuildWindows(Map options) {
                             rename "${file}" "${renamed_filename}"
                         """
                         makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
@@ -416,7 +416,7 @@ def executeBuild(String osName, Map options) {
 
         switch(osName) {
             case 'Windows':
-                options[getProduct.getIdentificatorKey(osName)] = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                options[getProduct.getIdentificatorKey(osName, options)] = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                 executeBuildWindows(options)
                 break
             case 'Ubuntu20':
