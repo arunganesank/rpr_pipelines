@@ -222,7 +222,7 @@ def executeTests(String osName, String asicName, Map options)
                 }
 
                 timeout(time: "15", unit: "MINUTES") {
-                    getProduct(osName, options)
+                    getProduct(osName, options, "", false)
                     newPluginInstalled = installMSIPlugin(osName, "Maya", options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
                 }
