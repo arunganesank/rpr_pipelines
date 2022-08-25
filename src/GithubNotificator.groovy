@@ -131,6 +131,7 @@ public class GithubNotificator {
                                     if (options.skippedTests && options.skippedTests.containsKey(testName) && options.skippedTests[testName].contains("${asicName}-${osName}")) {
                                         return
                                     }
+
                                     String parsedTestsName = testName
                                     if (testName.contains("~")) {
                                         String[] testsNameParts = parsedTestsName.split("~")
@@ -138,22 +139,68 @@ public class GithubNotificator {
                                         if (testsNameParts.length == 2 && testsNameParts[1].contains("-")) {
                                             profile = testsNameParts[1].split("-")[1]
                                         }
+
+                                        if (options.skipCallback) {
+                                            if (profile) {
+                                                if (options.skipCallback(options, asicName, osName, "", profile)) {
+                                                    return
+                                                }
+                                            } else {
+                                                if (options.skipCallback(options, asicName, osName, "")) {
+                                                    return
+                                                }
+                                            }
+                                        }
+
                                         parsedTestsName = profile ? "${testsNameParts[0]}-${profile}" : "${testsNameParts[0]}"
                                         parsedTestsName = parsedTestsName.replace(".json", "")
+                                    } else if (options.testProfiles) {
+                                        if (options.skipCallback) {
+                                            String[] testsNameParts = parsedTestsName.split("-")
+                                            if (options.skipCallback(options, asicName, osName, testsNameParts[0], testsNameParts[1])) {
+                                                return
+                                            }
+                                        }
+                                    } else {
+                                        if (options.skipCallback) {
+                                            if (options.skipCallback(options, asicName, osName, parsedTestsName)) {
+                                                return
+                                            }
+                                        }
                                     }
+
                                     testCases << "${asicName}-${osName}-${parsedTestsName}"
                                 }
                             } else {
                                 if (showTests) {
                                     options.testsList.each() { testName ->
+                                        if (options.skipCallback) {
+                                            if (options.skipCallback(options, asicName, osName, testName)) {
+                                                return
+                                            }
+                                        }
+
                                         testCases << "${asicName}-${osName}-${testName}"
                                     }
                                 } else {
+                                    // created separated checks for different profiles
                                     if (options.testsList) {
                                         options.testsList.each() { testName ->
+                                            if (options.skipCallback) {
+                                                if (options.skipCallback(options, asicName, osName, testName)) {
+                                                    return
+                                                }
+                                            }
+
                                             testCases << "${asicName}-${osName}-${testName}"
                                         }  
                                     } else {
+                                        if (options.skipCallback) {
+                                            if (options.skipCallback(options, asicName, osName)) {
+                                                return
+                                            }
+                                        }
+
                                         testCases << "${asicName}-${osName}"
                                     }
                                 }
