@@ -250,7 +250,7 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baseline_dir = "/mnt/c/TestResources/usd_maya_autotests_baselines"
                 baseline_dir = enginePostfix ? "${baseline_dir}-${enginePostfix}" : baseline_dir
-                ntln "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
+                println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
