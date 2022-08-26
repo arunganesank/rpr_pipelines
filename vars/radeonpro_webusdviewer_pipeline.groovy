@@ -215,16 +215,34 @@ def executeBuildWindows(Map options) {
                 """
 
                 println("[INFO] Saving exe files to NAS")
-                dir("WebUsdWebServer\\dist_electron") {
-                    def exe_file = findFiles(glob: '*.msi')
-                    println("Found MSI files: ${exe_file}")
-                    for (file in exe_file) {
-                        renamed_filename = file.toString().replace(" ", "_")
-                        bat """
-                            rename "${file}" "${renamed_filename}"
-                        """
-                        makeArchiveArtifacts(name: renamed_filename, storeOnNAS: true)
-                        makeStash(includes: renamed_filename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+
+                dir("WebUsdFrontendServer\\dist_electron") {
+                    def exeFile = findFiles(glob: '*.msi')
+                    println("Found MSI files: ${exeFile}")
+                    for (file in exeFile) {
+                        renamedFilename = file.toString().replace(" ", "_")
+
+                        if (options.branchPostfix) {
+                            String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+
+                            bat """
+                                rename "${file}" "${filenameWithPostfix}"
+                            """
+
+                            makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+
+                            bat """
+                                rename "${filenameWithPostfix}" "${renamedFilename}"
+                            """
+                        } else {
+                            bat """
+                                rename "${file}" "${renamedFilename}"
+                            """  
+
+                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                        }
+
+                        makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
@@ -262,21 +280,21 @@ def executeBuildLinux(Map options) {
     String envProductionContent
 
     if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdWebServer", "--quiet")
-        sh "mv ./WebUsdWebServer/webusd.env.${options.deployEnvironment} ./WebUsdWebServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/webusd.env.${options.deployEnvironment} ./WebUsdFrontendServer/.env.production"
     } else {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdWebServer", "--quiet")
-        sh "mv ./WebUsdWebServer/template ./WebUsdWebServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/template ./WebUsdFrontendServer/.env.production"
 
-        envProductionContent = readFile("./WebUsdWebServer/.env.production")
+        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
         envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
     }
 
     if (options.disableSsl) {
-        envProductionContent = readFile("./WebUsdWebServer/.env.production")
+        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
         envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-        writeFile(file: "./WebUsdWebServer/.env.production", text: envProductionContent)
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
     }
 
     options["stage"] = "Build"
@@ -385,7 +403,13 @@ def executeBuildLinux(Map options) {
                 }
 
                 withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                    String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    String url
+
+                    if (options.deployEnvironment == "prod") {
+                        url = TEMPLATE.replace("<instance>.", "")
+                    } else {
+                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    }
                     rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
             } catch (e) {
@@ -510,6 +534,20 @@ def executePreBuild(Map options) {
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
         options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
 
+        // branch postfix
+        options["branchPostfix"] = ""
+        if (env.BRANCH_NAME) {
+            options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+        } else {
+            options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+        }
+
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+            GithubNotificator githubNotificator = new GithubNotificator(this, options)
+            githubNotificator.init(options)
+            options["githubNotificator"] = githubNotificator
+        }
+
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             String version = readFile("VERSION.txt").trim()
 
@@ -578,7 +616,7 @@ def call(
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    Boolean rebuildDeps = false,
+    Boolean rebuildDeps = true,
     Boolean updateDeps = false,
     String customHybridWin = "",
     String customHybridLinux = "",
@@ -594,6 +632,13 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
+        }
+    }
+
+    if (env.BRANCH_NAME) {
+        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+            customHybridWin = "${REMOTE_HOST}/SharedReports/Hybrid/Windows.zip"
+            customHybridLinux = "${REMOTE_HOST}/SharedReports/Hybrid/Ubuntu.tar.xz"
         }
     }
 

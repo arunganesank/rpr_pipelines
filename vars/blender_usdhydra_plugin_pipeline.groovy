@@ -133,6 +133,15 @@ def executeTests(String osName, String asicName, Map options) {
         }
     }
 
+    if (env.NODE_NAME == "PC-SR-ONTARIO-6800XT-WIN10") {
+        if (options.parsedTests.contains("USD_Nodes")) {
+            throw new ExpectedExceptionWrapper(
+                "System doesn't support USD_Nodes group", 
+                new Exception("System doesn't support USD_Nodes group")
+            )
+        }
+    }
+
     try {
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
