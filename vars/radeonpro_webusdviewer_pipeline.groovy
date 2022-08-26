@@ -580,7 +580,7 @@ def call(
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
                                 executeBuild:!isPreBuilt,
-                                executeTests:true,
+                                executeTests:false,
                                 BUILD_TIMEOUT:'120',
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
