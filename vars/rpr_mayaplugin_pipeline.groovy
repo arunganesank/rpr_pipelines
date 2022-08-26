@@ -828,7 +828,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 {
     cleanWS()
     try {
-        String engineName = options.displayingTestProfiles[options.engines.indexOf(engine)]
+        String engineName = options.displayingTestProfiles[engine]
 
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {

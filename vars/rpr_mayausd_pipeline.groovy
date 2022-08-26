@@ -747,7 +747,7 @@ def executePreBuild(Map options) {
 def executeDeploy(Map options, List platformList, List testResultList, String engine) {
     cleanWS()
     try {
-        String engineName = options.displayingTestProfiles[options.engines.indexOf(engine)]
+        String engineName = options.displayingTestProfiles[engine]
 
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {

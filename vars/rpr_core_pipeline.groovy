@@ -477,7 +477,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
     cleanWS()
     try {
         if (options['executeTests'] && testResultList) {
-            String engineName = options.displayingTestProfiles[options.engines.indexOf(engine)]
+            String engineName = options.displayingTestProfiles[engine]
 
             withNotifications(title: "Building test report for ${engineName} engine", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
