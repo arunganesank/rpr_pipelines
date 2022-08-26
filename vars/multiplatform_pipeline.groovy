@@ -687,7 +687,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
 
                         if (options.containsKey("buildProfiles")) {
                             options.buildProfiles.each { buildProfile ->
-                                if (build && !doesProfilesCorrespond(buildProfile, testProfile)) {
+                                if (buildProfile && !doesProfilesCorrespond(buildProfile, testProfile)) {
                                     return
                                 }
 
