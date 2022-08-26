@@ -176,7 +176,7 @@ def patchVersions(Map options) {
     if (env.CHANGE_URL) {
         writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. PR: #${env.CHANGE_ID}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     } else {
-        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME ?: options.projectBranch}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: ${env.BRANCH_NAME ?: options.projectBranch}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     }
 }
 
