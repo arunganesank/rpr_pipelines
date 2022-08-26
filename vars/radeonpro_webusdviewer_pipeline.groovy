@@ -140,7 +140,7 @@ String patchSubmodule(String serviceName) {
     String commitSHA
 
     if (isUnix()) {
-        commitSHA = sh (script: "git log --format=%%h -1 ", returnStdout: true).trim()
+        commitSHA = sh (script: "git log --format=%h -1 ", returnStdout: true).trim()
     } else {
         commitSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
     }
@@ -163,12 +163,12 @@ def patchVersions(Map options) {
         patchSubmodule("Storage")
     }
 
-    dir("WebUsdStorageServer") {
-        patchSubmodule()
+    dir("WebUsdFrontendServer") {
+        patchSubmodule("Web")
     }
 
     dir("WebUsdStreamServer") {
-        patchSubmodule()
+        patchSubmodule("Stream")
     }
 
     String version = readFile("VERSION.txt").trim()
@@ -176,7 +176,7 @@ def patchVersions(Map options) {
     if (env.CHANGE_URL) {
         writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. PR: #${env.CHANGE_ID}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     } else {
-        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
+        writeFile(file: "VERSION.txt", text: "Renderstudio: ${version}. Branch: #${env.BRANCH_NAME ?: options.projectBranch}. Build: #${env.BUILD_NUMBER}. Hash: ${options.commitShortSHA}")
     }
 }
 
