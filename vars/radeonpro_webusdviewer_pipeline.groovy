@@ -163,14 +163,13 @@ def patchVersions(Map options) {
         patchSubmodule("Storage")
     }
 
-    // TODO: waiting to adding of WebUsdStorageServer and WebUsdStreamServer as submodules
-    /*dir("WebUsdStorageServer") {
+    dir("WebUsdStorageServer") {
         patchSubmodule()
     }
 
     dir("WebUsdStreamServer") {
         patchSubmodule()
-    }*/
+    }
 
     String version = readFile("VERSION.txt").trim()
 
@@ -568,9 +567,8 @@ def executePreBuild(Map options) {
                         GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
-
-                // TODO: waiting for VERSION.txt file creation                
-                /*if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
+            
+                if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                     println "[INFO] Current build version: ${version}"
 
@@ -594,14 +592,14 @@ def executePreBuild(Map options) {
                     options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
                     options.projectBranch = options.commitSHA
                     println "[INFO] Project branch hash: ${options.projectBranch}"
-                }*/
+                }
             }
 
             println "The last commit was written by ${options.commitAuthor}."
             println "Commit message: ${options.commitMessage}"
             println "Commit SHA: ${options.commitSHA}"
             println "Commit short SHA: ${options.commitShortSHA}"
-            //println "Version: ${options.version}"
+            println "Version: ${options.version}"
         }
     }
 }
