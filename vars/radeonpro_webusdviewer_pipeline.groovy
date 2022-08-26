@@ -15,6 +15,13 @@ import net.sf.json.JsonConfig
 )
 
 
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
+
+
 Integer getNextTestInstanceNumber(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
 
@@ -490,6 +497,22 @@ def executePreBuild(Map options) {
         println "Commit SHA: ${options.commitSHA}"
     }
 
+    // get links to the latest built HybridPro
+    def rawInfo = httpRequest(
+        url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+        options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+        options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+    }
+
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+
     // branch postfix
     options["branchPostfix"] = ""
     if (env.BRANCH_NAME) {
@@ -542,13 +565,6 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
-        }
-    }
-
-    if (env.BRANCH_NAME) {
-        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            customHybridWin = "${REMOTE_HOST}/SharedReports/Hybrid/Windows.zip"
-            customHybridLinux = "${REMOTE_HOST}/SharedReports/Hybrid/Ubuntu.tar.xz"
         }
     }
 
