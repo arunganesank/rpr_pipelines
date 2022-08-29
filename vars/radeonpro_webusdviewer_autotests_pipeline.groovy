@@ -9,6 +9,8 @@ def call(String testsBranch, String tests, String instance) {
             node("Windows && WebUSDViewer") {
                 timeout(time: 20, unit: 'MINUTES') {
                     ws("WS/WebUsdViewer_Autotests") {
+                        ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+
                         cleanWS("Windows")
 
                         dir("jobs_test_web_viewer") {
@@ -27,27 +29,30 @@ def call(String testsBranch, String tests, String instance) {
 
                                 dir("scripts") {
                                     withEnv(["PATH=c:\\python39\\;${PATH}"]) {
-                                        bat """
-                                            run.bat ${tests} ${configPrefix} >> ..\\autotests.log 2>&1
-                                        """
-
-                                        bat """
-                                            save_report.bat >> ..\\build_report.log 2>&1
-                                        """
+                                        try {
+                                            bat """
+                                                run.bat ${tests} ${configPrefix} >> ..\\autotests.log 2>&1
+                                            """
+                                        } catch (e) {
+                                            println("[ERROR] Errors occured during autotests execution")
+                                            problemMessageManager.saveGlobalFailReason("Some tests were marked as failed")
+                                            currentBuild.result = "FAILURE"
+                                        }
                                     }
                                 }
 
-                                publishHTML([allowMissing: false,
-                                    alwaysLinkToLastBuild: false,
-                                    keepAll: true,
-                                    reportDir: "Report",
-                                    reportFiles: "index.html",
-                                    reportName: "Test Report"]
-                                )
+                                allure([
+                                    includeProperties: false,
+                                    jdk: "",
+                                    properties: [],
+                                    reportBuildPolicy: "ALWAYS",
+                                    results: [[path: "allure/results"]]
+                                ])
                             } catch (e) {
                                 println("[ERROR] Failed to execute autotests")
                                 throw e
                             } finally {
+                                problemMessageManager.publishMessages()
                                 archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
                             }
                         }
