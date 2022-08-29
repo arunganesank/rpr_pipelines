@@ -1033,7 +1033,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,AMD_WX9100,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',

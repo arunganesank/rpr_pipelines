@@ -786,7 +786,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 def call(String projectBranch = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:NVIDIA_RTX2070",
+         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20",
          String testsQuality = "none",
          String scenarios = "all",
          Boolean updateRefs = false,
