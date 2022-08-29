@@ -607,7 +607,7 @@ def executePreBuild(Map options) {
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
+    String platforms = 'Windows',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
@@ -668,7 +668,7 @@ def call(
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
                                 executeBuild:!isPreBuilt,
-                                executeTests:false,
+                                executeTests:true,
                                 BUILD_TIMEOUT:'120',
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
