@@ -53,7 +53,9 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
 
         timeout(time: 10, unit: "MINUTES") {
-            installMSI("${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi", options.stageName, options.currentTry)
+            dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
+                bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows')]}.msi /qb"
+            }
         }
     }
 
