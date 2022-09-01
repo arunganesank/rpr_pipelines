@@ -60,9 +60,9 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
 
         timeout(time: 10, unit: "MINUTES") {
-            bat """
-                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
-            """
+            dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
+                bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows')]}.msi /qb"
+            }
         }
     }
 
@@ -143,7 +143,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
     }
 }
 
-String patchSubmodule(String serviceName) {
+String patchSubmodule() {
     String commitSHA
 
     if (isUnix()) {
@@ -153,29 +153,29 @@ String patchSubmodule(String serviceName) {
     }
 
     String version = readFile("VERSION.txt").trim()
-    writeFile(file: "VERSION.txt", text: "${serviceName}: ${version}. Hash: ${commitSHA}")
+    writeFile(file: "VERSION.txt", text: "Version: ${version}. Hash: ${commitSHA}")
 }
 
 
 def patchVersions(Map options) {
     dir("WebUsdLiveServer") {
-        patchSubmodule("Live")
+        patchSubmodule()
     }
 
     dir("WebUsdRouteServer") {
-        patchSubmodule("Route")
+        patchSubmodule()
     }
 
     dir("WebUsdStorageServer") {
-        patchSubmodule("Storage")
+        patchSubmodule()
     }
 
     dir("WebUsdFrontendServer") {
-        patchSubmodule("Web")
+        patchSubmodule()
     }
 
     dir("WebUsdStreamServer") {
-        patchSubmodule("Stream")
+        patchSubmodule()
     }
 
     String version = readFile("VERSION.txt").trim()
@@ -200,6 +200,22 @@ def executeBuildWindows(Map options) {
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.win", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
+        bat "move WebUsdFrontendServer\\webusd.env.win WebUsdFrontendServer\\.env.production"
+
+        String frontendVersion
+        String renderStudioVersion
+
+        dir("WebUsdFrontendServer") {
+            frontendVersion = readFile("VERSION.txt").trim()
+        }
+
+        renderStudioVersion = readFile("VERSION.txt").trim()
+
+        String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
 
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
@@ -629,7 +645,7 @@ def executePreBuild(Map options) {
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows',
+    String platforms = 'Windows:AMD_RX6800XT',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
