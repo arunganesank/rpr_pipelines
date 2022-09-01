@@ -53,9 +53,7 @@ def doSanityCheckWindows(String asicName, Map options) {
         }
 
         timeout(time: 10, unit: "MINUTES") {
-            bat """
-                start "" /wait "${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi" 1>${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log 2>&1
-            """
+            installMSI("${CIS_TOOLS}\\..\\PluginsBinaries\\${options[getProduct.getIdentificatorKey('Windows')]}.msi", options.stageName, options.currentTry)
         }
     }
 
@@ -193,6 +191,9 @@ def executeBuildWindows(Map options) {
 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+
+        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.win", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
+        bat "move WebUsdFrontendServer\\webusd.env.win WebUsdFrontendServer\\.env.production"
 
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
@@ -606,7 +607,7 @@ def executePreBuild(Map options) {
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows',
+    String platforms = 'Windows:AMD_RX6800XT',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
