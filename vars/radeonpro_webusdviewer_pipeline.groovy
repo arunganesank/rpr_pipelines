@@ -143,7 +143,7 @@ def doSanityCheck(String osName, String asicName, Map options) {
     }
 }
 
-String patchSubmodule(String serviceName) {
+String patchSubmodule() {
     String commitSHA
 
     if (isUnix()) {
@@ -153,29 +153,29 @@ String patchSubmodule(String serviceName) {
     }
 
     String version = readFile("VERSION.txt").trim()
-    writeFile(file: "VERSION.txt", text: "${serviceName}: ${version}. Hash: ${commitSHA}")
+    writeFile(file: "VERSION.txt", text: "Version: ${version}. Hash: ${commitSHA}")
 }
 
 
 def patchVersions(Map options) {
     dir("WebUsdLiveServer") {
-        patchSubmodule("Live")
+        patchSubmodule()
     }
 
     dir("WebUsdRouteServer") {
-        patchSubmodule("Route")
+        patchSubmodule()
     }
 
     dir("WebUsdStorageServer") {
-        patchSubmodule("Storage")
+        patchSubmodule()
     }
 
     dir("WebUsdFrontendServer") {
-        patchSubmodule("Web")
+        patchSubmodule()
     }
 
     dir("WebUsdStreamServer") {
-        patchSubmodule("Stream")
+        patchSubmodule()
     }
 
     String version = readFile("VERSION.txt").trim()
@@ -206,20 +206,15 @@ def executeBuildWindows(Map options) {
 
         String frontendVersion
         String renderStudioVersion
-        String streamServerVersion
 
-        dir("WebUsdRouteServer") {
+        dir("WebUsdFrontendServer") {
             frontendVersion = readFile("VERSION.txt").trim()
-        }
-
-        dir("WebUsdStreamServer") {
-            streamServerVersion = readFile("VERSION.txt").trim()
         }
 
         renderStudioVersion = readFile("VERSION.txt").trim()
 
         String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
-        envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}\nVUE_APP_URL_STREAMER_REST=${streamServerVersion}"
+        envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
 
         try {
