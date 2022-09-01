@@ -455,7 +455,7 @@ def executeBuild(String osName, Map options) {
 
             if (options.customHybridLinux && isUnix()) {
                 sh """
-                    curl --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
+                    curl --insecure --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
                 """
 
                 sh "tar -xJf HybridPro.tar.xz"
@@ -471,7 +471,7 @@ def executeBuild(String osName, Map options) {
                 }
             } else if (options.customHybridWin && !isUnix()) {
                 bat """
-                    curl --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
+                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
                 """
 
                 unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
