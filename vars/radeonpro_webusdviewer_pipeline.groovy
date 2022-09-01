@@ -195,6 +195,24 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.win", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
         bat "move WebUsdFrontendServer\\webusd.env.win WebUsdFrontendServer\\.env.production"
 
+        String frontendVersion
+        String renderStudioVersion
+        String streamServerVersion
+
+        dir("WebUsdRouteServer") {
+            frontendVersion = readFile("VERSION.txt").trim()
+        }
+
+        dir("WebUsdStreamServer") {
+            streamServerVersion = readFile("VERSION.txt").trim()
+        }
+
+        renderStudioVersion = readFile("VERSION.txt").trim()
+
+        String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}\nVUE_APP_URL_STREAMER_REST=${streamServerVersion}"
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
                 bat """
