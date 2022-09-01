@@ -15,6 +15,13 @@ import net.sf.json.JsonConfig
 )
 
 
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
+
+
 Integer getNextTestInstanceNumber(Map options) {
     downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
 
@@ -469,7 +476,7 @@ def executeBuild(String osName, Map options) {
 
             if (options.customHybridLinux && isUnix()) {
                 sh """
-                    curl --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
+                    curl --insecure --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
                 """
 
                 sh "tar -xJf HybridPro.tar.xz"
@@ -485,7 +492,7 @@ def executeBuild(String osName, Map options) {
                 }
             } else if (options.customHybridWin && !isUnix()) {
                 bat """
-                    curl --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
+                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
                 """
 
                 unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
@@ -547,12 +554,28 @@ def notifyByTg(Map options){
 }
 
 def executePreBuild(Map options) {
-    ws("WebUSD-prebuild"){
+    ws("WebUSD-prebuild") {
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
         options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
+
+        // get links to the latest built HybridPro
+        def rawInfo = httpRequest(
+            url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
+
+        def parsedInfo = parseResponse(rawInfo.content)
+
+        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+            options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+        }
+
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
         // branch postfix
         options["branchPostfix"] = ""
@@ -650,13 +673,6 @@ def call(
             case "main":
                 deployEnvironment = "prod"
                 break
-        }
-    }
-
-    if (env.BRANCH_NAME) {
-        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            customHybridWin = "${REMOTE_HOST}/SharedReports/Hybrid/Windows.zip"
-            customHybridLinux = "${REMOTE_HOST}/SharedReports/Hybrid/Ubuntu.tar.xz"
         }
     }
 
