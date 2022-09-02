@@ -319,6 +319,19 @@ def executeBuildLinux(Map options) {
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
     }
 
+    String frontendVersion
+    String renderStudioVersion
+
+    dir("WebUsdRouteServer") {
+        frontendVersion = readFile("VERSION.txt").trim()
+    }
+
+    renderStudioVersion = readFile("VERSION.txt").trim()
+
+    envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+    envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+    writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+
     options["stage"] = "Build"
 
     withNotifications(title: "Web application", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
