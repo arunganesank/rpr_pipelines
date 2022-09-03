@@ -782,7 +782,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/${engine}"
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 
