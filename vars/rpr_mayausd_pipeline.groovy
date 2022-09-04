@@ -397,11 +397,11 @@ def executeBuildWindows(Map options) {
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup.exe"
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe"
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
@@ -432,11 +432,11 @@ def executeBuildWindows(Map options) {
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup.exe"
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe"
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
                 GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
@@ -543,7 +543,8 @@ def executePreBuild(Map options) {
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
-                options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
+                options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
+                options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -557,18 +558,25 @@ def executePreBuild(Map options) {
                     if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.pluginVersion}"
+                        println "[INFO] Current USD plugin version: ${options.usdPluginVersion}"
+                        println "[INFO] Current HdRPR plugin version: ${options.hdrprPluginVersion}"
 
-                        def newVersion = version_inc(options.pluginVersion, 3)
-                        println "[INFO] New build version: ${newVersion}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${newVersion}")
+                        def newUsdPluginVersion = version_inc(options.usdPluginVersion, 3)
+                        def newHdrprPluginVersion = version_inc(options.hdrprPluginVersion, 3)
+                        println "[INFO] New USD plugin version: ${newUsdPluginVersion}"
+                        println "[INFO] New HdRPR plugin version: ${newHdrprPluginVersion}"
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${usdPluginVersion}")
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newHdrprPluginVersion}")
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
-                        println "[INFO] Updated build version: ${options.pluginVersion}"
+                        options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
+                        options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
+                        println "[INFO] Updated USD plugin version: ${options.usdPluginVersion}"
+                        println "[INFO] Updated HdRPR plugin version: ${options.hdrprPluginVersion}"
 
                         bat """
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
-                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
+                            git commit -m "buildmaster: USD plugin version update to ${options.usdPluginVersion}. HdRPR plugin version update to ${options.hdrprPluginVersion}."
                             git push origin HEAD:develop
                         """
 
@@ -594,7 +602,8 @@ def executePreBuild(Map options) {
                 }
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>USD plugin version:</b> ${options.usdPluginVersion}<br/>"
+                currentBuild.description += "<b>HdRPR plugin version:</b> ${options.hdrprPluginVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
