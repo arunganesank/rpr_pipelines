@@ -425,14 +425,18 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
+                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
                 """
 
-                makeStash(includes: "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup_${options.usdPluginVersion}.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
+                    """
+                } else {
+                    bat """
+                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
                     """
                 }
 
