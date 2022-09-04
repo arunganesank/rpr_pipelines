@@ -428,7 +428,7 @@ def executeBuildWindows(Map options) {
                     rename RPRMayaUSD_Setup* RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
                 """
 
-                makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
+                makeStash(includes: "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
 
                 if (options.branch_postfix) {
                     bat """
