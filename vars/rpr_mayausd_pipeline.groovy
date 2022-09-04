@@ -392,12 +392,12 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup.exe
+                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe
                 """
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
@@ -425,14 +425,14 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
+                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
                 """
 
                 makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows"), preZip: false, storeOnNAS: options.storeOnNAS)
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_Setup_${options.usdPluginVersion}.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
