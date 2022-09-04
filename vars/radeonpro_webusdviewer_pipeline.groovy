@@ -658,7 +658,7 @@ def executePreBuild(Map options) {
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows:AMD_RX6800XT',
+    String platforms = 'Windows:AMD_RX6800XT;Ubuntu20',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
