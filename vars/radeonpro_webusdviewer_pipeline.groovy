@@ -466,10 +466,6 @@ def executeBuildLinux(Map options) {
             notifyByTg(options)
         }
     }
-
-    if (options.deploy) {
-        doSanityCheckLinux("", options)
-    }
 }
 
 
@@ -614,7 +610,11 @@ def executePreBuild(Map options) {
                     String platform = tokens.get(0)
                     platform = platform == "Windows" ? "Windows" : "Web application"
                     GithubNotificator.createStatus("Build", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
-                    GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+
+                    if (os == "Windows") {
+                        GithubNotificator.createStatus("Sanity check", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
+                    }
+
                     if (options.deploy && platform == "Web application") {
                         GithubNotificator.createStatus("Deploy", platform, "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
