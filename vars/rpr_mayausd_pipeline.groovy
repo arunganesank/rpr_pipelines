@@ -569,7 +569,7 @@ def executePreBuild(Map options) {
                         def newHdrprPluginVersion = version_inc(options.hdrprPluginVersion, 3)
                         println "[INFO] New USD plugin version: ${newUsdPluginVersion}"
                         println "[INFO] New HdRPR plugin version: ${newHdrprPluginVersion}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${usdPluginVersion}")
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${newUsdPluginVersion}")
                         version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newHdrprPluginVersion}")
 
                         options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
