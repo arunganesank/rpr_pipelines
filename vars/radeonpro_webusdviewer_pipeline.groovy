@@ -329,7 +329,7 @@ def executeBuildLinux(Map options) {
     renderStudioVersion = readFile("VERSION.txt").trim()
 
     envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
-    envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+    envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
     writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
 
     options["stage"] = "Build"
