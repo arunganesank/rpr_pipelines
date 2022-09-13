@@ -981,7 +981,7 @@ def executeBuildWindows(Map options) {
         if (options.winTestingBuildName == winBuildName) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                    checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
+                    checkoutScm(branchName: "cis_test", repositoryUrl: AMF_TESTS_REPO)
                 }
 
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyToolServer}")
