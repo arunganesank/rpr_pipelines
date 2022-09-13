@@ -322,7 +322,7 @@ def executeBuildLinux(Map options) {
     String frontendVersion
     String renderStudioVersion
 
-    dir("WebUsdRouteServer") {
+    dir("WebUsdFrontendServer") {
         frontendVersion = readFile("VERSION.txt").trim()
     }
 
