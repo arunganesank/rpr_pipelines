@@ -976,8 +976,7 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        // TODO: check that latency tool is required
-        if (options.winTestingBuildName == winBuildName) {
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
