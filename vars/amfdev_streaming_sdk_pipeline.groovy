@@ -1065,42 +1065,44 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
-    options.androidBuildConfiguration.each() { androidBuildConf ->
+    withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;${PATH}"]) {
+        options.androidBuildConfiguration.each() { androidBuildConf ->
 
-        println "Current build configuration: ${androidBuildConf}."
+            println "Current build configuration: ${androidBuildConf}."
 
-        String androidBuildName = "${androidBuildConf}"
-        String logName = "${STAGE_NAME}.${androidBuildName}.log"
+            String androidBuildName = "${androidBuildConf}"
+            String logName = "${STAGE_NAME}.${androidBuildName}.log"
 
-        String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
+            String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-        dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
-            GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+                GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-            bat """
-                gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
-            """
+                bat """
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                """
 
-            String archiveUrl = ""
+                String archiveUrl = ""
 
-            dir("app/build/outputs/apk/arm/${androidBuildConf}") {
-                String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
+                dir("app/build/outputs/apk/arm/${androidBuildConf}") {
+                    String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
+                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
 
-                if (options.androidTestingBuildName == androidBuildConf) {
-                    utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
-                    makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
+                    if (options.androidTestingBuildName == androidBuildConf) {
+                        utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
+                        makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
+                    }
+
+                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
-
-                archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-                rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
             }
+
         }
 
+        GithubNotificator.updateStatus("Build", "Android", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
     }
-
-    GithubNotificator.updateStatus("Build", "Android", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
 }
 
 
