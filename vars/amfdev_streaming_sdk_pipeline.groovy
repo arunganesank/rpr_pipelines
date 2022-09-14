@@ -938,8 +938,7 @@ def executeBuildWindows(Map options) {
         String winBuildName = "${winBuildConf}_vs2019"
         String logName = "${STAGE_NAME}.${winBuildName}.log"
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
-        String logNameLatencyToolServer = "${STAGE_NAME}.${winBuildName}.server.driver.log"
-        String logNameLatencyToolClient = "${STAGE_NAME}.${winBuildName}.client.driver.log"
+        String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
         String buildSln = "StreamingSDK_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
@@ -981,26 +980,16 @@ def executeBuildWindows(Map options) {
         if (options.winTestingBuildName == winBuildName) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                    checkoutScm(branchName: "cis_test", repositoryUrl: AMF_TESTS_REPO)
+                    checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
                 }
 
-                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyToolServer}")
+                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
 
-                dir("amf\\protected\\samples\\CPPSamples\\LatencyTestServer") {
+                dir("amf\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatencyTestServer.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolServer} 2>&1
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
-                }
-
-                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyToolClient}")
-
-                dir("amf\\protected\\samples\\CPPSamples\\LatencyTestClient") {
-                    bat """
-                        set msbuild="${msBuildPath}"
-                        %msbuild% LatencyTestClient.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyToolClient} 2>&1
-                    """
-
                 }
 
                 dir(winLatencyToolDir) {
