@@ -1761,7 +1761,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
 def call(String projectBranch = "",
     String testsBranch = "master",
-    String platforms = "Windows:AMD_RX5700XT;Android:AMD_RX5700XT",
+    String platforms = "Windows:AMD_RX6700XT;Android:AMD_RX6700XT",
     String clientTag = "PC-TESTER-VILNIUS-WIN10",
     String winBuildConfiguration = "release,debug",
     String winTestingBuildName = "debug_vs2019",
