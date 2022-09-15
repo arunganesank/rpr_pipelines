@@ -1056,6 +1056,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
 def call(
     String projectBranch = "",
+    String testsBranch = "master",
     String platforms = 'Windows:AMD_RX6800XT;Web:Chrome',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
@@ -1113,6 +1114,7 @@ def call(
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
                                 testRepo:TEST_REPO,
+                                testsBranch:testsBranch,
                                 enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
