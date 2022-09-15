@@ -1175,7 +1175,8 @@ def call(
                                 updateRefs:updateRefs,
                                 testCaseRetries:testCaseRetries,
                                 executeBuild: !skipBuild,
-                                customBuildLinkWindows:customBuildLinkWindows
+                                customBuildLinkWindows:customBuildLinkWindows,
+                                ADDITIONAL_XML_TIMEOUT:15
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, null, options)
