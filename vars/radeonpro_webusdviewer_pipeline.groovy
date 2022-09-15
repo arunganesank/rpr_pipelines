@@ -754,7 +754,7 @@ def executePreBuild(Map options) {
             println "Commit message: ${options.commitMessage}"
             println "Commit SHA: ${options.commitSHA}"
             println "Commit short SHA: ${options.commitShortSHA}"
-            println "Version: ${options.version}"
+            println "Version: ${version}"
         }
     }
 
@@ -1090,7 +1090,7 @@ def call(
         skipBuild = true
     }
 
-    Boolean isPreBuilt = (customBuildLinkWindows)
+    Boolean isPreBuilt = skipBuild
 
     List modes = []
 
@@ -1135,12 +1135,11 @@ def call(
                                 skipCallback: this.&filter,
                                 engines: modes,
                                 enginesNames: modes,
-
                                 testsPackage:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
                                 testCaseRetries:testCaseRetries,
-                                executeBuild: skipBuild,
+                                executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows
                                 ]
     try {
