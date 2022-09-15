@@ -1093,10 +1093,10 @@ def call(
 
     List modes = []
 
-    if (platform.contains("Windows:")) {
+    if (platforms.contains("Windows:")) {
         modes.add("Desktop")
     }
-    if (platform.contains("Web:")) {
+    if (platforms.contains("Web:")) {
         modes.add("Web")
     }
 
@@ -1117,8 +1117,6 @@ def call(
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,
-                                customHybridWin: customHybridWin,
-                                customHybridLinux: customHybridLinux,
                                 deploy:deploy, 
                                 PRJ_NAME:'WebUsdViewer',
                                 PRJ_ROOT:'radeon-pro',
