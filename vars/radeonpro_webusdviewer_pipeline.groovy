@@ -86,19 +86,6 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 }
                 break
             case 'Web':
-                withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                    String url
-
-                    if (options.deployEnvironment == "prod") {
-                        url = TEMPLATE.replace("<instance>.", "")
-                    } else {
-                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
-                    }
-
-                    String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
-                    writeFile(file: "local_config.py", text: localConfigContent)
-                }
-
                 // TODO: rename system name
                 dir("scripts") {
                     sh """
@@ -156,6 +143,19 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
                 String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_assets" : "/mnt/c/TestResources/render_studio_autotests_assets"
                 downloadFiles("/volume1/web/Assets/render_studio_autotests/", assetsDir)
+            }
+        } else {
+            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                String url
+
+                if (options.deployEnvironment == "prod") {
+                    url = TEMPLATE.replace("<instance>.", "")
+                } else {
+                    url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                }
+
+                String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
+                writeFile(file: "local_config.py", text: localConfigContent)
             }
         }
 
