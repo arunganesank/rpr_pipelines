@@ -86,6 +86,19 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 }
                 break
             case 'Web':
+                withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                    String url
+
+                    if (options.deployEnvironment == "prod") {
+                        url = TEMPLATE.replace("<instance>.", "")
+                    } else {
+                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    }
+
+                    String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
+                    writeFile(file: "local_config.py", text: localConfigContent)
+                }
+
                 // TODO: rename system name
                 dir("scripts") {
                     sh """
