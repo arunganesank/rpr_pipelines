@@ -1056,7 +1056,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
 def call(
     String projectBranch = "",
-    String platforms = 'Windows:AMD_RX6800XT;Web:AMD_RadeonVII',
+    String platforms = 'Windows:AMD_RX6800XT;Web:Chrome',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
@@ -1067,7 +1067,7 @@ def call(
     String tests = 'Viewport',
     String updateRefs = 'No',
     Integer testCaseRetries = 3,
-    String skipBuild = false,
+    Boolean skipBuild = false,
     String customBuildLinkWindows = ""
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
