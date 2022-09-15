@@ -59,6 +59,15 @@ Integer getNextTestInstanceNumber(Map options) {
 }
 
 
+def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
+    dir('scripts') {
+        bat """
+            make_results_baseline.bat ${delete}
+        """
+    }
+}
+
+
 def executeTestCommand(String osName, String asicName, Map options) {
     def testTimeout = options.timeouts["${options.parsedTests}"]
     String testsNames = options.parsedTests
