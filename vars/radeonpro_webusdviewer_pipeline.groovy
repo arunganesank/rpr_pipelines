@@ -1188,7 +1188,7 @@ def call(
                                 ADDITIONAL_XML_TIMEOUT:15
                                 ]
     try {
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, null, options)
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
         if (currentBuild.result == null) {
             currentBuild.result = "SUCCESS"
         }
