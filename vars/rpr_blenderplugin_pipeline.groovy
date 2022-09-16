@@ -1054,7 +1054,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 5)
+    Integer testCaseRetries = 3)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]

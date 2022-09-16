@@ -185,9 +185,14 @@ def executeTests(String osName, String asicName, Map options) {
         } else {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
-                baselineDir = enginePostfix ? "${baseline_dir}" : baseline_dir
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${options.REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.parsedTests.split(" ").each() {
+                    if (it.contains(".json")) {
+                        downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
+                    } else {
+                        downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
+                    }
+                }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand("Windows", asicName, options)
@@ -690,28 +695,30 @@ def executePreBuild(Map options) {
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
         options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
 
-        // get links to the latest built HybridPro
-        def rawInfo = httpRequest(
-            url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
-            authentication: 'jenkinsCredentials',
-            httpMode: 'GET'
-        )
+        if (options["executeBuild"]) {
+            // get links to the latest built HybridPro
+            def rawInfo = httpRequest(
+                url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
+                authentication: 'jenkinsCredentials',
+                httpMode: 'GET'
+            )
 
-        def parsedInfo = parseResponse(rawInfo.content)
+            def parsedInfo = parseResponse(rawInfo.content)
 
-        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-        }
+            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            }
 
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
-        // branch postfix
-        options["branchPostfix"] = ""
-        if (env.BRANCH_NAME) {
-            options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
-        } else {
-            options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+            // branch postfix
+            options["branchPostfix"] = ""
+            if (env.BRANCH_NAME) {
+                options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+            } else {
+                options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+            }
         }
 
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
