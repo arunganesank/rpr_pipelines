@@ -227,6 +227,9 @@ def executeTests(String osName, String asicName, Map options) {
             case 'Northstar':
                 enginePostfix = "NorthStar"
                 break
+            case 'HybridPro':
+                enginePostfix = "HybridPro"
+                break
         }
         REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
 
@@ -399,16 +402,16 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup.exe
+                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe
                 """
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup.exe"
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe"
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
@@ -439,11 +442,15 @@ def executeBuildWindows(Map options) {
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
+                    """
+                } else {
+                    bat """
+                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup.exe"
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe"
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
                 GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
@@ -550,7 +557,8 @@ def executePreBuild(Map options) {
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
-                options.pluginVersion = "0.1.0"
+                options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
+                options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -562,29 +570,34 @@ def executePreBuild(Map options) {
                     }
                     
                     if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
-
                         // Do not have permissions to make a new commit
+                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                        println "[INFO] Current USD plugin version: ${options.usdPluginVersion}"
+                        println "[INFO] Current HdRPR plugin version: ${options.hdrprPluginVersion}"
 
-/*                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.pluginVersion}"
+                        def newUsdPluginVersion = version_inc(options.usdPluginVersion, 3)
+                        def newHdrprPluginVersion = version_inc(options.hdrprPluginVersion, 3)
+                        println "[INFO] New USD plugin version: ${newUsdPluginVersion}"
+                        println "[INFO] New HdRPR plugin version: ${newHdrprPluginVersion}"
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${newUsdPluginVersion}")
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newHdrprPluginVersion}")
 
-                        def new_version = version_inc(options.pluginVersion, 3)
-                        println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=', new_version)
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", 'AppVersion=')
-                        println "[INFO] Updated build version: ${options.pluginVersion}"
+                        options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
+                        options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
+                        println "[INFO] Updated USD plugin version: ${options.usdPluginVersion}"
+                        println "[INFO] Updated HdRPR plugin version: ${options.hdrprPluginVersion}"
 
                         bat """
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
-                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
+                            git commit -m "buildmaster: USD plugin version update to ${options.usdPluginVersion}. HdRPR plugin version update to ${options.hdrprPluginVersion}."
                             git push origin HEAD:develop
                         """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                         options.projectBranch = options.commitSHA
-                        println "[INFO] Project branch hash: ${options.projectBranch}"*/
+                        println "[INFO] Project branch hash: ${options.projectBranch}"
                     } else {
                         if (options.commitMessage.contains("CIS:BUILD")) {
                             options['executeBuild'] = true
@@ -603,7 +616,8 @@ def executePreBuild(Map options) {
                 }
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>USD plugin version:</b> ${options.usdPluginVersion}<br/>"
+                currentBuild.description += "<b>HdRPR plugin version:</b> ${options.hdrprPluginVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
@@ -794,7 +808,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/${engine}"
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 
@@ -956,7 +970,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_WX9100,NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,
@@ -972,7 +986,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String iter = '50',
         String theshold = '0.05',
         String customBuildLinkWindows = "",
-        String enginesNames = "Northstar",
+        String enginesNames = "Northstar,HybridPro",
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
@@ -1077,7 +1091,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         splitTestsExecution:splitTestsExecution,
                         gpusCount:gpusCount,
                         BUILD_TIMEOUT: 180,
-                        TEST_TIMEOUT:120,
+                        TEST_TIMEOUT:150,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:75,
                         DEPLOY_TIMEOUT:180,

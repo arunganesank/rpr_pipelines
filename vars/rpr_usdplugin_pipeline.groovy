@@ -202,7 +202,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_usdplugin_autotests_assets" : "/mnt/c/TestResources/rpr_usdplugin_autotests_assets"
-            downloadFiles("/volume1/web/Assets/rpr_usdplugin_autotests/", assetsDir)
+            downloadFiles("/volume1/web/Assets/rpr_usdplugin_autotests/", assetsDir, "", true)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
@@ -887,7 +887,7 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String usdBranch = "master",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX5700XT',
+        String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI;OSX:AMD_RX5700XT;Ubuntu20',
         String buildType = "Houdini",
         Boolean rebuildUSD = false,
         String houdiniVersions = "19.0.622,19.5.303",

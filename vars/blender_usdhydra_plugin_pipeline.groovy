@@ -145,6 +145,15 @@ def executeTests(String osName, String asicName, Map options) {
         }
     }
 
+    if (env.NODE_NAME == "PC-SR-ONTARIO-6800XT-WIN10") {
+        if (options.parsedTests.contains("USD_Nodes")) {
+            throw new ExpectedExceptionWrapper(
+                "System doesn't support USD_Nodes group", 
+                new Exception("System doesn't support USD_Nodes group")
+            )
+        }
+    }
+
     try {
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
@@ -352,9 +361,19 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
         def additionalKeys = "--prman --prman-location \"C:\\Program Files\\Pixar\\RenderManProServer-24.4\""
         dir('BlenderUSDHydraAddon') {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
-            def paths = ["c:\\python${pyVersion.replace(".","")}\\",
-                         "c:\\python${pyVersion.replace(".","")}\\scripts\\",
-                         "c:\\CMake323\\bin"]
+
+            def paths
+
+            // Python 3.9 build requires Python 3.9.10
+            if (pyVersion == "3.9") {
+                paths = ["C:\\Python3910\\",
+                             "C:\\Python3910\\scripts\\",
+                             "C:\\CMake323\\bin"]
+            } else {
+                paths = ["C:\\Python${pyVersion.replace(".","")}\\",
+                             "C:\\Python${pyVersion.replace(".","")}\\scripts\\",
+                             "C:\\CMake323\\bin"]
+            }
 
             withEnv(["PATH=${paths.join(";")};${PATH}"]) {
                 if (options.rebuildDeps) {
@@ -1040,7 +1059,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,AMD_WX9100,NVIDIA_RTX3080TI;Ubuntu20:AMD_RX5700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',

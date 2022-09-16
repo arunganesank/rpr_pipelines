@@ -10,6 +10,7 @@ import TestsExecutionType
 @Field final String PROJECT_REPO = "git@github.com:amfdev/StreamingSDK.git"
 @Field final String TESTS_REPO = "git@github.com:luxteam/jobs_test_streaming_sdk.git"
 @Field final String DRIVER_REPO = "git@github.com:amfdev/AMDVirtualDrivers.git"
+@Field final String AMF_TESTS_REPO = "git@github.com:amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
 
@@ -151,6 +152,11 @@ def prepareTool(String osName, Map options) {
         case "Windows":
             makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "${options.winTestingBuildName}.zip")
+
+            if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "LatencyTool_Windows.zip")
+            }
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -556,7 +562,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
     try {
 
-        utils.reboot(this, osName)
+        //utils.reboot(this, osName)
 
         timeout(time: "10", unit: "MINUTES") {
             cleanWS(osName)
@@ -643,7 +649,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        utils.reboot(this, osName)
+        //utils.reboot(this, osName)
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
@@ -891,7 +897,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        utils.reboot(this, "Windows")
+        //utils.reboot(this, "Windows")
 
         initAndroidDevice()
 
@@ -1016,11 +1022,13 @@ def executeBuildWindows(Map options) {
         String winBuildName = "${winBuildConf}_vs2019"
         String logName = "${STAGE_NAME}.${winBuildName}.log"
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
+        String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
         String buildSln = "StreamingSDK_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String winLatencyToolDir = "amf/bin/vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
 
         if (options.isDevelopBranch) {
             dir("AMDVirtualDrivers") {
@@ -1047,6 +1055,35 @@ def executeBuildWindows(Map options) {
                     if (options.winTestingDriverName == winBuildConf) {
                         utils.moveFiles(this, "Windows", DRIVER_NAME, "${options.winTestingDriverName}.zip")
                         makeStash(includes: "${options.winTestingDriverName}.zip", name: "DriverWindows", preZip: false, storeOnNAS: options.storeOnNAS)
+                    }
+                }
+            }
+        }
+
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
+            dir("AMFTests") {
+                withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                    checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
+                }
+
+                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
+
+                dir("amf\\protected\\samples") {
+                    bat """
+                        set msbuild="${msBuildPath}"
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                    """
+                }
+
+                dir(winLatencyToolDir) {
+                    String LATENCY_TOOL_NAME = "LatencyTool_Windows.zip"
+
+                    bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
+
+                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+
+                    if (options.winTestingDriverName == winBuildConf) {
+                        makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
             }
@@ -1086,42 +1123,44 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
-    options.androidBuildConfiguration.each() { androidBuildConf ->
+    withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;${PATH}"]) {
+        options.androidBuildConfiguration.each() { androidBuildConf ->
 
-        println "Current build configuration: ${androidBuildConf}."
+            println "Current build configuration: ${androidBuildConf}."
 
-        String androidBuildName = "${androidBuildConf}"
-        String logName = "${STAGE_NAME}.${androidBuildName}.log"
+            String androidBuildName = "${androidBuildConf}"
+            String logName = "${STAGE_NAME}.${androidBuildName}.log"
 
-        String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
+            String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-        dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
-            GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+                GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-            bat """
-                gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
-            """
+                bat """
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                """
 
-            String archiveUrl = ""
+                String archiveUrl = ""
 
-            dir("app/build/outputs/apk/arm/${androidBuildConf}") {
-                String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
+                dir("app/build/outputs/apk/arm/${androidBuildConf}") {
+                    String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
+                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
 
-                if (options.androidTestingBuildName == androidBuildConf) {
-                    utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
-                    makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
+                    if (options.androidTestingBuildName == androidBuildConf) {
+                        utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
+                        makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
+                    }
+
+                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
-
-                archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-                rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
             }
+
         }
 
+        GithubNotificator.updateStatus("Build", "Android", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
     }
-
-    GithubNotificator.updateStatus("Build", "Android", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
 }
 
 
@@ -1746,7 +1785,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
 def call(String projectBranch = "",
     String testsBranch = "master",
-    String platforms = "Windows:AMD_RX5700XT;Android:AMD_RX5700XT",
+    String platforms = "Windows:AMD_RX6700XT;Android:AMD_RX6700XT",
     String clientTag = "PC-TESTER-VILNIUS-WIN10",
     String winBuildConfiguration = "release,debug",
     String winTestingBuildName = "debug_vs2019",
@@ -1837,7 +1876,7 @@ def call(String projectBranch = "",
                         BUILD_TIMEOUT: 15,
                         // update timeouts dynamicly based on number of cases + traces are generated or not
                         TEST_TIMEOUT: 120,
-                        DEPLOY_TIMEOUT: 90,
+                        DEPLOY_TIMEOUT: 150,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         BUILDER_TAG: "BuilderStreamingSDK",
                         TESTER_TAG: testerTag,
