@@ -168,7 +168,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
-        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}"
+        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.engine}"
 
         outputEnvironmentInfo("Windows", "", options.currentTry)
 
@@ -185,6 +185,7 @@ def executeTests(String osName, String asicName, Map options) {
         } else {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
+                baselineDir = enginePostfix ? "${baseline_dir}" : baseline_dir
                 println "[INFO] Downloading reference images for ${options.tests}"
                 options.tests.split(" ").each { downloadFiles("${options.REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
             }
