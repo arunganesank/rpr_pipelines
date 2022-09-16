@@ -153,7 +153,7 @@ def executeTests(String osName, String asicName, Map options) {
                     }
 
                     dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-                        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows')]}.msi /qb"
+                        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
                     }
                 }
             }
@@ -1183,7 +1183,7 @@ def call(
                                 storeOnNAS: true,
                                 flexibleUpdates: true,
                                 skipCallback: this.&filter,
-                                engines: modes,
+                                modes: modes,
                                 testsPackage:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
