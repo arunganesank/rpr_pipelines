@@ -518,8 +518,6 @@ def executeBuildLinux(Map options) {
         
     }
 
-    options["stage"] = "Deploy"
-
     withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.DEPLOY_APPLICATION) {
         if (options.deploy) {
             println "[INFO] Start deploying on $options.deployEnvironment environment"
@@ -1188,9 +1186,6 @@ def call(
         throw e
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
-        if (currentBuild.result == "FAILURE"){
-            GithubNotificator.closeUnfinishedSteps(options, "Build result: ${currentBuild.result}")
-        }
         if (env.CHANGE_URL){
             GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
         } 
