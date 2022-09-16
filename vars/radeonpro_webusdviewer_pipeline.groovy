@@ -1098,7 +1098,7 @@ def call(
     String testsPackage = "none",
     String tests = 'Viewport',
     String updateRefs = 'No',
-    Integer testCaseRetries = 3,
+    Integer testCaseRetries = 5,
     Boolean skipBuild = false,
     String customBuildLinkWindows = ""
 ) {
