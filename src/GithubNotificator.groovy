@@ -237,7 +237,8 @@ public class GithubNotificator {
             if (hasDeployStage) {
                 if (options.containsKey("testProfiles")) {
                     options.testProfiles.each { profile ->
-                        String message = "Building test report for ${profile}"
+                        String profileName = options.displayingTestProfiles[profile]
+                        String message = "Building test report for ${profileName}"
                         paramsBase["name"] = "[DEPLOY] ${message}"
                         githubApiProvider.createOrUpdateStatusCheck(paramsBase)
                         deployCases << message
