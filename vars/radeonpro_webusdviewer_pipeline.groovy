@@ -724,6 +724,7 @@ def executePreBuild(Map options) {
                     githubNotificator.init(options)
                     options["githubNotificator"] = githubNotificator
                     githubNotificator.initPreBuild("${BUILD_URL}")
+                    options.projectBranchName = githubNotificator.branchName
                 }
             
                 if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
@@ -750,6 +751,8 @@ def executePreBuild(Map options) {
                     options.projectBranch = options.commitSHA
                     println "[INFO] Project branch hash: ${options.projectBranch}"
                 }
+            } else {
+                options.projectBranchName = options.projectBranch
             }
 
             println "The last commit was written by ${options.commitAuthor}."
