@@ -166,20 +166,25 @@ def executeTests(String osName, String asicName, Map options)
             downloadFiles("/volume1/web/Assets/rpr_blender_autotests/", assets_dir)
         }
 
+        String addonDir
+        String prefsDir
+        String customKeys
+
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
-                String prefsDir
-                String customKeys = ""
                 switch (osName) {
                     case "Windows":
                         prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/config"
+                        addonDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/scripts/addons/rprblender"
                         break
                     case "OSX":
                         prefsDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/config"
+                        addonDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/scripts/addons/rprblender"
                         customKeys = "--protect-args"
                         break
                     default:
                         prefsDir = "/home/${env.USERNAME}/.config/blender/${options.toolVersion}/config"
+                        addonDir = "/home/${env.USERNAME}/.config/blender/${options.toolVersion}/scripts/addons/rprblender"
                         break
                 }
 
@@ -194,6 +199,9 @@ def executeTests(String osName, String asicName, Map options)
                     getProduct(osName, options)
                     newPluginInstalled = installBlenderAddon(osName, 'rprblender', options.toolVersion, options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
+
+                    // Download configdev to enable collecting of debug information from RRP SDK
+                    downloadFiles("/volume1/CIS/configs/Blender/*", prefsDir, customKeys, false)
                 }
             }
         
