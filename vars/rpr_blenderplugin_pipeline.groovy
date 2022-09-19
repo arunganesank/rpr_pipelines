@@ -177,6 +177,7 @@ def executeTests(String osName, String asicName, Map options)
                         prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/config"
                         addonDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/scripts/addons/rprblender"
                         break
+                    case "MacOS_ARM":
                     case "OSX":
                         prefsDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/config"
                         addonDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/scripts/addons/rprblender"
@@ -201,7 +202,7 @@ def executeTests(String osName, String asicName, Map options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
 
                     // Download configdev to enable collecting of debug information from RRP SDK
-                    downloadFiles("/volume1/CIS/configs/Blender/*", prefsDir, customKeys, false)
+                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", prefsDir, customKeys, false)
                 }
             }
         
