@@ -1,5 +1,6 @@
 def call(List nodeRetryList, String engine = "") {
-    nodeRetryList.each { gpu ->
+    // TODO: remove this functionality
+    /*nodeRetryList.each { gpu ->
         try {
             gpu['Tries'].each { group ->
                 group.each{ groupKey, retries ->
@@ -15,5 +16,5 @@ def call(List nodeRetryList, String engine = "") {
             println(e.toString())
             println(e.getMessage())
         }
-    }
+    }*/
 }
