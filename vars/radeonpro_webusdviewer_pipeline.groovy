@@ -1134,7 +1134,7 @@ def call(
         }
     }
 
-    if (skipBuild && !customBuildLinkWindows && platform.contains("Windows:")) {
+    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows:")) {
         skipBuild = false
     } else if (customBuildLinkWindows && !skipBuild) {
         skipBuild = true
