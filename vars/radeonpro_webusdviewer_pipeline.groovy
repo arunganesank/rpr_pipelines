@@ -102,6 +102,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
             case 'Windows':
                 dir('scripts') {
                     bat """
+                        set TOOL_VERSION=${options.version}
                         run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -110,6 +111,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 // TODO: rename system name
                 dir("scripts") {
                     sh """
+                        set TOOL_VERSION=${options.version}
                         run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -770,11 +772,13 @@ def executePreBuild(Map options) {
                 options.projectBranchName = options.projectBranch
             }
 
-            println "The last commit was written by ${options.commitAuthor}."
-            println "Commit message: ${options.commitMessage}"
-            println "Commit SHA: ${options.commitSHA}"
-            println "Commit short SHA: ${options.commitShortSHA}"
-            println "Version: ${version}"
+            options.version = version
+
+            currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
+            currentBuild.description += "<b>Version:</b> ${options.version}<br/>"
+            currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+            currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+            currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
         }
     }
 
