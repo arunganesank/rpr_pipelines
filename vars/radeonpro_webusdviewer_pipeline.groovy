@@ -102,6 +102,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
             case 'Windows':
                 dir('scripts') {
                     bat """
+                        set TOOL_VERSION=${options.version}
                         run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -110,6 +111,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 // TODO: rename system name
                 dir("scripts") {
                     sh """
+                        set TOOL_VERSION=${options.version}
                         run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
@@ -694,11 +696,48 @@ def getReportBuildArgs(String mode, Map options) {
 }
 
 
+def fillDescription(Map options) {
+    currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
+    currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+
+    currentBuild.description += "<br/>"
+
+    currentBuild.description += "<b>Render Studio verion:</b> ${options.version}<br/>"
+
+    dir("WebUsdFrontendServer") {
+        String version = readFile("VERSION.txt").trim()
+        currentBuild.description += "<b>Frontend verion:</b> ${version}<br/>"
+    }
+
+    dir("WebUsdStreamServer") {
+        String version = readFile("VERSION.txt").trim()
+        currentBuild.description += "<b>Streamer verion:</b> ${version}<br/>"
+    }
+
+    dir("WebUsdLiveServer") {
+        String version = readFile("VERSION.txt").trim()
+        currentBuild.description += "<b>Live server verion:</b> ${version}<br/>"
+    }
+
+    dir("WebUsdRouteServer") {
+        String version = readFile("VERSION.txt").trim()
+        currentBuild.description += "<b>Router verion:</b> ${version}<br/>"
+    }
+
+    dir("WebUsdStorageServer") {
+        String version = readFile("VERSION.txt").trim()
+        currentBuild.description += "<b>Storage verion:</b> ${version}<br/>"
+    }
+}
+
+
 def executePreBuild(Map options) {
     options.executeTests = true
 
     ws("WebUSD-prebuild") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -770,11 +809,9 @@ def executePreBuild(Map options) {
                 options.projectBranchName = options.projectBranch
             }
 
-            println "The last commit was written by ${options.commitAuthor}."
-            println "Commit message: ${options.commitMessage}"
-            println "Commit SHA: ${options.commitSHA}"
-            println "Commit short SHA: ${options.commitShortSHA}"
-            println "Version: ${version}"
+            options.version = version
+
+            fillDescription(options)
         }
     }
 
