@@ -406,6 +406,26 @@ def closeGames(String osName, Map options, String gameName) {
 }
 
 
+def closeAmdLink(String osName, Map options, String executionType) {
+    try {
+        switch(executionType) {
+            case "server":
+                bat """
+                    taskkill /f /im \"RadeonSoftware.exe\"
+                """
+                break
+            default:
+                bat """
+                    taskkill /f /im \"AMDLink.exe\"
+                """
+        }
+    } catch (e) {
+        println("[ERROR] Failed to close Adrenalin/AMD Link")
+        println(e)
+    }
+}
+
+
 def executeTestCommand(String osName, String asicName, Map options, String executionType = "") {
     String testsNames
     String testsPackageName
@@ -641,6 +661,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
         options["clientInfo"]["finished"] = true
 
         saveResults(osName, options, "client", stashResults, options["clientInfo"]["executeTestsFinished"])
+
+        if (options.tests.contains("AMD_Link")) {
+            closeAmdLink(osName, options, "client")
+        }
     }
 }
 
@@ -754,6 +778,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
         saveResults(osName, options, "server", stashResults, options["serverInfo"]["executeTestsFinished"])
 
         closeGames(osName, options, options.engine)
+
+        if (options.tests.contains("AMD_Link")) {
+            closeAmdLink(osName, options, "server")
+        }
     }
 }
 
