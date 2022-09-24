@@ -4,14 +4,13 @@ import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
-import java.util.concurrent.atomic.AtomicInteger
 
 
 @Field final String PRODUCT_NAME = "AMD%20Radeon™%20ProRender%20Core"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
-    supportedOS: ["Windows", "OSX", "Ubuntu18", "Ubuntu20"],
-    productExtensions: ["Windows": "zip", "OSX": "zip", "Ubuntu18": "zip", "Ubuntu20": "zip"],
+    supportedOS: ["Windows"],
+    productExtensions: ["Windows": "zip"],
     artifactNameBase: "binCore",
     testProfile: "engine",
     displayingProfilesMapping: [
@@ -25,21 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger
     ]
 )
 
-@Field final RPR_SDK_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
 
-Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    if (osName == "OSX" && engine == "Hybrid") {
-        return true
-    }
-
-    if (engine.contains("HIP") && !(asicName.contains("AMD") && osName == "Windows")) {
-        return true
-    }
-
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
-}
-
-def executeGenTestRefCommand(String osName, Map options, Boolean delete) 
+def executeGenTestRefCommand(String osName, Map options, Boolean delete)
 {
     dir('scripts') {
         switch(osName) {
@@ -61,14 +47,71 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete)
     }
 }
 
-def executeTestCommand(String osName, String asicName, Map options) 
+def executeUnitTestCommand(String osName)
+{
+    switch(osName) {
+        case 'Windows':
+            dir("RadeonProRenderSDK/Northstar/UnitTest") {
+                bat """
+                    ..\\dist\\release\\bin\\x86_64\\UnitTest64.exe -referencePath ..\\..\\..\\frUnittestdata\\northstar\\gpu\\ --gtest_filter=*NEXT_* --gtest_output=xml:..\\..\\..\\${STAGE_NAME}.gtest.xml >> ..\\..\\..\\${STAGE_NAME}.log  2>&1
+                """
+            }
+            break
+        default:
+            // Tests for Ubuntu & OSX aren't supported now
+            println("Unsupported OS")
+    }
+}
+
+def executeUnitTests(String osName, String asicName, Map options)
+{
+    dir("RadeonProRenderSDK") {
+        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            timeout(time: "20", unit: "MINUTES") {
+                cleanWS(osName)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
+            }
+        }
+    }
+
+    dir("frUnittestdata") {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_UNIT_TESTS_REPO) {
+            timeout(time: "40", unit: "MINUTES") {
+                checkoutScm(branchName: options.unitTestsBranch, repositoryUrl: "git@github.com:amdadvtech/frUnittestdata.git")
+            }
+        }
+    }
+
+    try {
+        GithubNotificator.updateStatus("Test", options['stageName'], "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, "${BUILD_URL}")
+        executeUnitTestCommand(osName)
+    } catch (e) {
+        dir("HTML_Report") {
+            checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
+            python3("-m pip install --user -r requirements.txt")
+            python3("hybrid_report.py --xml_path ../${STAGE_NAME}.gtest.xml --images_basedir ../RadeonProRenderSDK/Northstar/UnitTest/result  --report_path ../${asicName}-${osName}_failures --tool_name \"Core Internal\" --compare_with_refs=False")
+        }
+
+        if (!options.storeOnNAS) {
+            makeStash(includes: "${asicName}-${osName}_failures/**/*", name: "unitTestFailures-${asicName}-${osName}", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+        }
+
+        utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}_failures", "report.html", "${STAGE_NAME}_failures", "${STAGE_NAME}_failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+
+        options["failedConfigurations"].add("unitTestFailures-" + asicName + "-" + osName)
+    } finally {
+        archiveArtifacts "*.log, *.gtest.xml"
+        junit "*.gtest.xml"
+    }
+}
+
+def executeTestCommand(String osName, String asicName, Map options)
 {
     switch(osName) {
         case 'Windows':
             dir('scripts') {
                 bat """
-                    ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                    run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                    run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.enginesNames} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                 """
             }
             break
@@ -76,8 +119,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.enginesNames} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
             }
@@ -86,8 +128,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.enginesNames} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
             }
@@ -96,6 +137,21 @@ def executeTestCommand(String osName, String asicName, Map options)
 
 def executeTests(String osName, String asicName, Map options)
 {
+    try {
+        executeUnitTests(osName, asicName, options)
+    } catch (e) {
+        println "[ERROR] Failed to execute unit tests on ${asicName}-${osName}"
+        println "Exception: ${e.toString()}"
+        println "Exception message: ${e.getMessage()}"
+        println "Exception cause: ${e.getCause()}"
+        println "Exception stack trace: ${e.getStackTrace()}"
+    }
+
+    // check that current platform is in list of platforms for which render should be executed
+    if (!(options.renderPlatforms.contains(osName) && options.renderPlatforms.contains(asicName))) {
+        return
+    }
+
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
@@ -112,14 +168,11 @@ def executeTests(String osName, String asicName, Map options)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-            String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
-            downloadFiles("/volume1/Assets/rpr_core_autotests/", assets_dir)
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
+            downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assetsDir)
         }
 
-        String enginePostfix = options.engine == "HIPvsNS" ? "Northstar64" : options.engine
         String REF_PATH_PROFILE="/volume1/Baselines/rpr_core_autotests/${asicName}-${osName}"
-
-        REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
         options.REF_PATH_PROFILE = REF_PATH_PROFILE
 
         outputEnvironmentInfo(osName, "", options.currentTry)
@@ -141,9 +194,7 @@ def executeTests(String osName, String asicName, Map options)
         } else {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_baselines" : "/mnt/c/TestResources/rpr_core_autotests_baselines"
-                baseline_dir = enginePostfix ? "${baseline_dir}-${enginePostfix}" : baseline_dir
                 println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
-
                 options.tests.split(" ").each() {
                     downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
                 }
@@ -154,40 +205,19 @@ def executeTests(String osName, String asicName, Map options)
         }
         options.executeTestsFinished = true
 
-        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", osName)
-
-        if (options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] != -1) {
-            // mark that one group was finished and counting of errored groups in succession must be stopped
-            options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] = new AtomicInteger(-1)
-        }
-
     } catch (e) {
-        String additionalDescription = ""
-        if (options.currentTry + 1 < options.nodeReallocateTries) {
+        if (options.currentTry < options.nodeReallocateTries) {
             stashResults = false
-        } else {
-            if (!options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"]) {
-                options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"] = new AtomicInteger(0)
-            }
-            Integer errorsInSuccession = options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"]
-            // if counting of errored groups in succession must isn't stopped
-            if (errorsInSuccession >= 0) {
-                errorsInSuccession = options["errorsInSuccession"]["${osName}-${asicName}-${options.engine}"].addAndGet(1)
-            
-                if (errorsInSuccession >= 3) {
-                    additionalDescription = "Number of errored groups in succession exceeded (max - 3). Next groups for this platform will be aborted"
-                }
-            }
         }
         println(e.toString())
         println(e.getMessage())
-        
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${BUILD_URL}")
-            throw new ExpectedExceptionWrapper("${e.getMessage()}\n${additionalDescription}", e.getCause())
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+            throw e
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED} ${additionalDescription}", "${BUILD_URL}")
-            throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}\n${additionalDescription}", e)
+            String errorMessage = "The reason is not automatically identified. Please contact support."
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, errorMessage, "${BUILD_URL}")
+            throw new ExpectedExceptionWrapper(errorMessage, e)
         }
     } finally {
         try {
@@ -212,25 +242,15 @@ def executeTests(String osName, String asicName, Map options)
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
-                        println "Stashing test results to : ${options.testResultsName}"
-                        
+                        println("Stashing test results to : ${options.testResultsName}")
+
                         utils.stashTestData(this, options, options.storeOnNAS, "**/cache/**")
+
                         // reallocate node if there are still attempts
-                        // if test group is fully errored or number of test cases is equal to zero
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
+                            if (sessionReport.summary.total != sessionReport.summary.skipped){
                                 // remove brocken core package
                                 removeInstaller(osName: osName, options: options, extension: "zip")
-                                collectCrashInfo(osName, options, options.currentTry)
-                                if (osName.contains("Ubuntu")) {
-                                    sh """
-                                        echo "Restarting Unix Machine...."
-                                        hostname
-                                        (sleep 3; sudo shutdown -r now) &
-                                    """
-                                    sleep(60)
-                                }
                                 String errorMessage
                                 if (options.currentTry < options.nodeReallocateTries) {
                                     errorMessage = "All tests were marked as error. The test group will be restarted."
@@ -262,95 +282,37 @@ def executeTests(String osName, String asicName, Map options)
     }
 }
 
-
 def executeBuildWindows(Map options) {
-    String artifactURL
-
     withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/Build-Windows.log",
-        configuration: NotificationConfiguration.BUILD_PACKAGE) {
-        String ARTIFACT_NAME = "binCoreWin64.zip"
-
-        dir("RadeonProRenderSDK/RadeonProRender/binWin64") {
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
-
-            artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+        artifactUrl: "${BUILD_URL}/artifact/binCoreWin64.zip", configuration: NotificationConfiguration.BUILD_PACKAGE) {
+        dir("RadeonProRenderSDK/RPR/RadeonProRender/lib/x64") {
+            zip archive: true, dir: ".", glob: "", zipFile: "binCoreWin64.zip"
+            makeStash(includes: "binCoreWin64.zip", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
         }
     }
-
-    if (env.BRANCH_NAME == "master") {
-        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
-
-            hybrid_vs_northstar_pipeline.updateBinaries(
-                newBinaryFile: "RadeonProRenderSDK\\RadeonProRender\\binWin64\\Northstar64.dll", 
-                targetFileName: "Northstar64.dll", osName: "Windows", compareChecksum: true
-            )
-
-        }
-    }
-
-    GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-}
-
-def executeBuildOSX(Map options) {
-    String artifactURL
-
-    withNotifications(title: "OSX", options: options, logUrl: "${BUILD_URL}/artifact/Build-OSX.log",
-        configuration: NotificationConfiguration.BUILD_PACKAGE) {
-        String ARTIFACT_NAME = "binCoreMacOS.zip"
-
-        dir("RadeonProRenderSDK/RadeonProRender/binMacOS") {
-            sh(script: 'zip -r' + " \"${ARTIFACT_NAME}\" .")
-
-            artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("OSX", options), preZip: false, storeOnNAS: options.storeOnNAS)
-        }
-    }
-
-    GithubNotificator.updateStatus("Build", "OSX", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-}
-
-def executeBuildLinux(String osName, Map options) {
-    String artifactURL
-
-    withNotifications(title: "${osName}", options: options, logUrl: "${BUILD_URL}/artifact/Build-${osName}.log",
-        artifactUrl: "${BUILD_URL}/artifact/binCore${osName}.zip", configuration: NotificationConfiguration.BUILD_PACKAGE) {
-        // no artifacts in repo for ubuntu20
-        String ARTIFACT_NAME = "binCore${osName}.zip"
-
-        dir("RadeonProRenderSDK/RadeonProRender/binUbuntu18") {
-            sh(script: 'zip -r' + " \"${ARTIFACT_NAME}\" .")
-
-            artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
-        }
-    }
-
-    GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
 }
 
 def executeBuild(String osName, Map options)
 {
     try {
-        dir('RadeonProRenderSDK') {
+        dir("RadeonProRenderSDK") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
         }
 
-        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_PACKAGE) {
+        outputEnvironmentInfo(osName)
+
+        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch(osName) {
                 case "Windows":
                     executeBuildWindows(options)
                     break
                 case "OSX":
-                    executeBuildOSX(options)
+                    throw new Exception("Not supported")
                     break
                 default:
-                    executeBuildLinux(osName, options)
+                    throw new Exception("Not supported")
             }
         }
 
@@ -362,70 +324,58 @@ def executeBuild(String osName, Map options)
     }
 }
 
-def getReportBuildArgs(String engineName, Map options) {
+def getReportBuildArgs(Map options) {
     String buildNumber = options.collectTrackedMetrics ? env.BUILD_NUMBER : ""
 
-    if (options["isPreBuilt"]) {
-        return """Core "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    } else {
-        return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    }
+    return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"\" \"${buildNumber}\""""
 }
 
-def executePreBuild(Map options) {
-    if (options['isPreBuilt']) {
-        println "[INFO] Build was detected as prebuilt. Build stage will be skipped"
-        currentBuild.description = "<b>Project branch:</b> Prebuilt plugin<br/>"
-        options['executeBuild'] = false
-        options['executeTests'] = true
-    } else if (env.CHANGE_URL) {
+def executePreBuild(Map options)
+{
+    if (env.CHANGE_URL) {
         println "Branch was detected as Pull Request"
-    } else if (env.BRANCH_NAME == "master") {
-        println("[INFO] ${env.BRANCH_NAME} branch was detected")
-        options.collectTrackedMetrics = true
     }
 
-    if (!options['isPreBuilt']) {
-        dir('RadeonProRenderSDK') {
-            withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, disableSubmodules: true)
-            }
-
-            options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-            options.commitMessage = bat (script: "git log --format=%%s -n 1", returnStdout: true).split('\r\n')[2].trim().replace('\n', '')
-            options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-
-            if (options.projectBranch != "") {
-                options.branchName = options.projectBranch
-            } else {
-                options.branchName = env.BRANCH_NAME
-            }
-            if (options.incrementVersion) {
-                options.branchName = "master"
-            }
-
-            println("The last commit was written by ${options.commitAuthor}.")
-            println("Commit message: ${options.commitMessage}")
-            println("Commit SHA: ${options.commitSHA}")
-            println "Branch name: ${options.branchName}"
-
-            if (env.BRANCH_NAME) {
-                withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-                    GithubNotificator githubNotificator = new GithubNotificator(this, options)
-                    githubNotificator.init(options)
-                    options["githubNotificator"] = githubNotificator
-                    githubNotificator.initPreBuild("${BUILD_URL}")
-                    options.projectBranchName = githubNotificator.branchName
-                }
-            } else {
-                options.projectBranchName = options.projectBranch
-            }
-
-            currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-            currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
-            currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
-            currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+    dir('RadeonProRenderSDK') {
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, disableSubmodules: true)
         }
+
+        options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
+        options.commitMessage = bat (script: "git log --format=%%s -n 1", returnStdout: true).split('\r\n')[2].trim().replace('\n', '')
+        options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+
+        if (options.projectBranch != "") {
+            options.branchName = options.projectBranch
+        } else {
+            options.branchName = env.BRANCH_NAME
+        }
+        if (options.incrementVersion) {
+            options.branchName = "master"
+        }
+
+        println "The last commit was written by ${options.commitAuthor}."
+        println "Commit message: ${options.commitMessage}"
+        println "Commit SHA: ${options.commitSHA}"
+        println "Commit shortSHA: ${options.commitShortSHA}"
+        println "Branch name: ${options.branchName}"
+
+        if (env.BRANCH_NAME) {
+            withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                githubNotificator.init(options)
+                options["githubNotificator"] = githubNotificator
+                githubNotificator.initPreBuild("${BUILD_URL}")
+                options.projectBranchName = githubNotificator.branchName
+            }
+        } else {
+            options.projectBranchName = options.projectBranch
+        }
+
+        currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
+        currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+        currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+        currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
     }
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
@@ -435,7 +385,7 @@ def executePreBuild(Map options) {
                 options['jobsLauncherBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
             }
             options['testsBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-            println("[INFO] Test branch hash: ${options['testsBranch']}")
+            println "[INFO] Test branch hash: ${options['testsBranch']}"
 
             if (options.testsPackage != "none") {
                 def tests = []
@@ -486,7 +436,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'], engine)
                 testResultList.each() {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
@@ -531,7 +480,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/${env.JOB_NAME}/${engine}"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/${env.JOB_NAME}/Northstar64"
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName} engine", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (options.collectTrackedMetrics) {
@@ -620,14 +569,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 currentBuild.result = "UNSTABLE"
             }
 
-            try {
-                options['testsStatus-' + engine] = readFile("summaryTestResults/slack_status.json")
-            } catch(e) {
-                println(e.toString())
-                println(e.getMessage())
-                options['testsStatus-' + engine] = ""
-            }
-
             withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                     "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
@@ -649,94 +590,39 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
     } finally {}
 }
 
-def appendPlatform(String filteredPlatforms, String platform) {
-    if (filteredPlatforms) {
-        filteredPlatforms +=  ";" + platform
-    } else {
-        filteredPlatforms += platform
-    }
-    return filteredPlatforms
-}
-
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT;OSX:AMD_RX5700XT,AppleM1;Ubuntu20',
+         String unitTestsBranch = "master",
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT',
+         String renderPlatforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI',
          String updateRefs = 'No',
-         Boolean enableNotifications = true,
+         Boolean enableNotifications = false,
          String renderDevice = "gpu",
-         String testsPackage = "Full.json",
+         String testsPackage = "Full-Internal.json",
          String tests = "",
          String width = "0",
          String height = "0",
          String iterations = "0",
-         String customBuildLinkWindows = "",
-         String customBuildLinkUbuntu18 = "",
-         String customBuildLinkUbuntu20 = "",
-         String customBuildLinkOSX = "",
-         String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
-         String enginesNames = "Northstar64,HybridPro,Hybrid",
-         Boolean collectTrackedMetrics = false)
+         Boolean collectTrackedMetrics = true,
+         String enginesNames = "Northstar64")
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
-    options["projectRepo"] = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK.git"
+    options["projectRepo"] = "git@github.com:amdadvtech/RadeonProRenderSDKInternal.git"
     
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.ENGINES_PARAM) {
-                if (!enginesNames) {
-                    throw new Exception()
-                }
-            }
-
-            enginesNames = enginesNames.split(',') as List
-
-            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkUbuntu18 || customBuildLinkUbuntu20
-
-            if (isPreBuilt) {
-                //remove platforms for which pre built plugin is not specified
-                String filteredPlatforms = ""
-
-                platforms.split(';').each() { platform ->
-                    List tokens = platform.tokenize(':')
-                    String platformName = tokens.get(0)
-
-                    switch(platformName) {
-                        case 'Windows':
-                            if (customBuildLinkWindows) {
-                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
-                            }
-                            break
-                        case 'OSX':
-                            if (customBuildLinkOSX) {
-                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
-                            }
-                            break
-                        case 'Ubuntu18':
-                            if (customBuildLinkUbuntu18) {
-                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
-                            }
-                        // Ubuntu20
-                        default:
-                            if (customBuildLinkUbuntu20) {
-                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
-                            }
-                        }
-                }
-
-                platforms = filteredPlatforms
-            }
 
             gpusCount = 0
-            platforms.split(';').each() { platform ->
+            renderPlatforms.split(';').each() { platform ->
                 List tokens = platform.tokenize(':')
                 if (tokens.size() > 1) {
                     gpuNames = tokens.get(1)
@@ -747,8 +633,9 @@ def call(String projectBranch = "",
             }
 
             def parallelExecutionType = TestsExecutionType.valueOf(parallelExecutionTypeString)
-
+ 
             println "Platforms: ${platforms}"
+            println "Render platforms: ${renderPlatforms}"
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
             println "Tests execution type: ${parallelExecutionType}"
@@ -765,53 +652,45 @@ def call(String projectBranch = "",
                         projectBranch:projectBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_core.git",
                         testsBranch:testsBranch,
+                        unitTestsBranch:unitTestsBranch,
                         updateRefs:updateRefs,
                         enableNotifications:enableNotifications,
                         PRJ_NAME:"RadeonProRenderCore",
                         PRJ_ROOT:"rpr-core",
-                        TESTER_TAG:tester_tag,
-                        slackChannel:"cis_core",
+                        slackChannel:"${SLACK_CORE_CHANNEL}",
                         renderDevice:renderDevice,
                         testsPackage:testsPackage,
                         tests:tests.replace(',', ' '),
                         executeBuild:true,
                         executeTests:true,
                         reportName:'Test_20Report',
-                        engines:enginesNames,
+                        enginesNames:enginesNames,
                         TEST_TIMEOUT:180,
-                        DEPLOY_TIMEOUT:30,
                         width:width,
                         gpusCount:gpusCount,
                         height:height,
                         iterations:iterations,
                         nodeRetry: nodeRetry,
-                        errorsInSuccession: errorsInSuccession,
                         problemMessageManager: problemMessageManager,
                         platforms:platforms,
+                        renderPlatforms:renderPlatforms,
                         prRepoName:prRepoName,
                         prBranchName:prBranchName,
                         parallelExecutionType:parallelExecutionType,
-                        parallelExecutionTypeString: parallelExecutionTypeString,
                         collectTrackedMetrics:collectTrackedMetrics,
-                        isPreBuilt:isPreBuilt,
-                        customBuildLinkWindows: customBuildLinkWindows,
-                        customBuildLinkUbuntu18: customBuildLinkUbuntu18,
-                        customBuildLinkUbuntu20: customBuildLinkUbuntu20,
-                        customBuildLinkOSX: customBuildLinkOSX,
-                        splitTestsExecution: false,
+                        failedConfigurations: [],
                         storeOnNAS: true,
-                        flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        flexibleUpdates: true
                         ]
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
-    } catch(e) {
+    } catch(e)  {
         currentBuild.result = "FAILURE"
-        println(e.toString());
-        println(e.getMessage());
+        println(e.toString())
+        println(e.getMessage())
         throw e
     } finally {
-        String problemMessage = options.problemMessageManager.publishMessages()
+        String problemMessage = problemMessageManager.publishMessages()
     }
 }

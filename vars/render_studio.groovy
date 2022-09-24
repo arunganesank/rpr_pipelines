@@ -254,7 +254,6 @@ def executeTests(String osName, String asicName, Map options) {
                         // reallocate node if there are still attempts
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                // remove broken render studio
                                 uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
                                 removeInstaller(osName: "Windows", options: options, extension: "msi")
                                 String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
@@ -962,7 +961,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'], mode)
                 testResultList.each() {
                     if (it.endsWith(mode)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List

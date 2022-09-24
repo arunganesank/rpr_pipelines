@@ -420,7 +420,6 @@ def executeTests(String osName, String asicName, Map options) {
                             if (sessionReport.summary.total != sessionReport.summary.skipped) {
                                 // remove broken usdviewer
                                 removeInstaller(osName: osName, options: options, extension: "zip")
-                                collectCrashInfo(osName, options, options.currentTry)
                                 String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
                                 throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                             }
@@ -864,7 +863,6 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             List lostStashes = []
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'])
                 testResultList.each {
                     dir("$it".replace("testResult-", "")) {
                         try {

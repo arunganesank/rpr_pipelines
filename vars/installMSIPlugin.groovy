@@ -93,7 +93,14 @@ def installPlugin(String osName, String tool, Map options){
         case 'Windows':
             dir("..\\..\\PluginsBinaries") {
                 println "[INFO] MSI name: ${addonName}.msi"
-                installMSI("${addonName}.msi", options.stageName, options.currentTry)
+                options.stageName = options.stageName ?: "${STAGE_NAME}"
+                if (fileExists("${addonName}.msi")) {
+                    bat """
+                        msiexec /i "${addonName}.msi" /quiet /qn /L+ie \"${env.WORKSPACE}\\${log}_${options.currentTry}.msi.install.log\" /norestart
+                    """
+                } else {
+                    println "Missing msi ${addonName}.msi"
+                }
             }
             break
 
