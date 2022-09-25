@@ -183,7 +183,7 @@ def executeTests(String osName, String asicName, Map options) {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
                 timeout(time: "15", unit: "MINUTES") {
-                    getProduct(osName, options, "", false)
+                    getProduct(osName, options)
                 }
             }
 
@@ -197,6 +197,7 @@ def executeTests(String osName, String asicName, Map options) {
             timeout(time: "15", unit: "MINUTES") {
                 installRPRMayaUSDPlugin(osName, options)
                 newPluginInstalled = true
+                removeInstaller(osName: osName, options: options)
             }
 
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
