@@ -96,7 +96,7 @@ def installPlugin(String osName, String tool, Map options){
                 options.stageName = options.stageName ?: "${STAGE_NAME}"
                 if (fileExists("${addonName}.msi")) {
                     bat """
-                        msiexec /i "${addonName}.msi" /quiet /qn /L+ie \"${env.WORKSPACE}\\${log}_${options.currentTry}.msi.install.log\" /norestart
+                        msiexec /i "${addonName}.msi" /quiet /qn /L+ie \"${env.WORKSPACE}\\${options.stageName}_${options.currentTry}.msi.install.log\" /norestart
                     """
                 } else {
                     println "Missing msi ${addonName}.msi"
