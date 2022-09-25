@@ -218,7 +218,7 @@ def executeTests(String osName, String asicName, Map options)
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
                 timeout(time: "15", unit: "MINUTES") {
-                    rpr_mayausd_pipeline.uninstallRPRMayaUSDPlugin(osName, options)
+                    usd_maya.uninstallRPRMayaUSDPlugin(osName, options)
                 }
 
                 timeout(time: "15", unit: "MINUTES") {
