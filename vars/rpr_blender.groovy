@@ -6,42 +6,39 @@ import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
 import java.util.concurrent.atomic.AtomicInteger
-import java.text.SimpleDateFormat
 
+
+@Field final String PRODUCT_NAME = "AMD%20Radeon™%20ProRender%20for%20Blender"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
-    supportedOS: ["Windows", "OSX", "Ubuntu20"],
-    productExtensions: ["Windows": "zip", "OSX": "zip", "Ubuntu20": "zip"],
-    artifactNameBase: "BlenderUSDHydraAddon",
+    supportedOS: ["Windows", "OSX", "MacOS_ARM", "Ubuntu18", "Ubuntu20"],
+    productExtensions: ["Windows": "zip", "OSX": "zip", "MacOS_ARM": "zip", "Ubuntu18": "zip", "Ubuntu20": "zip"],
+    artifactNameBase: "RadeonProRender",
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
-            "HdRprPlugin": "RPR",
-            "HdStormRendererPlugin": "Northstar",
-            "Hybrid": "Hybrid",
-            "HdPrmanLoaderRendererPlugin": "Prman"
+            "HYBRIDPRO": "HybridPro",
+            "FULL2": "Northstar",
+            "Low": "HybridLow",
+            "Medium": "HybridMedium",
+            "High": "HybridHigh",
+            "HIP": "HIP",
+            "HIPvsNS": "HIPvsNS"
         ]
     ]
 )
 
-@Field final String PROJECT_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/BlenderUSDHydraAddon.git"
 
-
-Boolean filterTests(Map options, String asicName, String osName, String testName, String engine) {
-    if (osName.startsWith("Ubuntu") && engine == "HdStormRendererPlugin") {
+Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    if (engine.contains("HIP") && !(asicName.contains("AMD") && osName == "Windows")) {
         return true
     }
 
-    if (testName == "RenderMan" && engine != "HdRprPlugin") {
-        return true
-    }
-
-    // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
+    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
 }
 
-
-def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
+def executeGenTestRefCommand(String osName, Map options, Boolean delete)
+{
     dir('scripts') {
         switch(osName) {
             case 'Windows':
@@ -49,43 +46,50 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
                     make_results_baseline.bat ${delete}
                 """
                 break
-            // OSX & Ubuntu
             default:
                 sh """
                     ./make_results_baseline.sh ${delete}
                 """
-        }
+            }
     }
 }
 
-def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry) {
+def buildRenderCache(String osName, String toolVersion, String log_name, Integer currentTry, String engine)
+{
     try {
         dir("scripts") {
             switch(osName) {
                 case 'Windows':
-                    bat "build_cache.bat ${toolVersion} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1"
+                    bat """
+                        ${engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                        build_rpr_cache.bat ${toolVersion} ${engine} >> \"..\\${log_name}_${currentTry}.cb.log\"  2>&1
+                    """
                     break
                 default:
-                    sh "./build_cache.sh ${toolVersion} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1"        
+                    sh """
+                        ${engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./build_rpr_cache.sh ${toolVersion} ${engine} >> \"../${log_name}_${currentTry}.cb.log\" 2>&1
+                    """
             }
         }
     } catch (e) {
         String cacheBuildingLog = readFile("${log_name}_${currentTry}.cb.log")
-        if (cacheBuildingLog.contains("engine not found 'HdUSD'")) {
+        if (cacheBuildingLog.contains("engine not found 'RPR'")) {
             throw new ExpectedExceptionWrapper(NotificationConfiguration.PLUGIN_NOT_FOUND, e)
         }
         throw e
     }
 }
 
-def executeTestCommand(String osName, String asicName, Map options) {
+def executeTestCommand(String osName, String asicName, Map options)
+{
     def testTimeout = options.timeouts["${options.tests}"]
     String testsNames
     String testsPackageName
 
-    if (options.tests != "none" && !options.isPackageSplitted) {
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
         if (options.tests.contains(".json")) {
-            // if tests package isn't splitted and it's execution of this package - replace test group for non-splitted package by empty string
+            // if tests package isn't splitted and it's execution of this package - replace test package by test group and test group by empty string
             testsPackageName = options.tests
             testsNames = ""
         } else {
@@ -102,117 +106,161 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     timeout(time: testTimeout, unit: 'MINUTES') { 
         switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                """
-            }
-            break
-        // OSX & Ubuntu
-        default:
-            dir("scripts") {
-                sh """
-                    ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                """
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                    """
+                }
+                break
+            // OSX & Ubuntu20
+            default:
+                dir("scripts") {
+                    sh """
+                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                    """
+                }
+        }
+    }
+}
+
+
+def cloneTestsRepository(Map options) {
+    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+
+    if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
+        dir("RadeonProRenderSDK") {
+            if (options["isPreBuilt"]) {
+                checkoutScm(branchName: "master", repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+            } else {
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
             }
         }
     }
 }
 
 
-def executeTests(String osName, String asicName, Map options) {
+def executeTests(String osName, String asicName, Map options)
+{
+
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
-    // FIXME: wait for Matlib optimization
-    if (env.NODE_NAME == "PC-RENDERER-KABUL-WIN10") {
-        if (options.tests.contains("Export_Import")) {
-            throw new ExpectedExceptionWrapper(
-                "System doesn't support Export_Import group", 
-                new Exception("System doesn't support Export_Import group")
-            )
-        }
-    }
-
-    // FIXME: Wait for new drivers / new plugin version to check difference
-    if (env.NODE_NAME == "PC-TESTER-TOKYO-WIN10") {
-        if (options.tests.contains("Camera") || options.tests.contains("regression.0")) {
-            throw new ExpectedExceptionWrapper(
-                "System doesn't support Camera group", 
-                new Exception("System doesn't support Camera group")
-            )
-        }
-    }
-
-    if (env.NODE_NAME == "PC-SR-ONTARIO-6800XT-WIN10") {
-        if (options.parsedTests.contains("USD_Nodes")) {
-            throw new ExpectedExceptionWrapper(
-                "System doesn't support USD_Nodes group", 
-                new Exception("System doesn't support USD_Nodes group")
-            )
-        }
-    }
-
     try {
+        // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
+        if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
+            if (options.tests.contains("Smoke") || options.tests.contains("regression.2")) {
+                throw new ExpectedExceptionWrapper(
+                    "System doesn't support Smoke group", 
+                    new Exception("System doesn't support Smoke group")
+                )
+            }
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
+            timeout(time: "15", unit: "MINUTES") {
                 cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+                cloneTestsRepository(options)
             }
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-            String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_blender_autotests_assets" : "/mnt/c/TestResources/usd_blender_autotests_assets"
-            downloadFiles("/volume1/web/Assets/usd_blender_autotests/", assets_dir)
+            String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_blender_autotests_assets" : "/mnt/c/TestResources/rpr_blender_autotests_assets"
+            downloadFiles("/volume1/web/Assets/rpr_blender_autotests/", assets_dir)
+        }
+
+        String addonDir
+        String prefsDir
+        String customKeys = ""
+
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
+            timeout(time: "5", unit: "MINUTES") {
+                switch (osName) {
+                    case "Windows":
+                        prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/config"
+                        addonDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Blender Foundation/Blender/${options.toolVersion}/scripts/addons/rprblender"
+                        break
+                    case "MacOS_ARM":
+                        prefsDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/config"
+                        addonDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/scripts/addons/rprblender"
+                        break
+                    case "OSX":
+                        prefsDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/config"
+                        addonDir = "/Users/${env.USER}/Library/Application Support/Blender/${options.toolVersion}/scripts/addons/rprblender"
+                        customKeys = "--protect-args"
+                        break
+                    default:
+                        prefsDir = "/home/${env.USERNAME}/.config/blender/${options.toolVersion}/config"
+                        addonDir = "/home/${env.USERNAME}/.config/blender/${options.toolVersion}/scripts/addons/rprblender"
+                        break
+                }
+
+                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false)
+            }
         }
 
         try {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
                 timeout(time: "12", unit: "MINUTES") {
-                    getProduct(osName, options, "", false)
-                    newPluginInstalled = installBlenderAddon(osName, 'hdusd', options.toolVersion, options)
+                    getProduct(osName, options)
+                    newPluginInstalled = installBlenderAddon(osName, 'rprblender', options.toolVersion, options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
+
+                    // Download configdev to enable collecting of debug information from RRP SDK
+                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false)
                 }
             }
         
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
                 if (newPluginInstalled) {                         
                     timeout(time: "12", unit: "MINUTES") {
-                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry)
-                        String cacheImgPath = "./Work/Results/BlenderUSDHydra/cache_building.jpg"
-                        if (!fileExists(cacheImgPath)) {
+                        buildRenderCache(osName, options.toolVersion, options.stageName, options.currentTry, options.engine)
+                        String cacheImgPath = "./Work/Results/Blender/cache_building.jpg"
+                        if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
+                        } else {
+                            verifyMatlib("Blender", cacheImgPath, 70, osName, options)
                         }
                     }
                 }
-            }  
+            }
         } catch(e) {
             println(e.toString())
             println("[ERROR] Failed to install plugin on ${env.NODE_NAME}")
             // deinstalling broken addon
-            installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
+            installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
             // remove installer of broken addon
             removeInstaller(osName: osName, options: options, extension: "zip")
             throw e
         }
 
         String enginePostfix = ""
-        String REF_PATH_PROFILE="/volume1/Baselines/usd_blender_autotests/${asicName}-${osName}"
+        String REF_PATH_PROFILE="/volume1/Baselines/rpr_blender_autotests/${asicName}-${osName}"
         switch(options.engine) {
-            case 'HdRprPlugin':
-                enginePostfix = "RPR"
+            case 'FULL2':
+            case 'HIPvsNS':
+                enginePostfix = "NorthStar"
                 break
-            case 'HdStormRendererPlugin':
-                enginePostfix = "GL"
+            case 'LOW':
+                enginePostfix = "HybridLow"
                 break
-            case 'Hybrid':
-                enginePostfix = "Hybrid"
+            case 'MEDIUM':
+                enginePostfix = "HybridMedium"
+                break
+            case 'HIGH':
+                enginePostfix = "HybridHigh"
+                break
+            case 'HYBRIDPRO':
+                enginePostfix = "HybridPro"
+                break
+            case 'HIP':
+                enginePostfix = "HIP"
                 break
         }
         REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
-
         options.REF_PATH_PROFILE = REF_PATH_PROFILE
 
         outputEnvironmentInfo(osName, options.stageName, options.currentTry)
@@ -232,9 +280,9 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
         } else {
-            // TODO: receivebaseline for json suite
+            // TODO: receive baseline for json suite
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
-                String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_blender_autotests_baselines" : "/mnt/c/TestResources/usd_blender_autotests_baselines"
+                String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_blender_autotests_baselines" : "/mnt/c/TestResources/rpr_blender_autotests_baselines"
                 baseline_dir = enginePostfix ? "${baseline_dir}-${enginePostfix}" : baseline_dir
                 println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
 
@@ -297,29 +345,29 @@ def executeTests(String osName, String asicName, Map options) {
             archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
             if (stashResults) {
                 dir('Work') {
-                    if (fileExists("Results/BlenderUSDHydra/session_report.json")) {
+                    if (fileExists("Results/Blender/session_report.json")) {
 
                         def sessionReport = null
-                        sessionReport = readJSON file: 'Results/BlenderUSDHydra/session_report.json'
+                        sessionReport = readJSON file: 'Results/Blender/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
-                        println "Stashing test results to : ${options.testResultsName}"
+                        println("Stashing test results to : ${options.testResultsName}")
+                        
                         utils.stashTestData(this, options, options.storeOnNAS)
 
                         // deinstalling broken addon
                         // if test group is fully errored or number of test cases is equal to zero
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                                collectCrashInfo(osName, options, options.currentTry)
-                                installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
+                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
+                                installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
                                 // remove installer of broken addon
                                 removeInstaller(osName: osName, options: options, extension: "zip")
                                 String errorMessage
@@ -355,219 +403,159 @@ def executeTests(String osName, String asicName, Map options) {
     }
 }
 
+def executeBuildWindows(Map options)
+{
+    dir('RadeonProRenderBlenderAddon\\BlenderPkg') {
+        GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+        bat """
+            cd ..
+            build.cmd >> ../${STAGE_NAME}.log  2>&1
+        """
+        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
 
-def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
-    try {
-        def additionalKeys = "--prman --prman-location \"C:\\Program Files\\Pixar\\RenderManProServer-24.4\""
-        dir('BlenderUSDHydraAddon') {
-            GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+        dir('.build') {
+            bat """
+                rename rprblender*.zip RadeonProRenderForBlender_${options.pluginVersion}_Windows.zip
+            """
 
-            def paths
-
-            // Python 3.9 build requires Python 3.9.10
-            if (pyVersion == "3.9") {
-                paths = ["C:\\Python3910\\",
-                             "C:\\Python3910\\scripts\\",
-                             "C:\\CMake323\\bin"]
-            } else {
-                paths = ["C:\\Python${pyVersion.replace(".","")}\\",
-                             "C:\\Python${pyVersion.replace(".","")}\\scripts\\",
-                             "C:\\CMake323\\bin"]
-            }
-
-            withEnv(["PATH=${paths.join(";")};${PATH}"]) {
-                if (options.rebuildDeps) {
-                    bat """
-                        if exist ..\\bin rmdir /Q /S ..\\bin
-                        if exist ..\\libs rmdir /Q /S ..\\libs
-                        python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        waitfor 1 /t 10 2>NUL || type nul>nul
-                        python tools\\build.py -all -clean -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                    """
-                    
-                    if (options.updateDeps) {
-                        uploadFiles("../bin/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/3rdparty/${osName}_${pyVersion}/bin")
-                    }
-                } else {
-                    bat """
-                        python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        waitfor 1 /t 10 2>NUL || type nul>nul
-                        python tools\\build.py -libs -mx-classes -addon -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                    """
-                }
-            }
-            dir("install") {
-                println "Stashing Artifact for Python ${pyVersion}"
-
-                String ARTIFACT_NAME  = "BlenderUSDHydraAddon_${options.pluginVersion}_${pyVersion}_Windows"
-
-                ARTIFACT_NAME += options.branch_postfix ? ".(${options.branch_postfix}).zip" : ".zip"
-
+            if (options.branch_postfix) {
                 bat """
-                    rename hdusd*.zip ${ARTIFACT_NAME}
+                    rename RadeonProRender*zip *.(${options.branch_postfix}).zip
                 """
-
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                
-                if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
-                    bat """
-                        rename ${ARTIFACT_NAME} BlenderUSDHydraAddon_Windows.zip
-                    """
-
-                    makeStash(includes: "BlenderUSDHydraAddon_Windows.zip", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
-
-                    GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-                }
             }
+
+            String ARTIFACT_NAME = options.branch_postfix ? "RadeonProRenderForBlender_${options.pluginVersion}_Windows.(${options.branch_postfix}).zip" : "RadeonProRenderForBlender_${options.pluginVersion}_Windows.zip"
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+            bat """
+                rename RadeonProRender*.zip RadeonProRenderBlender_Windows.zip
+            """
+
+            makeStash(includes: "RadeonProRenderBlender_Windows.zip", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+
+            GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
-    } catch(e) {
-        println "[ERROR] Python ${pyVersion} build was failed"
-        if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
-            println "[ERROR] Failed main version of build"
-            throw e
-        }
-    }  finally {
-        archiveArtifacts artifacts: "*.log ", allowEmptyArchive: true
     }
 }
 
+def executeBuildOSX(Map options, Boolean isx86 = true)
+{
+    dir('RadeonProRenderBlenderAddon/BlenderPkg') {
+        GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
 
-def executeBuildOSX(String osName, Map options) {
-}
+        String buildScriptName = isx86 ? "build_osx.sh" : "build_osx-arm64.sh"
 
+        sh """
+            cd ..
+            ./${buildScriptName} >> ../../${STAGE_NAME}.log  2>&1
+        """
 
-def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
-    try {
-        def additionalKeys = "--prman --prman-location \"/opt/pixar/RenderManProServer-24.4\""
-        dir('BlenderUSDHydraAddon') {
-            GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
-            if (options.rebuildDeps) {
+        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+
+        dir('.build') {
+            sh """
+                mv rprblender*.zip RadeonProRenderForBlender_${options.pluginVersion}_MacOS${isx86 ? "" : "_ARM"}.zip
+            """
+
+            if (options.branch_postfix) {
                 sh """
-                    rm -rf ../bin
-                    rm -rf ../libs
-                """
-                sh """#!/bin/bash
-                    virtualenv -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
-                    source venv/bin/activate >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    export CPATH=/usr/include/python${pyVersion} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    export OS= >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    python --version >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
-                    pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
-                    python tools/build.py -all -clean -bin-dir ../bin ${additionalKeys} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                """
-                
-                if (options.updateDeps) {
-                    uploadFiles("../bin/", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/3rdparty/${osName}_${pyVersion}/bin")
-                }
-            } else {
-                sh """#!/bin/bash
-                    virtualenv -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    source venv/bin/activate >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    export CPATH=/usr/include/python${pyVersion} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    export OS=
-                    python${pyVersion} --version >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
-                    python --version >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    python${pyVersion} tools/build.py -libs -mx-classes -addon -bin-dir ../bin ${additionalKeys} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
+                    for i in RadeonProRender*; do name="\${i%.*}"; mv "\$i" "\${name}.(${options.branch_postfix})\${i#\$name}"; done
                 """
             }
 
-            dir("install") {
-                println "Stashing Artifact for Python ${pyVersion}"
+            String ARTIFACT_NAME = options.branch_postfix ? "RadeonProRenderForBlender_${options.pluginVersion}_MacOS${isx86 ? "" : "_ARM"}.(${options.branch_postfix}).zip" : "RadeonProRenderForBlender_${options.pluginVersion}_MacOS${isx86 ? "" : "_ARM"}.zip"
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-                String ARTIFACT_NAME  = "BlenderUSDHydraAddon_${options.pluginVersion}_${pyVersion}_${osName}"
+            sh """
+                mv RadeonProRender*zip RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip
+            """
 
-                ARTIFACT_NAME += options.branch_postfix ? ".${options.branch_postfix}.zip" : ".zip"
+            String stashName = isx86 ? getProduct.getStashName("OSX", options) : getProduct.getStashName("MacOS_ARM", options)
 
-                sh """
-                    mv hdusd*.zip ${ARTIFACT_NAME}
-                """
-                
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            makeStash(includes: "RadeonProRenderBlender_MacOS${isx86 ? "" : "_ARM"}.zip", name: stashName, preZip: false, storeOnNAS: options.storeOnNAS)
 
-                sh """
-                    mv BlenderUSDHydraAddon*.zip BlenderUSDHydraAddon_${osName}.zip
-                """
-
-                if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
-                    makeStash(includes: "BlenderUSDHydraAddon_${osName}.zip", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
-
-                    GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-                }
-            }
+            GithubNotificator.updateStatus("Build", isx86 ? "OSX" : "MacOS_ARM", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
-    } catch(e) {
-        println "[ERROR] Python ${pyVersion} build was failed"
-        if (options.toolVersion == "3.0" && pyVersion == "3.9" || options.toolVersion != "3.0" && pyVersion != "3.9") {
-            println "[ERROR] Failed main version of build"
-            throw e
-        }
-    } finally {
-        archiveArtifacts artifacts: "*.log ", allowEmptyArchive: true
     }
 }
 
-def executeBuild(String osName, Map options) {
-    try {
-        def pyVersions = ["3.9"]
-        (options.toolVersion == "3.0") ?: pyVersions << "3.10"
+def executeBuildLinux(String osName, Map options)
+{
+    dir('RadeonProRenderBlenderAddon/BlenderPkg') {
+        GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
+        sh """
+            cd ..
+            ./build.sh >> ../../${STAGE_NAME}.log  2>&1
+        """
+        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
 
-        pyVersions.each() {
-            cleanWS(osName)
-            if (!options.rebuildDeps) {
-                downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/3rdparty/${osName}_${it}/bin", ".")
+        dir('.build') {
 
-                dir("bin") {
-                    def files = findFiles()
+            sh """
+                mv rprblender*.zip RadeonProRenderForBlender_${options.pluginVersion}_${osName}.zip
+            """
 
-                    for (file in files) {
-                        if (file.name == "USD") {
-                            def dateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss")
-                            def formattedTime = dateFormat.format(new Date(file.lastModified))
-                            currentBuild.description += "<b>Dependencies creation time (${osName}):</b> ${formattedTime}<br/>"
-                            break
-                        }
-                    }
-                }
-            } else {
-                currentBuild.description += "<b>Rebuild dependencies (${osName}):</b><br/>"
+            if (options.branch_postfix) {
+                sh """
+                    for i in RadeonProRender*; do name="\${i%.*}"; mv "\$i" "\${name}.(${options.branch_postfix})\${i#\$name}"; done
+                """
             }
 
-            dir("BlenderUSDHydraAddon") {
-                withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                    checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
-                }
+            String ARTIFACT_NAME = options.branch_postfix ? "RadeonProRenderForBlender_${options.pluginVersion}_${osName}.(${options.branch_postfix}).zip" : "RadeonProRenderForBlender_${options.pluginVersion}_${osName}.zip"
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-                if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
-                    dir("deps/HdRPR/deps/RPR") {
-                        hybrid_to_blender_workflow.replaceHybrid(osName, options)
-                    }
-                }
-            }
+            sh """
+                mv RadeonProRender*zip RadeonProRenderBlender_${osName}.zip
+            """
 
-            outputEnvironmentInfo(osName)
+            makeStash(includes: "RadeonProRenderBlender_${osName}.zip", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
 
-            withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                switch(osName) {
-                    case "Windows":
-                        executeBuildWindows(osName, options, it)
-                        break
-                    case "OSX":
-                        println("Unsupported OS")
-                        break
-                    default:
-                        executeBuildLinux(osName, options, it)                
-                }
-            }
-            options[getProduct.getIdentificatorKey(osName, options)] = options.commitSHA
+            GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
+
+    }
+}
+
+def executeBuild(String osName, Map options)
+{
+    try {
+        dir('RadeonProRenderBlenderAddon') {
+            withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
+            }
+        }
+
+        outputEnvironmentInfo(osName)
+
+        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+            switch(osName) {
+                case "Windows":
+                    executeBuildWindows(options)
+                    break
+                case "OSX":
+                case "MacOS_ARM":
+                    if(!fileExists("python3")) {
+                        sh "ln -s /usr/local/bin/python3.7 python3"
+                    }
+                    withEnv(["PATH=$WORKSPACE:$PATH"]) {
+                        executeBuildOSX(options, osName == "OSX")
+                    }
+                    break
+                default:
+                    if (!fileExists("python3")) {
+                        sh "ln -s /usr/bin/python3.7 python3"
+                    }
+                    withEnv(["PATH=$PWD:$PATH"]) {
+                        executeBuildLinux(osName, options)
+                    }
+            }
+        }
+
+        options[getProduct.getIdentificatorKey(osName, options)] = options.commitSHA
     } catch (e) {
         throw e
+    } finally {
+        archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
     }
 }
 
@@ -583,12 +571,13 @@ def getReportBuildArgs(String engineName, Map options) {
 
 def executePreBuild(Map options)
 {
+
     // manual job with prebuilt plugin
-    if (options.isPreBuilt) {
+    if (options['isPreBuilt']) {
         println "[INFO] Build was detected as prebuilt. Build stage will be skipped"
         currentBuild.description = "<b>Project branch:</b> Prebuilt plugin<br/>"
-        options.executeBuild = false
-        options.executeTests = true
+        options['executeBuild'] = false
+        options['executeTests'] = true
     // manual job
     } else if (options.forceBuild) {
         println "[INFO] Manual job launch detected"
@@ -598,49 +587,61 @@ def executePreBuild(Map options)
     } else {
         if (env.CHANGE_URL) {
             println "[INFO] Branch was detected as Pull Request"
-            options.executeBuild = true
-            options.executeTests = true
-            options.testsPackage = "regression.json"
-        } else if (env.BRANCH_NAME == "master") {
-            println "[INFO] ${env.BRANCH_NAME} branch was detected"
             options['executeBuild'] = true
             options['executeTests'] = true
             options['testsPackage'] = "regression.json"
+        } else if (env.BRANCH_NAME == "master" || env.BRANCH_NAME == "develop") {
+           println "[INFO] ${env.BRANCH_NAME} branch was detected"
+           options['executeBuild'] = true
+           options['executeTests'] = true
+           options['testsPackage'] = "regression.json"
         } else {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
-            options['executeBuild'] = true
-            options['executeTests'] = true
             options['testsPackage'] = "regression.json"
         }
     }
 
     // branch postfix
     options["branch_postfix"] = ""
-    if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        options["branch_postfix"] = "release"
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME != "master" && env.BRANCH_NAME != "develop") {
         options["branch_postfix"] = env.BRANCH_NAME.replace('/', '-')
-    } else if (options.projectBranch && options.projectBranch != "master" && options.projectBranch != "develop") {
+    } else if(options.projectBranch && options.projectBranch != "master" && options.projectBranch != "develop") {
         options["branch_postfix"] = options.projectBranch.replace('/', '-')
     }
 
     if (!options['isPreBuilt']) {
-        dir('BlenderUSDHydraAddon') {
+        dir('RadeonProRenderBlenderAddon') {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, disableSubmodules: true)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
 
             options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
             options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
             options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
             options.commitShortSHA = options.commitSHA[0..6]
+            options.branchName = env.BRANCH_NAME ?: options.projectBranch
 
-            println(bat (script: "git log --format=%%s -n 1", returnStdout: true).split('\r\n')[2].trim())
+            dir("RadeonProRenderSDK") {
+                options.rprsdkCommitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            }
+
+            println(bat (script: "git log --format=%%s -n 1", returnStdout: true).split('\r\n')[2].trim());
             println "The last commit was written by ${options.commitAuthor}."
             println "Commit message: ${options.commitMessage}"
             println "Commit SHA: ${options.commitSHA}"
             println "Commit shortSHA: ${options.commitShortSHA}"
+            println "Branch name: ${options.branchName}"
+
+            if (options.projectBranch) {
+                currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
+            } else {
+                currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
+            }
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
-                options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ').replace(', ', '.')
+                options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -651,62 +652,38 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
+                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ')
+                        options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
 
                         def new_version = version_inc(options.pluginVersion, 3, ', ')
                         println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', new_version, ', ')
+                        version_write("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', new_version, ', ')
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
+                        options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
                         println "[INFO] Updated build version: ${options.pluginVersion}"
 
                         bat """
-                            git add src/hdusd/__init__.py
+                            git add src/rprblender/__init__.py
                             git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:master
+                            git push origin HEAD:develop
                         """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                         options.projectBranch = options.commitSHA
                         println "[INFO] Project branch hash: ${options.projectBranch}"
-
-                        def possiblePRNumber = (options.commitMessage =~ /\(#\d+\)/).findAll()
-                        
-                        if (possiblePRNumber.size() > 0) {
-                            GithubApiProvider apiProvider = new GithubApiProvider(this)
-
-                            def prNumber = possiblePRNumber[possiblePRNumber.size() - 1].replace("#", "").replace("(", "").replace(")", "")
-                            def prInfo = apiProvider.getPullRequest(options["projectRepo"].replace("git@github.com:", "https://github.com/").replaceAll(".git\$", "") + "/pull/${prNumber}")
-
-                            if (prInfo["body"].contains("CIS:REBUILD_DEPS")) {
-                                options['rebuildDeps'] = true
-                                options['updateDeps'] = true
-                            }
-                        }
                     } else {
-                        if (options.githubNotificator && options.githubNotificator.prDescription) {
-                            println("[INFO] PR description: ${options.githubNotificator.prDescription}")
-
-                            if (options.githubNotificator.prDescription.contains("CIS:BUILD")) {
-                                options['executeBuild'] = true
-                            }
-
-                            if (options.githubNotificator.prDescription.contains("CIS:TESTS")) {
-                                options['executeBuild'] = true
-                                options['executeTests'] = true
-                            }
-
-                            if (options.githubNotificator.prDescription.contains("CIS:REBUILD_DEPS")) {
-                                options['rebuildDeps'] = true
-                            }
+                        if (options.commitMessage.contains("CIS:BUILD")) {
+                            options['executeBuild'] = true
                         }
 
-                        // TODO: replace by parsing of PR description
+                        if (options.commitMessage.contains("CIS:TESTS")) {
+                            options['executeBuild'] = true
+                            options['executeTests'] = true
+                        }
                         // get a list of tests from commit message for auto builds
                         options.tests = utils.getTestsFromCommitMessage(options.commitMessage)
                         println "[INFO] Test groups mentioned in commit message: ${options.tests}"
@@ -715,7 +692,7 @@ def executePreBuild(Map options)
                     options.projectBranchName = options.projectBranch
                 }
 
-                currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
+                currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
                 currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
@@ -728,11 +705,11 @@ def executePreBuild(Map options)
     options.timeouts = [:]
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
-        dir('jobs_test_usdblender') {
+        dir('jobs_test_blender') {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
             options['testsBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-            dir('jobs_launcher') {
+            dir ('jobs_launcher') {
                 options['jobsLauncherBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
             }
             println "[INFO] Test branch hash: ${options['testsBranch']}"
@@ -763,13 +740,26 @@ def executePreBuild(Map options)
 
                 // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
                 String modifiedPackageName = "${options.testsPackage}~"
-                packageInfo["groups"].each() {
+
+                // receive list of group names from package
+                List groupsFromPackage = []
+
+                if (packageInfo["groups"] instanceof Map) {
+                    groupsFromPackage = packageInfo["groups"].keySet() as List
+                } else {
+                    // iterate through all parts of package
+                    packageInfo["groups"].each() {
+                        groupsFromPackage.addAll(it.keySet() as List)
+                    }
+                }
+
+                groupsFromPackage.each() {
                     if (options.isPackageSplitted) {
-                        tempTests << it.key
+                        tempTests << it
                     } else {
-                        if (tempTests.contains(it.key)) {
+                        if (tempTests.contains(it)) {
                             // add duplicated group name in name of package group name for exclude it
-                            modifiedPackageName = "${modifiedPackageName},${it.key}"
+                            modifiedPackageName = "${modifiedPackageName},${it}"
                         }
                     }
                 }
@@ -791,10 +781,24 @@ def executePreBuild(Map options)
                     options.testsPackage = "none"
                 } else {
                     options.testsPackage = modifiedPackageName
-                    options.engines.each { engine ->
-                        tests << "${modifiedPackageName}-${engine}"
+                    // check that package is splitted to parts or not
+                    if (packageInfo["groups"] instanceof Map) {
+                        options.engines.each { engine ->
+                            tests << "${modifiedPackageName}-${engine}"
+                        } 
+                        options.timeouts[options.testsPackage] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                    } else {
+                        // add group stub for each part of package
+                        options.engines.each { engine ->
+                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                                tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
+                            }
+                        }
+
+                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                        }
                     }
-                    options.timeouts[options.testsPackage] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
                 }
             } else if (options.tests) {
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
@@ -812,7 +816,7 @@ def executePreBuild(Map options)
             }
             options.tests = tests
         }
-
+        
         options.testsList = options.tests
 
         println "timeouts: ${options.timeouts}"
@@ -829,20 +833,10 @@ def executePreBuild(Map options)
     if (env.BRANCH_NAME && options.githubNotificator) {
         options.githubNotificator.initChecks(options, "${BUILD_URL}")
     }
-
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        // if something was merged into master branch it could trigger build in master branch of autojob
-        hybrid_to_blender_workflow.clearOldBranches("BlenderUSDHydraAddon", PROJECT_REPO, options)
-    }
-
-    if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
-        // rebuild deps if new HybridPro is being tested
-        options["rebuildDeps"] = true
-    }
 }
 
-
-def executeDeploy(Map options, List platformList, List testResultList, String engine) {
+def executeDeploy(Map options, List platformList, List testResultList, String engine)
+{
     cleanWS()
     try {
         String engineName = options.displayingTestProfiles[engine]
@@ -855,12 +849,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'], engine)
                 testResultList.each() {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
 
-                        if (filterTests(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
                             return
                         }
 
@@ -869,7 +862,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
                             } catch(e) {
-                                println("[ERROR] Failed to unstash ${it}")
+                                echo "[ERROR] Failed to unstash ${it}"
                                 lostStashes.add("'${testName}'")
                                 println(e.toString())
                                 println(e.getMessage())
@@ -883,24 +876,23 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${it}\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${engine}\" \"{}\"
                     """
                 }
             } catch (e) {
                 println("[ERROR] Can't generate number of lost tests")
             }
 
-            String branchName = env.BRANCH_NAME ?: options.projectBranch
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-            boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
-
-            if (useTrackedMetrics) {
-                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
-            }
-            
             try {
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/${engine}"
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+
+                if (useTrackedMetrics) {
+                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+                }
+
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
                         List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
@@ -936,6 +928,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         }
                     }
                 }
+
                 if (saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
@@ -946,7 +939,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 println("[ERROR] Failed to build test report.")
                 println(e.toString())
                 println(e.getMessage())
-                if (!options.testDataSaved) {
+                if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
                         utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
@@ -994,8 +987,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                     currentBuild.result = "FAILURE"
 
                     options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SOME_TESTS_ERRORED)
-                }
-                else if (summaryReport.failed > 0) {
+                } else if (summaryReport.failed > 0) {
                     println("[INFO] Some tests marked as failed. Build result = UNSTABLE.")
                     currentBuild.result = "UNSTABLE"
 
@@ -1045,7 +1037,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
     }
 }
 
-
 def appendPlatform(String filteredPlatforms, String platform) {
     if (filteredPlatforms) {
         filteredPlatforms +=  ";" + platform
@@ -1056,33 +1047,33 @@ def appendPlatform(String filteredPlatforms, String platform) {
 }
 
 
-def call(String projectRepo = PROJECT_REPO,
+def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI',
-    Boolean rebuildDeps = false,
-    Boolean updateDeps = false,
+    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT;Ubuntu20;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
     String updateRefs = 'No',
     Boolean enableNotifications = true,
     Boolean incrementVersion = true,
+    String renderDevice = "gpu",
     String testsPackage = "",
     String tests = "",
     Boolean forceBuild = false,
     Boolean splitTestsExecution = true,
     String resX = '0',
     String resY = '0',
+    String SPU = '25',
     String iter = '50',
-    String threshold = '0.05',
+    String theshold = '0.05',
     String customBuildLinkWindows = "",
     String customBuildLinkUbuntu20 = "",
     String customBuildLinkOSX = "",
-    String enginesNames = "RPR,GL,Hybrid",
+    String customBuildLinkMacOSARM = "",
+    String enginesNames = "Northstar,HybridPro",
     String tester_tag = "Blender",
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3
-    )
+    Integer testCaseRetries = 3)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1091,30 +1082,35 @@ def call(String projectRepo = PROJECT_REPO,
 
     resX = (resX == 'Default') ? '0' : resX
     resY = (resY == 'Default') ? '0' : resY
+    SPU = (SPU == 'Default') ? '25' : SPU
     iter = (iter == 'Default') ? '50' : iter
-    threshold = (threshold == 'Default') ? '0.05' : threshold
+    theshold = (theshold == 'Default') ? '0.05' : theshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.DELEGATES_PARAM) {
+            withNotifications(options: options, configuration: NotificationConfiguration.ENGINES_PARAM) {
                 if (!enginesNames) {
                     throw new Exception()
                 }
             }
 
-            if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
-                enginesNames = "Hybrid"
-            }
-
-            enginesNames = enginesNames.split(",") as List
+            enginesNames = enginesNames.split(',') as List
             def formattedEngines = []
             enginesNames.each {
-                formattedEngines.add((it == "RPR") ? "HdRprPlugin" : ((it == "GL") ? "HdStormRendererPlugin" : ((it == "Prman") ? "HdPrmanLoaderRendererPlugin" : "Hybrid")))
+                if (it == 'HybridPro') {
+                    formattedEngines.add('HYBRIDPRO')
+                } else if (it.contains('Hybrid')) {
+                    formattedEngines.add(it.replace('Hybrid', '').toUpperCase())
+                } else if (it == "Northstar") {
+                    formattedEngines.add('FULL2')
+                } else {
+                    formattedEngines.add(it)
+                }
             }
 
-            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkUbuntu20
+            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkMacOSARM || customBuildLinkUbuntu20
 
             if (isPreBuilt) {
                 //remove platforms for which pre built plugin is not specified
@@ -1135,11 +1131,16 @@ def call(String projectRepo = PROJECT_REPO,
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
                             break
+                        case 'MacOS_ARM':
+                            if (customBuildLinkMacOSARM) {
+                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
+                            }
+                        // Ubuntu20
                         default:
                             if (customBuildLinkUbuntu20) {
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
-                    }
+                        }
                 }
 
                 platforms = filteredPlatforms
@@ -1173,39 +1174,40 @@ def call(String projectRepo = PROJECT_REPO,
             }
 
             options << [configuration: PIPELINE_CONFIGURATION,
-                        BUILD_TIMEOUT:120,
                         projectRepo:projectRepo,
                         projectBranch:projectBranch,
-                        testRepo:"git@github.com:luxteam/jobs_test_usdblender.git",
+                        testRepo:"git@github.com:luxteam/jobs_test_blender.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
                         enableNotifications:enableNotifications,
-                        PRJ_NAME:"BlenderUSDHydraPlugin",
-                        PRJ_ROOT:"rpr-plugins",
                         incrementVersion:incrementVersion,
-                        rebuildDeps:rebuildDeps,
-                        updateDeps:updateDeps,
+                        renderDevice:renderDevice,
                         testsPackage:testsPackage,
+                        testsPackageOriginal:testsPackage,
                         tests:tests,
+                        PRJ_NAME:"RadeonProRenderBlenderPlugin",
+                        PRJ_ROOT:"rpr-plugins",
+                        BUILDER_TAG:'BuilderBlender',
                         toolVersion:toolVersion,
                         isPreBuilt:isPreBuilt,
                         forceBuild:forceBuild,
                         reportName:'Test_20Report',
                         splitTestsExecution:splitTestsExecution,
                         gpusCount:gpusCount,
-                        TEST_TIMEOUT:240,
-                        ADDITIONAL_XML_TIMEOUT:30,
-                        NON_SPLITTED_PACKAGE_TIMEOUT:90,
-                        DEPLOY_TIMEOUT:30,
-                        BUILDER_TAG:'BuilderHydra',
+                        TEST_TIMEOUT:210,
+                        ADDITIONAL_XML_TIMEOUT:15,
+                        NON_SPLITTED_PACKAGE_TIMEOUT:150,
+                        DEPLOY_TIMEOUT:180,
                         TESTER_TAG:tester_tag,
                         resX: resX,
                         resY: resY,
+                        SPU: SPU,
                         iter: iter,
-                        threshold: threshold,
+                        theshold: theshold,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
                         customBuildLinkOSX: customBuildLinkOSX,
+                        customBuildLinkMacOSARM: customBuildLinkMacOSARM,
                         engines: formattedEngines,
                         nodeRetry: nodeRetry,
                         errorsInSuccession: errorsInSuccession,
@@ -1215,11 +1217,9 @@ def call(String projectRepo = PROJECT_REPO,
                         parallelExecutionType:parallelExecutionType,
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         testCaseRetries:testCaseRetries,
-                        storeOnNAS:true,
+                        storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filterTests,
-                        forceReinstall: true,
-                        testsPackageOriginal: testsPackage
+                        skipCallback: this.&filter
                         ]
         }
 
@@ -1230,7 +1230,6 @@ def call(String projectRepo = PROJECT_REPO,
         println(e.getMessage())
         throw e
     } finally {
-        problemMessageManager.publishMessages()
+        String problemMessage = options.problemMessageManager.publishMessages()
     }
-
 }

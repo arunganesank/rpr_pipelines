@@ -293,7 +293,6 @@ def executeTests(String osName, String asicName, Map options) {
                         println "Skipped: ${sessionReport.summary.skipped}"
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             if (sessionReport.summary.total != sessionReport.summary.skipped){
-                                // collectCrashInfo(osName, options, options.currentTry)
                                 String errorMessage = (options.currentTry < options.nodeReallocateTries) ?
                                         "All tests were marked as error. The test group will be restarted." :
                                         "All tests were marked as error."
