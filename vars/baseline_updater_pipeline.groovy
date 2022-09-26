@@ -46,7 +46,7 @@ import groovy.json.JsonSlurperClassic
     "gl": "GL",
     "hip": "HIP",
     "web": "Web",
-    "desktop", "Desktop"
+    "desktop": "Desktop"
 ]
 
 @Field final Map ENGINE_BASELINES_MAPPING = [
@@ -62,7 +62,7 @@ import groovy.json.JsonSlurperClassic
     "rpr": "RPR",
     "hip": "HIP",
     "web": "Web",
-    "desktop", "Desktop"
+    "desktop": "Desktop"
 ]
 
 
