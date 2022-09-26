@@ -133,9 +133,9 @@ def cloneTestsRepository(Map options) {
     if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_core_pipeline.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
         }
     }
