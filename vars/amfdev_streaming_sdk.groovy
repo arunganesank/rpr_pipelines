@@ -1504,7 +1504,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
             List lostStashesWindows = []
             List lostStashesAndroid = []
             dir("summaryTestResults") {
-                unstashCrashInfo(options["nodeRetry"])
                 testResultList.each {
                     Boolean groupLost = false
 

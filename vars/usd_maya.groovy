@@ -60,7 +60,7 @@ def uninstallRPRMayaPlugin(String osName, Map options) {
 def installRPRMayaUSDPlugin(String osName, Map options) {
 
     if (options['isPreBuilt']) {
-        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows')]}"
+        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
     } else {
         options['pluginWinSha'] = "${options.commitSHA}"
     }
@@ -183,7 +183,7 @@ def executeTests(String osName, String asicName, Map options) {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
                 timeout(time: "15", unit: "MINUTES") {
-                    getProduct(osName, options, "", false)
+                    getProduct(osName, options)
                 }
             }
 
@@ -197,6 +197,7 @@ def executeTests(String osName, String asicName, Map options) {
             timeout(time: "15", unit: "MINUTES") {
                 installRPRMayaUSDPlugin(osName, options)
                 newPluginInstalled = true
+                removeInstaller(osName: osName, options: options)
             }
 
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
@@ -350,9 +351,7 @@ def executeTests(String osName, String asicName, Map options) {
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             // check that group isn't fully skipped
                             if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                collectCrashInfo(osName, options, options.currentTry)
                                 uninstallRPRMayaUSDPlugin(osName, options)
-                                // remove installer of broken addon
                                 removeInstaller(osName: osName, options: options, extension: "exe")
                                 String errorMessage
                                 if (options.currentTry < options.nodeReallocateTries) {
@@ -771,7 +770,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'], engine)
                 testResultList.each() {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List

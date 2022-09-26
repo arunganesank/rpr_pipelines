@@ -17,7 +17,7 @@ import java.text.SimpleDateFormat
     displayingProfilesMapping: [
         "engine": [
             "HdRprPlugin": "RPR",
-            "HdStormRendererPlugin": "Northstar",
+            "HdStormRendererPlugin": "GL",
             "Hybrid": "Hybrid",
             "HdPrmanLoaderRendererPlugin": "Prman"
         ]
@@ -318,9 +318,7 @@ def executeTests(String osName, String asicName, Map options) {
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             // check that group isn't fully skipped
                             if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                                collectCrashInfo(osName, options, options.currentTry)
                                 installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
-                                // remove installer of broken addon
                                 removeInstaller(osName: osName, options: options, extension: "zip")
                                 String errorMessage
                                 if (options.currentTry < options.nodeReallocateTries) {
@@ -855,7 +853,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'], engine)
                 testResultList.each() {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List

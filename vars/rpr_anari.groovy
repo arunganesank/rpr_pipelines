@@ -253,7 +253,6 @@ def executeTests(String osName, String asicName, Map options) {
                             if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
                                 // remove brocken core package
                                 removeInstaller(osName: osName, options: options, extension: "zip")
-                                collectCrashInfo(osName, options, options.currentTry)
                                 String errorMessage
                                 if (options.currentTry < options.nodeReallocateTries) {
                                     errorMessage = "All tests were marked as error. The test group will be restarted."
@@ -593,7 +592,6 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             List lostStashes = []
 
             dir("summaryTestResults") {
-                unstashCrashInfo(options['nodeRetry'])
                 testResultList.each() {
                     dir("$it".replace("testResult-", "")) {
                         try {
