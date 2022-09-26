@@ -60,7 +60,7 @@ def uninstallRPRMayaPlugin(String osName, Map options) {
 def installRPRMayaUSDPlugin(String osName, Map options) {
 
     if (options['isPreBuilt']) {
-        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows')]}"
+        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
     } else {
         options['pluginWinSha'] = "${options.commitSHA}"
     }
