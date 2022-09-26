@@ -17,7 +17,7 @@ import java.text.SimpleDateFormat
     displayingProfilesMapping: [
         "engine": [
             "HdRprPlugin": "RPR",
-            "HdStormRendererPlugin": "Northstar",
+            "HdStormRendererPlugin": "GL",
             "Hybrid": "Hybrid",
             "HdPrmanLoaderRendererPlugin": "Prman"
         ]
