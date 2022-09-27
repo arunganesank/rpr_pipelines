@@ -221,7 +221,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
-        String REF_PATH_PROFILE="/volume1/Baselines/rpr_usdplugin_autotests/${asicName}-${osName}"
+        String REF_PATH_PROFILE="/volume1/Baselines/rpr_usdplugin_autotests/${asicName}-${osName}-${options.toolVersion}"
         outputEnvironmentInfo(osName, options.stageName, options.currentTry)
 
         if (options["updateRefs"].contains("Update")) {
@@ -889,7 +889,7 @@ def call(String projectRepo = PROJECT_REPO,
         String platforms = 'Windows:AMD_RX6800XT,APU;OSX:AMD_RX5700XT;Ubuntu20',
         String buildType = "Houdini",
         Boolean rebuildUSD = false,
-        String houdiniVersions = "19.0.622,19.5.303",
+        String houdiniVersions = "19.0.622,19.5.368",
         String updateRefs = 'No',
         String testsPackage = "Full.json",
         String tests = "",
