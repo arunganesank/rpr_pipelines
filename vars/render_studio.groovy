@@ -537,49 +537,23 @@ def executeBuildLinux(Map options) {
         if (options.deploy) {
             println "[INFO] Start deploying on $options.deployEnvironment environment"
             failure = false
-            Boolean status = true
 
             try {
-                println "[INFO] Send deploy command"
+                println "[INFO] Start deploy"
 
-                for (i=0; i < 5; i++) {
-                    res = sh(
-                        script: "curl --insecure https://admin.${webUsdUrlBase}/deploy?configuration=${options.deployEnvironment}",
-                        returnStdout: true,
-                        returnStatus: true
-                    )
-
-                    println ("RES - ${res}")
-
-                    if (res == 0) {
-                        println "[INFO] Successfully sended"
-                        status = true
-                        break
-                    } else {
-                        println "[ERROR] Host not available. Try again"
-                        status = false
+                node("RenderStudioServer") {
+                    dir("/usr/share/webusd/${options.deployEnvironment}") {
+                        sh """
+                            docker-compose -f ${options.deployEnvironment} down >> ${STAGE_NAME}.Deploy.log 2>&1
+                            docker-compose -f ${options.deployEnvironment} pull >> ${STAGE_NAME}.Deploy.log 2>&1
+                            docker-compose -f ${options.deployEnvironment} up -d >> ${STAGE_NAME}.Deploy.log 2>&1
+                        """
                     }
-                }
-
-                if (!status) {
-                    throw new Exception("[ERROR] Host not available. Retries exceeded")
-                }
-
-                withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                    String url
-
-                    if (options.deployEnvironment == "prod") {
-                        url = TEMPLATE.replace("<instance>.", "")
-                    } else {
-                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
-                    }
-                    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
-                }
+                }                
             } catch (e) {
                 println "[ERROR] Error during deploy"
                 println(e.toString())
                 failure = true
-                status = false
             } finally {
                 if (failure) {
                     currentBuild.result = "FAILED"
