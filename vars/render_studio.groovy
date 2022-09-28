@@ -544,9 +544,9 @@ def executeBuildLinux(Map options) {
                 node("RenderStudioServer") {
                     dir("/usr/share/webusd/${options.deployEnvironment}") {
                         sh """
-                            docker-compose -f ${options.deployEnvironment} down >> ${STAGE_NAME}.Deploy.log 2>&1
-                            docker-compose -f ${options.deployEnvironment} pull >> ${STAGE_NAME}.Deploy.log 2>&1
-                            docker-compose -f ${options.deployEnvironment} up -d >> ${STAGE_NAME}.Deploy.log 2>&1
+                            docker-compose -f ${options.deployEnvironment}.yml down >> ${STAGE_NAME}.Deploy.log 2>&1
+                            docker-compose -f ${options.deployEnvironment}.yml pull >> ${STAGE_NAME}.Deploy.log 2>&1
+                            docker-compose -f ${options.deployEnvironment}.yml up -d >> ${STAGE_NAME}.Deploy.log 2>&1
                         """
                     }
                 }                
