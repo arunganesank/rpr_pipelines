@@ -541,15 +541,7 @@ def executeBuildLinux(Map options) {
             try {
                 println "[INFO] Start deploy"
 
-                node("RenderStudioServer") {
-                    dir("/usr/share/webusd/${options.deployEnvironment}") {
-                        sh """
-                            docker-compose -f ${options.deployEnvironment}.yml down >> ${STAGE_NAME}.Deploy.log 2>&1
-                            docker-compose -f ${options.deployEnvironment}.yml pull >> ${STAGE_NAME}.Deploy.log 2>&1
-                            docker-compose -f ${options.deployEnvironment}.yml up -d >> ${STAGE_NAME}.Deploy.log 2>&1
-                        """
-                    }
-                }                
+                render_studio_deploy(options.deployEnvironment)                
             } catch (e) {
                 println "[ERROR] Error during deploy"
                 println(e.toString())
