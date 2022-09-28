@@ -564,8 +564,8 @@ def getReportBuildArgs(String engineName, Map options) {
 
 def executePreBuild(Map options)
 {
-    if (env.BRANCH_NAME && env.BRANCH_NAME.contains("PR-208")) {
-        options.toolVersion = "2022"
+    if (env.BRANCH_NAME && env.BRANCH_NAME.contains("PR-333")) {
+        options.toolVersion = "2023"
     }
 
     // manual job with prebuilt plugin
