@@ -541,7 +541,16 @@ def executeBuildLinux(Map options) {
             try {
                 println "[INFO] Start deploy"
 
-                render_studio_deploy(options.deployEnvironment)                
+                render_studio_deploy(options.deployEnvironment)
+
+                withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                    String url
+
+                    if (options.deployEnvironment == "prod") {
+                        url = TEMPLATE.replace("<instance>.", "")
+                    } else {
+                        url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                }
             } catch (e) {
                 println "[ERROR] Error during deploy"
                 println(e.toString())
@@ -1116,7 +1125,7 @@ def call(
     String customDomain = '',
     Boolean disableSsl = false,
     String testsPackage = "none",
-    String tests = 'Viewport,FinalRender',
+    String tests = 'Viewport FinalRender',
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
     Boolean skipBuild = false,
