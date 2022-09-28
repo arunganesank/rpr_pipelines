@@ -112,14 +112,14 @@ def executeTestCommand(String osName, String asicName, Map options) {
                             set RIF_TRACING_ENABLED=1
                             set RIF_TRACING_PATH=${env.WORKSPACE}\\${env.STAGE_NAME}_RIF_Trace
                             set PXR_PLUGINPATH_NAME=
-                            set MATERIALX_SEARCH_PATH=C:\\TestResources\\rpr_usdplugin_autotests_assets\\Resources\\RPRMaterialLibrary\\Materials
+                            set MATERIALX_SEARCH_PATH=C:\\TestResources\\${options.assetsName}_assets\\Resources\\RPRMaterialLibrary\\Materials
                             echo %MATERIALX_SEARCH_PATH%
                             run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"${options.win_tool_path}\\bin\\husk.exe\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
                     } else {
                         bat """
                             set PXR_PLUGINPATH_NAME=
-                            set MATERIALX_SEARCH_PATH=C:\\TestResources\\rpr_usdplugin_autotests_assets\\Resources\\RPRMaterialLibrary\\Materials
+                            set MATERIALX_SEARCH_PATH=C:\\TestResources\\${options.assetsName}_assets\\Resources\\RPRMaterialLibrary\\Materials
                             echo %MATERIALX_SEARCH_PATH%
                             run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"${options.win_tool_path}\\bin\\husk.exe\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -134,7 +134,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                             export RIF_TRACING_PATH=${env.WORKSPACE}/${env.STAGE_NAME}_RIF_Trace
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
-                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
+                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/${options.assetsName}_assets/Resources/RPRMaterialLibrary/Materials
                             echo \$MATERIALX_SEARCH_PATH
                             ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"${options.osx_tool_path}/bin/husk\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -142,7 +142,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                         sh """
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
-                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
+                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/${options.assetsName}_assets/Resources/RPRMaterialLibrary/Materials
                             echo \$MATERIALX_SEARCH_PATH
                             ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"${options.osx_tool_path}/bin/husk\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -158,7 +158,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                             export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.toolVersion}/dsolib"
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
-                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
+                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/${options.assetsName}_assets/Resources/RPRMaterialLibrary/Materials
                             echo \$MATERIALX_SEARCH_PATH
                             ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"/home/user/${options.unix_tool_path}/bin/husk\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -167,7 +167,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                             export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.toolVersion}/dsolib"
                             chmod +x run.sh
                             export PXR_PLUGINPATH_NAME=
-                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/rpr_usdplugin_autotests_assets/Resources/RPRMaterialLibrary/Materials
+                            export MATERIALX_SEARCH_PATH=\$CIS_TOOLS/../TestResources/${options.assetsName}_assets/Resources/RPRMaterialLibrary/Materials
                             echo \$MATERIALX_SEARCH_PATH
                             ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.updateRefs} \"/home/user/${options.unix_tool_path}/bin/husk\" \"${rprTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -201,8 +201,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_usdplugin_autotests_assets" : "/mnt/c/TestResources/rpr_usdplugin_autotests_assets"
-            downloadFiles("/volume1/web/Assets/rpr_usdplugin_autotests/", assetsDir, "", true)
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/${options.assetsName}_assets" : "/mnt/c/TestResources/${options.assetsName}_assets"
+            downloadFiles("/volume1/web/Assets/${options.assetsName}/", assetsDir, "", true)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
@@ -920,6 +920,7 @@ def call(String projectRepo = PROJECT_REPO,
                         usdBranch: usdBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_houdini.git",
                         testsBranch: testsBranch,
+                        assetsName: "usd_houdini_autotests",
                         updateRefs: updateRefs,
                         enableNotifications: enableNotifications,
                         PRJ_NAME: "RadeonProRenderUSDPlugin",
