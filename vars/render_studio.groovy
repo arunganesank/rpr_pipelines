@@ -550,6 +550,7 @@ def executeBuildLinux(Map options) {
                         url = TEMPLATE.replace("<instance>.", "")
                     } else {
                         url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    }
                 }
             } catch (e) {
                 println "[ERROR] Error during deploy"
