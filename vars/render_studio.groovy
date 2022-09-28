@@ -551,6 +551,8 @@ def executeBuildLinux(Map options) {
                     } else {
                         url = TEMPLATE.replace("<instance>", options.deployEnvironment)
                     }
+
+                    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${url}">[${options.deployEnvironment}] Link to web application</a></h3>""")
                 }
             } catch (e) {
                 println "[ERROR] Error during deploy"
