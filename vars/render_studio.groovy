@@ -1124,7 +1124,7 @@ def call(
     String customDomain = '',
     Boolean disableSsl = false,
     String testsPackage = "none",
-    String tests = 'Viewport',
+    String tests = 'Viewport,FinalRender',
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
     Boolean skipBuild = false,
