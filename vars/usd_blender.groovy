@@ -146,7 +146,7 @@ def executeTests(String osName, String asicName, Map options) {
     }
 
     if (env.NODE_NAME == "PC-SR-ONTARIO-6800XT-WIN10") {
-        if (options.parsedTests.contains("USD_Nodes")) {
+        if (options.tests.contains("USD_Nodes")) {
             throw new ExpectedExceptionWrapper(
                 "System doesn't support USD_Nodes group", 
                 new Exception("System doesn't support USD_Nodes group")
