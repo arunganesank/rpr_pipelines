@@ -208,7 +208,9 @@ def executePreBuild(Map options) {
     def parsedInfo = parseResponse(rawInfo.content)
 
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-        options.hybridLinkWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+        if (!options.hybridLinkWin) {
+            options.hybridLinkWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+        }
     }
 
     options.timeouts = [:]
@@ -403,7 +405,8 @@ def call(String testsBranch = "master",
          String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI',
          String updateRefs = 'No',
          String tests = "",
-         String parallelExecutionTypeString = "TakeAllNodes") {
+         String parallelExecutionTypeString = "TakeAllNodes",
+         String hybridLinkWin = "") {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
@@ -438,6 +441,7 @@ def call(String testsBranch = "master",
                         parallelExecutionType: TestsExecutionType.valueOf(parallelExecutionTypeString),
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         baselinePluginPath: baselinePluginPath,
+                        hybridLinkWin: hybridLinkWin,
                         storeOnNAS: true,
                         flexibleUpdates: true
                         ]
