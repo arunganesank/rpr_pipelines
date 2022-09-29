@@ -17,7 +17,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
         switch (osName) {
             case "Windows":
                 bat """
-                    make_results_baseline.bat ${delete} HybridMTLX
+                    make_results_baseline.bat ${delete} HybMTLX
                 """
                 break
 
@@ -146,9 +146,9 @@ def executeTests(String osName, String asicName, Map options) {
             archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
             if (stashResults) {
                 dir('Work') {
-                    if (fileExists("Results/HybridMTLX/session_report.json")) {
+                    if (fileExists("Results/HybMTLX/session_report.json")) {
 
-                        def sessionReport = readJSON file: 'Results/HybridMTLX/session_report.json'
+                        def sessionReport = readJSON file: 'Results/HybMTLX/session_report.json'
                         
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
@@ -236,7 +236,7 @@ def executePreBuild(Map options) {
                 options.tests = options.tests.split(" ") as List
             }
 
-            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests)
+            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests, 100)
             options.tests.each {
                 def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
                 options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
@@ -281,7 +281,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             try {
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${none}\" \"[]\" \"\" \"{}\"
                     """
                 }
             } catch (e) {
@@ -432,8 +432,7 @@ def call(String testsBranch = "master",
                         executeBuild: false,
                         executeTests: true,
                         splitTestsExecution: true,
-                        testsPackage: testsPackage,
-                        TEST_TIMEOUT: 60,
+                        TEST_TIMEOUT: 90,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         DEPLOY_TIMEOUT: 20,
                         tests: tests,
