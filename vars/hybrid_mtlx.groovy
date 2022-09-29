@@ -62,6 +62,17 @@ def executeTests(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
+
+                bat """
+                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.hybridLinkWin}
+                """
+
+                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+
+                bat """
+                    copy /Y BaikalNext\\bin\\HybridPro.dll tool
+                    copy /Y BaikalNext\\bin\\RadeonProRender64.dll tool
+                """
             }
         }
 
@@ -187,6 +198,19 @@ def getReportBuildArgs(Map options) {
 
 
 def executePreBuild(Map options) {
+    // get links to the latest built HybridPro
+    def rawInfo = httpRequest(
+        url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+        options.hybridLinkWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+    }
+
     options.timeouts = [:]
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
