@@ -7,10 +7,10 @@ import net.sf.json.JsonConfig
 import TestsExecutionType
 
 
-@Field final String PROJECT_REPO = "git@github.com:amfdev/StreamingSDK.git"
-@Field final String TESTS_REPO = "git@github.com:luxteam/jobs_test_streaming_sdk.git"
-@Field final String DRIVER_REPO = "git@github.com:amfdev/AMDVirtualDrivers.git"
-@Field final String AMF_TESTS_REPO = "git@github.com:amfdev/AMFTests.git"
+@Field final String PROJECT_REPO = "https://github.com/amfdev/StreamingSDK.git"
+@Field final String TESTS_REPO = "https://github.com/luxteam/jobs_test_streaming_sdk.git"
+@Field final String DRIVER_REPO = "https://github.com/amfdev/AMDVirtualDrivers.git"
+@Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
 
