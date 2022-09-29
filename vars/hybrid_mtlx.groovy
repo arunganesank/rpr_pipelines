@@ -1,11 +1,15 @@
-import groovy.transform.Field
 import groovy.json.JsonOutput
-import java.util.concurrent.ConcurrentHashMap
-import java.util.function.BiFunction
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
+
+
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
@@ -227,7 +231,7 @@ def executePreBuild(Map options) {
             def packageInfo
 
             if (env.BRANCH_NAME) {
-                options.tests = (readJSON file: "jobs/Full.json")["groups"].keySet() as List
+                options.tests = readJSON(file: "jobs/Full.json")["groups"].keySet() as List
             } else {
                 options.tests = options.tests.split(" ") as List
             }
@@ -419,9 +423,7 @@ def call(String testsBranch = "master",
                 Tests execution type: ${parallelExecutionTypeString}
             """
 
-            options << [configuration: PIPELINE_CONFIGURATION,
-                        projectBranch: projectBranch,
-                        testRepo:"git@github.com:luxteam/jobs_test_hybrid_mtlx.git",
+            options << [testRepo:"git@github.com:luxteam/jobs_test_hybrid_mtlx.git",
                         testsBranch: testsBranch,
                         updateRefs: updateRefs,
                         enableNotifications: false,
@@ -431,7 +433,7 @@ def call(String testsBranch = "master",
                         executeTests: true,
                         splitTestsExecution: true,
                         testsPackage: testsPackage,
-                        TEST_TIMEOUT: testStageTimeout,
+                        TEST_TIMEOUT: 60,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         DEPLOY_TIMEOUT: 20,
                         tests: tests,
@@ -440,7 +442,6 @@ def call(String testsBranch = "master",
                         platforms: platforms,
                         parallelExecutionType: TestsExecutionType.valueOf(parallelExecutionTypeString),
                         parallelExecutionTypeString: parallelExecutionTypeString,
-                        baselinePluginPath: baselinePluginPath,
                         hybridLinkWin: hybridLinkWin,
                         storeOnNAS: true,
                         flexibleUpdates: true
