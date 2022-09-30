@@ -230,7 +230,7 @@ def executePreBuild(Map options) {
 
             def packageInfo
 
-            if (env.BRANCH_NAME) {
+            if (env.BRANCH_NAME && env.JOB_NAME.contains("Weekly")) {
                 options.tests = readJSON(file: "jobs/Full.json")["groups"].keySet() as List
             } else {
                 options.tests = options.tests.split(" ") as List
