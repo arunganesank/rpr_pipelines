@@ -174,7 +174,12 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                         // remove profile name from testName
                                         List testNameParts = testName.split("-") as List
                                         String rawTestName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                                        skip = options["skipCallback"](options, asicName, osName, rawTestName, testProfile)
+
+                                        if (options.splitTestsExecution) {
+                                            skip = options["skipCallback"](options, asicName, osName, rawTestName, testProfile)
+                                        } else {
+                                            skip = options["skipCallback"](options, asicName, osName, testProfile)
+                                        }
                                     } else {
                                         skip = options["skipCallback"](options, asicName, osName, testName)
                                     }
