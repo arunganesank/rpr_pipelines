@@ -197,7 +197,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(Map options) {
-    return """Hybrid \"-\" \"-\" \"-\" \"\" \"\""""
+    return """Hybrid \"-\" \"-\" \"-\" \"\" """
 }
 
 
