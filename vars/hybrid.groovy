@@ -855,4 +855,8 @@ def call(String projectBranch = "",
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
                             apiValues: apiList])
+
+    if (env.BRANCH_NAME == "master") {
+        build(job: "HybridProMTLX-Auto/master", wait: false)
+    }
 }
