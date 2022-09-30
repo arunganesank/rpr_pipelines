@@ -85,7 +85,7 @@ def executeTests(String osName, String asicName, Map options) {
             downloadFiles("/volume1/web/Assets/materials/", assetsDir)
         }
     
-        String REF_PATH_PROFILE="/volume1/Baselines/hybrix_mtlx_autotests/${asicName}-${osName}"
+        String REF_PATH_PROFILE="/volume1/Baselines/hybrid_mtlx_autotests/${asicName}-${osName}"
         options.REF_PATH_PROFILE = REF_PATH_PROFILE
 
         outputEnvironmentInfo(osName, "", options.currentTry)
@@ -111,7 +111,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         } else {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
-                String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrix_mtlx_autotests_baselines" : "/mnt/c/TestResources/hybrix_mtlx_autotests_baselines"
+                String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests" : "/mnt/c/TestResources/hybrid_mtlx_autotests"
                 println "[INFO] Downloading reference images for ${options.tests}"
                 options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
             }
@@ -236,7 +236,7 @@ def executePreBuild(Map options) {
                 options.tests = options.tests.split(" ") as List
             }
 
-            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests, 100)
+            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests, 200)
             options.tests.each {
                 def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
                 options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
