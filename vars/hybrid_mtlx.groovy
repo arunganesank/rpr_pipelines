@@ -214,6 +214,7 @@ def executePreBuild(Map options) {
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
         if (!options.hybridLinkWin) {
             options.hybridLinkWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
+            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
         }
     }
 
@@ -230,7 +231,7 @@ def executePreBuild(Map options) {
 
             def packageInfo
 
-            if (env.BRANCH_NAME && env.JOB_NAME.contains("Weekly")) {
+            if (env.BRANCH_NAME || env.JOB_NAME.contains("Weekly")) {
                 options.tests = readJSON(file: "jobs/Full.json")["groups"].keySet() as List
             } else {
                 options.tests = options.tests.split(" ") as List
