@@ -481,7 +481,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), engine)) {
                             return
                         }
 
@@ -610,11 +610,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                options['testsStatus-' + engine] = readFile("summaryTestResults/slack_status.json")
+                options['testsStatus-' + engineName] = readFile("summaryTestResults/slack_status.json")
             } catch(e) {
                 println(e.toString())
                 println(e.getMessage())
-                options['testsStatus-' + engine] = ""
+                options['testsStatus-' + engineName] = ""
             }
 
             withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
