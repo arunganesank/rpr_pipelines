@@ -1835,6 +1835,7 @@ def call(String projectBranch = "",
                 Platforms: ${platforms}
                 Tests: ${tests}
                 Tests package: ${testsPackage}
+                Store on NAS: ${storeOnNAS}
             """
 
             winBuildConfiguration = winBuildConfiguration.split(',')
