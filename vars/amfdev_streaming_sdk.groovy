@@ -1123,7 +1123,7 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
-    withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;${PATH}"]) {
+    withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
             println "Current build configuration: ${androidBuildConf}."
