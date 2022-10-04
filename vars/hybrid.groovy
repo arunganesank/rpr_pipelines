@@ -468,7 +468,7 @@ def executeBuildWindows(Map options) {
     if (env.BRANCH_NAME == "material_x") {
         withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
 
-            hybrid_vs_northstar_pipeline.updateBinaries(
+            hybrid_vs_northstar.updateBinaries(
                 newBinaryFile: "Build\\_CPack_Packages\\win64\\ZIP\\BaikalNext\\bin\\HybridPro.dll", 
                 targetFileName: "HybridPro.dll", osName: "Windows", compareChecksum: true
             )
@@ -476,7 +476,7 @@ def executeBuildWindows(Map options) {
     }
 
     // Hybrid vs NS auto is disabled
-    //hybrid_vs_northstar_pipeline.createHybridBranch(options)
+    //hybrid_vs_northstar.createHybridBranch(options)
 }
 
 
@@ -606,7 +606,7 @@ def executePreBuild(Map options) {
         String comparisionBranch = "hybrid_auto_${env.BRANCH_NAME}"
 
         dir("HybridVsNorthstar") {
-            String comparisionRepoUrl = hybrid_vs_northstar_pipeline.PROJECT_REPO
+            String comparisionRepoUrl = hybrid_vs_northstar.PROJECT_REPO
 
             checkoutScm(branchName: "main", repositoryUrl: comparisionRepoUrl)
 
