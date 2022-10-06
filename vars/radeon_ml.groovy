@@ -498,7 +498,7 @@ def executePreBuild(Map options) {
             if (tokens.size() > 1) {
                 gpuNames = tokens.get(1)
                 gpuNames.split(",").each() { gpuName ->
-                    options.tests.split(",").each() { test ->
+                    options.tests.each() { test ->
                         GithubNotificator.createStatus("Test", "${gpuName}-${osName}-${test}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
