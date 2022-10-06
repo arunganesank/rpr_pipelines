@@ -491,6 +491,19 @@ def executePreBuild(Map options) {
 
     if (env.BRANCH_NAME && options.githubNotificator) {
         options.githubNotificator.initChecks(options, BUILD_URL, true, true, false)
+
+        options["platforms"].split(";").each() { platform ->
+            List tokens = platform.tokenize(":")
+            String osName = tokens.get(0)
+            if (tokens.size() > 1) {
+                gpuNames = tokens.get(1)
+                gpuNames.split(",").each() { gpuName ->
+                    options.tests.split(",").each() { test ->
+                        GithubNotificator.createStatus("Test", "${gpuName}-${osName}-${test}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                    }
+                }
+            }
+        }
     }
 }
 
