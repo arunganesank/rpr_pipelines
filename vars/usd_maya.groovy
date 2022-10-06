@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "exe"],
-    artifactNameBase: "RPRMayaUSD_Setup",
+    artifactNameBase: "RPRMayaUSDHdRPR_Setup",
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
@@ -75,17 +75,6 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
     } catch (e) {
         throw new Exception("Failed to install plugin")
     }
-
-    String modulesPath = "C:\\Program Files\\Common Files\\Autodesk Shared\\Modules\\maya\\${options.toolVersion}"
-
-    // Move mayausd.mod due to conflict with RPRMayaUSD.mod
-    status = bat(returnStatus: true, script: "MOVE /Y \"${modulesPath}\\mayausd.mod\" \"${modulesPath}\\..\"")
-    
-    if (status == 0) {
-        println "[INFO] mayausd.mod moved"
-    } else {
-        println "[INFO] mayausd.mod not found"
-    }
 }
 
 def uninstallRPRMayaUSDPlugin(String osName, Map options) {
@@ -100,14 +89,29 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                         start "" /wait "${defaultUninstallerPath}" /SILENT
                     """
                 } else {
-                    println "[INFO] RPR Maya USD plugin not found"
+                    println "[INFO] USD Maya plugin not found"
                 }
             } catch (e) {
-                throw new Exception("Failed to uninstall RPR Maya USD plugin")
+                throw new Exception("Failed to uninstall USD Maya plugin")
             }
+
+            defaultUninstallerPath = "C:\\Program Files\\RPRMayaUSDHdRPR\\unins000.exe"
+
+            try {
+                if (fileExists(defaultUninstallerPath)) {
+                    bat """
+                        start "" /wait "${defaultUninstallerPath}" /SILENT
+                    """
+                } else {
+                    println "[INFO] HdRPR Maya plugin not found"
+                }
+            } catch (e) {
+                throw new Exception("Failed to uninstall HdRPR Maya plugin")
+            }
+
             break
         default:
-            println "[WARNING] ${osName} is not supported for RPR Maya USD"
+            println "[WARNING] ${osName} is not supported by USD Maya"
     }
 }
 
@@ -404,6 +408,8 @@ def executeBuildWindows(Map options) {
                     rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe
                 """
 
+                makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+
                 if (options.branch_postfix) {
                     bat """
                         rename RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
@@ -414,7 +420,7 @@ def executeBuildWindows(Map options) {
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
-            // vcvars64.bat sets VS/msbuild env
+/*            // vcvars64.bat sets VS/msbuild env
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
                 // FIXME: patch TIFF url, because it's invalid. This code must be removed when USD submodule will be updated
                 String buildScriptContent = readFile(file: "USD/build_scripts/build_usd.py")
@@ -437,8 +443,6 @@ def executeBuildWindows(Map options) {
                     rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
                 """
 
-                makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
-
                 if (options.branch_postfix) {
                     bat """
                         rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
@@ -451,9 +455,9 @@ def executeBuildWindows(Map options) {
 
                 String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe"
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            }*/
 
-                GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-            }
+            GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
     }
 }
