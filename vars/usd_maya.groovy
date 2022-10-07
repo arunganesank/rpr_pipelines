@@ -582,13 +582,31 @@ def executePreBuild(Map options) {
                         def newPluginVersion = version_inc(options.pluginVersion, 3)
                         println "[INFO] New plugin version: ${newPluginVersion}"
                         version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newPluginVersion}")
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h", '#define PLUGIN_VERSION ', "${newPluginVersion}")
+
+                        String modProdFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod"
+                        String modDevFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod"
+
+                        String modFileContent = readFile(modProdFilePath).replace(options.pluginVersion, newPluginVersion)
+                        String[] modFileContentParts = modFileContent.split(" ")
+                        modFileContentParts[3] = newPluginVersion
+
+                        writeFile(file: modProdFilePath, text: modFileContentParts.join(" "))
+
+                        modFileContent = readFile(modDevFilePath)
+                        modFileContentParts = modFileContent.split(" ")
+                        modFileContentParts[3] = newPluginVersion
+
+                        writeFile(file: modDevFilePath, text: modFileContentParts.join(" "))
 
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
                         println "[INFO] Updated plugin version: ${options.pluginVersion}"
 
                         bat """
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
                             git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
                             git push origin HEAD:develop
                         """
