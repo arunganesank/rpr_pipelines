@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "exe"],
-    artifactNameBase: "RPRMayaUSD_Setup",
+    artifactNameBase: "RPRMayaUSDHdRPR_Setup",
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
@@ -75,17 +75,6 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
     } catch (e) {
         throw new Exception("Failed to install plugin")
     }
-
-    String modulesPath = "C:\\Program Files\\Common Files\\Autodesk Shared\\Modules\\maya\\${options.toolVersion}"
-
-    // Move mayausd.mod due to conflict with RPRMayaUSD.mod
-    status = bat(returnStatus: true, script: "MOVE /Y \"${modulesPath}\\mayausd.mod\" \"${modulesPath}\\..\"")
-    
-    if (status == 0) {
-        println "[INFO] mayausd.mod moved"
-    } else {
-        println "[INFO] mayausd.mod not found"
-    }
 }
 
 def uninstallRPRMayaUSDPlugin(String osName, Map options) {
@@ -100,14 +89,29 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                         start "" /wait "${defaultUninstallerPath}" /SILENT
                     """
                 } else {
-                    println "[INFO] RPR Maya USD plugin not found"
+                    println "[INFO] USD Maya plugin not found"
                 }
             } catch (e) {
-                throw new Exception("Failed to uninstall RPR Maya USD plugin")
+                throw new Exception("Failed to uninstall USD Maya plugin")
             }
+
+            defaultUninstallerPath = "C:\\Program Files\\RPRMayaUSDHdRPR\\unins000.exe"
+
+            try {
+                if (fileExists(defaultUninstallerPath)) {
+                    bat """
+                        start "" /wait "${defaultUninstallerPath}" /SILENT
+                    """
+                } else {
+                    println "[INFO] HdRPR Maya plugin not found"
+                }
+            } catch (e) {
+                throw new Exception("Failed to uninstall HdRPR Maya plugin")
+            }
+
             break
         default:
-            println "[WARNING] ${osName} is not supported for RPR Maya USD"
+            println "[WARNING] ${osName} is not supported by USD Maya"
     }
 }
 
@@ -392,6 +396,8 @@ def executeBuildWindows(Map options) {
         withEnv(["PATH=C:\\Program Files (x86)\\Inno Setup 6\\;${PATH.replace('Python', '')}"]) {
             outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
 
+            String artifactURL
+
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
                 bat """
                     call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
@@ -401,59 +407,60 @@ def executeBuildWindows(Map options) {
             }
             dir('installation') {
                 bat """
-                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe
+                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe
                 """
+
+                makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.hdrprPluginVersion}.exe"
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe"
+                artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
-            // vcvars64.bat sets VS/msbuild env
-            withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                // FIXME: patch TIFF url, because it's invalid. This code must be removed when USD submodule will be updated
-                String buildScriptContent = readFile(file: "USD/build_scripts/build_usd.py")
+            if (options.buildOldInstaller) {
+                withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                    // FIXME: patch TIFF url, because it's invalid. This code must be removed when USD submodule will be updated
+                    String buildScriptContent = readFile(file: "USD/build_scripts/build_usd.py")
 
-                buildScriptContent = buildScriptContent.replace(
-                    "https://gitlab.com/libtiff/libtiff/-/archive/Release-v4-0-7/libtiff-Release-v4-0-7.tar.gz",
-                    "https://gitlab.com/libtiff/libtiff/-/archive/v4.0.7/libtiff-v4.0.7.tar.gz"
-                )
+                    buildScriptContent = buildScriptContent.replace(
+                        "https://gitlab.com/libtiff/libtiff/-/archive/Release-v4-0-7/libtiff-Release-v4-0-7.tar.gz",
+                        "https://gitlab.com/libtiff/libtiff/-/archive/v4.0.7/libtiff-v4.0.7.tar.gz"
+                    )
 
-                writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
+                    writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
 
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
-
-                    build.bat > ..\\${STAGE_NAME}.log 2>&1
-                """
-            }
-            dir('installation') {
-                bat """
-                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
-                """
-
-                makeStash(includes: "RPRMayaUSD_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
-
-                if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe
-                    """
-                } else {
-                    bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.usdPluginVersion}.exe
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build.bat > ..\\${STAGE_NAME}.log 2>&1
                     """
                 }
+                dir('installation') {
+                    bat """
+                        rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
+                    """
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.usdPluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.usdPluginVersion}.exe"
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    } else {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}.exe
+                        """
+                    }
 
-                GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.pluginVersion}.exe"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
             }
+
+            GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
     }
 }
@@ -556,8 +563,7 @@ def executePreBuild(Map options) {
 
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
-                options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
-                options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
+                options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
                 if (options['incrementVersion']) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -571,25 +577,37 @@ def executePreBuild(Map options) {
                     if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current USD plugin version: ${options.usdPluginVersion}"
-                        println "[INFO] Current HdRPR plugin version: ${options.hdrprPluginVersion}"
+                        println "[INFO] Current plugin version: ${options.pluginVersion}"
 
-                        def newUsdPluginVersion = version_inc(options.usdPluginVersion, 3)
-                        def newHdrprPluginVersion = version_inc(options.hdrprPluginVersion, 3)
-                        println "[INFO] New USD plugin version: ${newUsdPluginVersion}"
-                        println "[INFO] New HdRPR plugin version: ${newHdrprPluginVersion}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ', "${newUsdPluginVersion}")
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newHdrprPluginVersion}")
+                        def newPluginVersion = version_inc(options.pluginVersion, 3)
+                        println "[INFO] New plugin version: ${newPluginVersion}"
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newPluginVersion}")
+                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h", '#define PLUGIN_VERSION ', "${newPluginVersion}")
 
-                        options.usdPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss", '#define AppVersionString ').replace("\'", "")
-                        options.hdrprPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
-                        println "[INFO] Updated USD plugin version: ${options.usdPluginVersion}"
-                        println "[INFO] Updated HdRPR plugin version: ${options.hdrprPluginVersion}"
+                        String modProdFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod"
+                        String modDevFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod"
+
+                        String modFileContent = readFile(modProdFilePath).replace(options.pluginVersion, newPluginVersion)
+                        String[] modFileContentParts = modFileContent.split(" ")
+                        modFileContentParts[3] = newPluginVersion
+
+                        writeFile(file: modProdFilePath, text: modFileContentParts.join(" "))
+
+                        modFileContent = readFile(modDevFilePath)
+                        modFileContentParts = modFileContent.split(" ")
+                        modFileContentParts[3] = newPluginVersion
+
+                        writeFile(file: modDevFilePath, text: modFileContentParts.join(" "))
+
+                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
+                        println "[INFO] Updated plugin version: ${options.pluginVersion}"
 
                         bat """
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation.iss
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
-                            git commit -m "buildmaster: USD plugin version update to ${options.usdPluginVersion}. HdRPR plugin version update to ${options.hdrprPluginVersion}."
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
+                            git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
                             git push origin HEAD:develop
                         """
 
@@ -615,8 +633,7 @@ def executePreBuild(Map options) {
                 }
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>USD plugin version:</b> ${options.usdPluginVersion}<br/>"
-                currentBuild.description += "<b>HdRPR plugin version:</b> ${options.hdrprPluginVersion}<br/>"
+                currentBuild.description += "<b>Plugin version:</b> ${options.pluginVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
@@ -988,7 +1005,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 3)
+        Integer testCaseRetries = 3,
+        Boolean buildOldInstaller = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1111,6 +1129,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         parallelExecutionType:parallelExecutionType,
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         testCaseRetries:testCaseRetries,
+                        buildOldInstaller:buildOldInstaller,
                         storeOnNAS: true,
                         flexibleUpdates: true,
                         skipCallback: this.&filter
