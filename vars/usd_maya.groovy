@@ -422,42 +422,43 @@ def executeBuildWindows(Map options) {
                 artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
-/*            // vcvars64.bat sets VS/msbuild env
-            withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                // FIXME: patch TIFF url, because it's invalid. This code must be removed when USD submodule will be updated
-                String buildScriptContent = readFile(file: "USD/build_scripts/build_usd.py")
+            if (options.buildOldInstaller) {
+                withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                    // FIXME: patch TIFF url, because it's invalid. This code must be removed when USD submodule will be updated
+                    String buildScriptContent = readFile(file: "USD/build_scripts/build_usd.py")
 
-                buildScriptContent = buildScriptContent.replace(
-                    "https://gitlab.com/libtiff/libtiff/-/archive/Release-v4-0-7/libtiff-Release-v4-0-7.tar.gz",
-                    "https://gitlab.com/libtiff/libtiff/-/archive/v4.0.7/libtiff-v4.0.7.tar.gz"
-                )
+                    buildScriptContent = buildScriptContent.replace(
+                        "https://gitlab.com/libtiff/libtiff/-/archive/Release-v4-0-7/libtiff-Release-v4-0-7.tar.gz",
+                        "https://gitlab.com/libtiff/libtiff/-/archive/v4.0.7/libtiff-v4.0.7.tar.gz"
+                    )
 
-                writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
+                    writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
 
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
-
-                    build.bat > ..\\${STAGE_NAME}.log 2>&1
-                """
-            }
-            dir('installation') {
-                bat """
-                    rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
-                """
-
-                if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
-                    """
-                } else {
-                    bat """
-                        rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}.exe
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build.bat > ..\\${STAGE_NAME}.log 2>&1
                     """
                 }
+                dir('installation') {
+                    bat """
+                        rename RPRMayaUSD_Setup* RPRMayaUSD_Setup.exe
+                    """
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.pluginVersion}.exe"
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-            }*/
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    } else {
+                        bat """
+                            rename RPRMayaUSD_Setup.exe RPRMayaUSD_Setup_${options.pluginVersion}.exe
+                        """
+                    }
+
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSD_Setup_${options.pluginVersion}.exe"
+                    makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
+            }
 
             GithubNotificator.updateStatus("Build", "Windows", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
@@ -986,7 +987,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 3)
+        Integer testCaseRetries = 3,
+        Boolean buildOldInstaller = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1109,6 +1111,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         parallelExecutionType:parallelExecutionType,
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         testCaseRetries:testCaseRetries,
+                        buildOldInstaller:buildOldInstaller,
                         storeOnNAS: true,
                         flexibleUpdates: true,
                         skipCallback: this.&filter
