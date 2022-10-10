@@ -750,7 +750,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                             }
 
                             tasks[stageName] = {
-                                makeDeploy(options, it)
+                                makeDeploy(options, "", it)
                             }
                         }
                     }
