@@ -7,7 +7,7 @@ import net.sf.json.JsonConfig
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 @Field final String TEST_REPO = "git@github.com:luxteam/jobs_test_web_viewer.git"
 
-@Field final Integer MAX_TEST_INSTANCE_NUMBER = 10
+@Field final Integer MAX_TEST_INSTANCE_NUMBER = 9
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
