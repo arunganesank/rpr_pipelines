@@ -355,6 +355,16 @@ def executeBuildWindows(Map options) {
 
         String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
         envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-99") {
+            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                String url = TEMPLATE.replace("<instance>", "test10")
+
+                envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
+                envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
+            }
+        }
+
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
 
         try {
