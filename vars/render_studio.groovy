@@ -733,19 +733,31 @@ def executePreBuild(Map options) {
         if (options["executeBuild"]) {
             // get links to the latest built HybridPro
             def rawInfo = httpRequest(
-                url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
+                url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]",
                 authentication: 'jenkinsCredentials',
                 httpMode: 'GET'
             )
 
             def parsedInfo = parseResponse(rawInfo.content)
 
-            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+
+            Integer hybridBuildNumber
+            String hybridBuildUrl
+
+            if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+                hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
+                hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+            } else {
+                hybridBuildNumber = parsedInfo.lastUnstableBuild.number
+                hybridBuildUrl = parsedInfo.lastUnstableBuild.url
             }
 
-            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            }
+
+            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
             // branch postfix
             options["branchPostfix"] = ""
