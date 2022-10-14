@@ -1211,7 +1211,7 @@ def call(
                                 executeBuild:!isPreBuilt,
                                 executeTests:true,
                                 BUILD_TIMEOUT:'120',
-                                TEST_TIMEOUT:90,
+                                TEST_TIMEOUT:105,
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
                                 retriesForTestStage:1,
