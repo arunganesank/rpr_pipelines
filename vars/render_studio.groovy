@@ -39,31 +39,20 @@ def parseResponse(String response) {
 }
 
 
-Integer getNextTestInstanceNumber(Map options) {
-    downloadFiles("/volume1/CIS/WebUSD/State/TestingInstancesInfo.json", ".")
+Integer removeClosedPRs(Map options) {
+    // get list of existing PRs
+    def rawInfo = httpRequest(
+        url: "${env.JENKINS_URL}/job/RenderStudio-Auto/view/change-requests/api/json?tree=jobs[name,color]",
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
 
-    def instancesInfo = readJSON(file: "TestingInstancesInfo.json")
+    def parsedInfo = parseResponse(rawInfo.content)
 
-    Integer testingNumber
-
-    if (instancesInfo["prs"].containsKey(env.BRANCH_NAME)) {
-        testingNumber = instancesInfo["prs"][env.BRANCH_NAME]
-    } else {
-        testingNumber = instancesInfo["globalCounter"]
-        instancesInfo["prs"][env.BRANCH_NAME] = testingNumber
-        instancesInfo["globalCounter"] = instancesInfo["globalCounter"] >= MAX_TEST_INSTANCE_NUMBER ? 1 : instancesInfo["globalCounter"] + 1
+    if (job["color"] == "disabled") {
+        render_studio_deploy("pr${job['color'].split('-')[1]}", "remove")
     }
-
-    options.deployEnvironment = "test${testingNumber}"
-
-    def jsonOutputInfo = JsonOutput.toJson(instancesInfo)
-    JSON serializedInfo = JSONSerializer.toJSON(jsonOutputInfo, new JsonConfig());
-    writeJSON(file: "TestingInstancesInfo.json", json: serializedInfo, pretty: 4)
-
-    uploadFiles("TestingInstancesInfo.json", "/volume1/CIS/WebUSD/State")
-
-    return testingNumber
-}
+ }
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
@@ -341,8 +330,8 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.win", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-        bat "move WebUsdFrontendServer\\webusd.env.win WebUsdFrontendServer\\.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
+        bat "move WebUsdFrontendServer\\env.desktop.template WebUsdFrontendServer\\.env.production"
 
         String frontendVersion
         String renderStudioVersion
@@ -442,21 +431,24 @@ def executeBuildLinux(Map options) {
         webUsdUrlBase = remoteHost
     }
 
-    Integer testingNumber
-
-    if (options.deployEnvironment == "pr") {
-        testingNumber = getNextTestInstanceNumber(options)
-        options.deployEnvironment = "test${testingNumber}"
-    }
-
     String envProductionContent
 
     if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/webusd.env.${options.deployEnvironment}", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/webusd.env.${options.deployEnvironment} ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/webusd.web.template", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/webusd.web.template ./WebUsdFrontendServer/.env.production"
+
+        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+
+        if (options.deployEnvironment == "prod") {
+            envProductionContent = envProductionContent.replace("<domain_name>.", "")
+        } else {
+            envProductionContent = envProductionContent.replace("<domain_name>", options.deployEnvironment)
+        }
+
+        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
     } else {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/envs/template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.customdomain.template", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/env.web.customdomain.template ./WebUsdFrontendServer/.env.production"
 
         envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
         envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
@@ -765,6 +757,14 @@ def executePreBuild(Map options) {
                 options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
             } else {
                 options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+            }
+        }
+
+        if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
+            options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
+
+            if (env.BRANCH_NAME == "master") {
+                removeClosedPRs(options)
             }
         }
 
