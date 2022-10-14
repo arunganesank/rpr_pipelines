@@ -8,9 +8,9 @@ def deploy(deployEnvironment) {
             downloadFiles("/volume1/CIS/WebUSD/Additional/templates/docker_file_template.yml", ".", "--quiet")
             sh "mv docker_file_template.yml ${deployEnvironment}.yml"
 
-            String ymlFileContent = readFile("/${deployEnvironment}.yml")
+            String ymlFileContent = readFile("${deployEnvironment}.yml")
             ymlFileContent = ymlFileContent.replaceAll("<domain_name>", deployEnvironment)
-            writeFile(file: "${deployEnvironment}.yml", text: ymlFileContent
+            writeFile(file: "${deployEnvironment}.yml", text: ymlFileContent)
 
             sh """
                 docker-compose -f ${deployEnvironment}.yml down --remove-orphans

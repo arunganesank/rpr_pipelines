@@ -434,8 +434,8 @@ def executeBuildLinux(Map options) {
     String envProductionContent
 
     if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/webusd.web.template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/webusd.web.template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.template", "./WebUsdFrontendServer", "--quiet")
+        sh "mv ./WebUsdFrontendServer/env.web.template ./WebUsdFrontendServer/.env.production"
 
         envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
 
