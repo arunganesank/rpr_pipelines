@@ -75,7 +75,6 @@ def executeTests(String osName, String asicName, Map options) {
 
                 bat """
                     copy /Y BaikalNext\\bin\\HybridPro.dll tool
-                    copy /Y BaikalNext\\bin\\RadeonProRender64.dll tool
                 """
             }
         }
