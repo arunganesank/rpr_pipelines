@@ -347,7 +347,7 @@ def executeBuildWindows(Map options) {
 
         if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-99") {
             withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                String url = TEMPLATE.replace("<instance>", "test10")
+                String url = TEMPLATE.replace("<instance>", "test9")
 
                 envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
                 envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
@@ -1211,7 +1211,7 @@ def call(
                                 executeBuild:!isPreBuilt,
                                 executeTests:true,
                                 BUILD_TIMEOUT:'120',
-                                TEST_TIMEOUT:90,
+                                TEST_TIMEOUT:105,
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
                                 retriesForTestStage:1,

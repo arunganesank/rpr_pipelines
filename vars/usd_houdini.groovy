@@ -526,7 +526,8 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String toolName, Map options, String title = "USD") {
-    return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\""""
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
 }
 
 def executePreBuild(Map options) {
@@ -738,7 +739,15 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             }
 
             try {
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${profileParts}"
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+
+                if (useTrackedMetrics) {
+                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+                }
+
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
                         options.branchName = options.projectBranch ?: env.BRANCH_NAME
@@ -761,6 +770,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                         }
                         bat "get_status.bat ..\\summaryTestResults"
                     }
+                }
+
+                if (saveTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch (e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
