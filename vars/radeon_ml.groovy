@@ -122,8 +122,14 @@ def executeTests(String osName, String asicName, Map options) {
         options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_UNIT_TESTS)
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
-        archiveArtifacts "*.log"
-        junit "*gtest.xml"
+        try {
+            archiveArtifacts "*.log"
+            junit "*gtest.xml"
+        } catch (e) {
+            println("[WARNING] Failed to save unit tests results")
+            println(e.toString())
+            println(e.getMessage())
+        }
     }
 
     cleanWS(osName)
