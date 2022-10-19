@@ -587,8 +587,9 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-
-        //utils.reboot(this, osName)
+        if (options.tests.contains("AMD_Link")) {
+            utils.reboot(this, osName)
+        }
 
         timeout(time: "10", unit: "MINUTES") {
             cleanWS(osName)
@@ -679,7 +680,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        //utils.reboot(this, osName)
+        if (options.tests.contains("AMD_Link")) {
+            utils.reboot(this, osName)
+        }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
@@ -931,7 +934,9 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        //utils.reboot(this, "Windows")
+        if (options.tests.contains("AMD_Link")) {
+            utils.reboot(this, "Windows")
+        }
 
         initAndroidDevice()
 
