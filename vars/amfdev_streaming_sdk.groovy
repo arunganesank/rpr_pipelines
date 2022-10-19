@@ -461,15 +461,18 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Windows":
                 if (executionType == "mcClient") {
                     bat """
+                        set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                         run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 } else if (executionType == "client") {
                     if (options.serverInfo.osName.contains("Windows")) {
                         bat """
+                            set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                             run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
                     } else if (options.serverInfo.osName.contains("Ubuntu")) {
                         bat """
+                            set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                             run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
                     } else {
@@ -479,6 +482,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                     def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
                     bat """
+                        set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                         run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
@@ -487,6 +491,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
             case "Android":
                 bat """
+                    set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                     run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
 
@@ -496,6 +501,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                 def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
                 sh """
+                    export COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
                     ./run_ubuntu_server.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
                 break
@@ -1826,7 +1832,8 @@ def call(String projectBranch = "",
     String games = "Valorant",
     String androidBuildConfiguration = "release,debug",
     String androidTestingBuildName = "debug",
-    Boolean storeOnNAS = false
+    Boolean storeOnNAS = false,
+    Boolean collectInternalDriverVersion = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1919,7 +1926,8 @@ def call(String projectBranch = "",
                         collectTracesType:collectTracesType,
                         storeOnNAS: storeOnNAS,
                         finishedBuildStages: new ConcurrentHashMap(),
-                        isDevelopBranch: isDevelopBranch
+                        isDevelopBranch: isDevelopBranch,
+                        collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0
                         ]
         }
 
