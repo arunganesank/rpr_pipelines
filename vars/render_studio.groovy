@@ -828,7 +828,12 @@ def executePreBuild(Map options) {
             def packageInfo
 
             if (options.testsPackage != "none") {
-                packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                if (fileExists("jobs/${options.testsPackage}")) {
+                    packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                } else {
+                    packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-desktop.json')}"
+                }
+
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
                 if (options.forceBuild && options.isPackageSplitted && options.tests) {
@@ -986,6 +991,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             try {
+                dir("scripts") {
+                    python3("prepare_test_cases.py --mode desktop")
+                }
+
                 dir("jobs_launcher") {
                     bat """
                         count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"{}\"
