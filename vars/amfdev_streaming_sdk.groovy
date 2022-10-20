@@ -602,8 +602,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            dir("StreamingSDK") {
-                prepareTool(osName, options)
+            if (options.projectBranch) {
+                dir("StreamingSDK") {
+                    prepareTool(osName, options)
+                }
             }
         }
 
@@ -703,18 +705,20 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                dir("StreamingSDK") {
-                    prepareTool(osName, options)
-                }
+                if (options.projectBranch) {
+                    dir("StreamingSDK") {
+                        prepareTool(osName, options)
+                    }
 
-                // Android autotests support only Windows server machines
-                if (osName == "Windows") {
-                    initAndroidDevice()
+                    // Android autotests support only Windows server machines
+                    if (osName == "Windows") {
+                        initAndroidDevice()
 
-                    if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-                        dir("StreamingSDKAndroid") {
-                            prepareTool("Android", options)
-                            installAndroidClient()
+                        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+                            dir("StreamingSDKAndroid") {
+                                prepareTool("Android", options)
+                                installAndroidClient()
+                            }
                         }
                     }
                 }
@@ -1286,12 +1290,8 @@ def executeBuild(String osName, Map options) {
 def executePreBuild(Map options) {
     // manual job
     if (!env.BRANCH_NAME) {
-        options.executeBuild = true
-        options.executeTests = true
     // auto job
     } else {
-        options.executeBuild = true
-        options.executeTests = true
 
         if (env.CHANGE_URL) {
             println "[INFO] Branch was detected as Pull Request"
@@ -1302,41 +1302,44 @@ def executePreBuild(Map options) {
         }
     }
 
+
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
 
-    if ("StreamingSDK") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
-    }
-
     if (options.projectBranch) {
-        currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
-    } else {
-        currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
-    }
-
-    options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-    options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
-    options.commitSHA = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-    options.commitShortSHA = options.commitSHA[0..6]
-
-    println "The last commit was written by ${options.commitAuthor}."
-    println "Commit message: ${options.commitMessage}"
-    println "Commit SHA: ${options.commitSHA}"
-    println "Commit shortSHA: ${options.commitShortSHA}"
-
-    if (env.BRANCH_NAME) {
-        withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-            GithubNotificator githubNotificator = new GithubNotificator(this, options)
-            githubNotificator.init(options)
-            options["githubNotificator"] = githubNotificator
-            githubNotificator.initPreBuild("${BUILD_URL}")
-            options.projectBranchName = githubNotificator.branchName
+        if ("StreamingSDK") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
         }
-    }
 
-    currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
-    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
-    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+        if (options.projectBranch) {
+            currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
+        } else {
+            currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
+        }
+
+        options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
+        options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
+        options.commitSHA = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        options.commitShortSHA = options.commitSHA[0..6]
+
+        println "The last commit was written by ${options.commitAuthor}."
+        println "Commit message: ${options.commitMessage}"
+        println "Commit SHA: ${options.commitSHA}"
+        println "Commit shortSHA: ${options.commitShortSHA}"
+
+        if (env.BRANCH_NAME) {
+            withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                githubNotificator.init(options)
+                options["githubNotificator"] = githubNotificator
+                githubNotificator.initPreBuild("${BUILD_URL}")
+                options.projectBranchName = githubNotificator.branchName
+            }
+        }
+
+        currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+        currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+        currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+    }
 
     def tests = []
 
@@ -1845,50 +1848,56 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            // Anroid tests required built Windows Streaming SDK to run server side
-            if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
-                platforms = platforms + ";Windows"
+            Boolean executeBuild = true
 
-                winBuildConfiguration = "debug"
-                winTestingBuildName = "debug_vs2019"
-            }
+            if (projectBranch) {
+                // Anroid tests required built Windows Streaming SDK to run server side
+                if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
+                    platforms = platforms + ";Windows"
 
-            String winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
+                    winBuildConfiguration = "debug"
+                    winTestingBuildName = "debug_vs2019"
+                }
 
-            gpusCount = 0
-            platforms.split(';').each() { platform ->
-                List tokens = platform.tokenize(':')
-                if (tokens.size() > 1) {
-                    gpuNames = tokens.get(1)
-                    gpuNames.split(',').each() {
-                        gpusCount += 1
+                String winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
+
+                gpusCount = 0
+                platforms.split(';').each() { platform ->
+                    List tokens = platform.tokenize(':')
+                    if (tokens.size() > 1) {
+                        gpuNames = tokens.get(1)
+                        gpuNames.split(',').each() {
+                            gpusCount += 1
+                        }
                     }
                 }
+
+                println """
+                    Platforms: ${platforms}
+                    Tests: ${tests}
+                    Tests package: ${testsPackage}
+                    Store on NAS: ${storeOnNAS}
+                """
+
+                winBuildConfiguration = winBuildConfiguration.split(',')
+
+                println """
+                    Win build configuration: ${winBuildConfiguration}"
+                    Win testing build name: ${winTestingBuildName}
+                    Win driver build name: ${winTestingDriverName}
+                """
+
+                androidBuildConfiguration = androidBuildConfiguration.split(',')
+
+                println """
+                    Android build configuration: ${androidBuildConfiguration}"
+                """
+
+                String branchName = env.BRANCH_NAME ?: projectBranch
+                Boolean isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+            } else {
+                executeBuild = false
             }
-
-            println """
-                Platforms: ${platforms}
-                Tests: ${tests}
-                Tests package: ${testsPackage}
-                Store on NAS: ${storeOnNAS}
-            """
-
-            winBuildConfiguration = winBuildConfiguration.split(',')
-
-            println """
-                Win build configuration: ${winBuildConfiguration}"
-                Win testing build name: ${winTestingBuildName}
-                Win driver build name: ${winTestingDriverName}
-            """
-
-            androidBuildConfiguration = androidBuildConfiguration.split(',')
-
-            println """
-                Android build configuration: ${androidBuildConfiguration}"
-            """
-
-            String branchName = env.BRANCH_NAME ?: projectBranch
-            Boolean isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
 
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
@@ -1927,7 +1936,9 @@ def call(String projectBranch = "",
                         storeOnNAS: storeOnNAS,
                         finishedBuildStages: new ConcurrentHashMap(),
                         isDevelopBranch: isDevelopBranch,
-                        collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0
+                        collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
+                        executeBuild: executeBuilde,
+                        executeTests: true
                         ]
         }
 
