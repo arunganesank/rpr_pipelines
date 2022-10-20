@@ -1706,9 +1706,15 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                             writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
                         }
 
-                        bat """
-                            build_reports.bat ..\\summaryTestResults "StreamingSDK" ${options.commitSHA} ${branchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(game)}\"
-                        """
+                        if (options.projectBranch) {
+                            bat """
+                                build_reports.bat ..\\summaryTestResults "StreamingSDK" ${options.commitSHA} ${branchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(game)}\"
+                            """
+                        } else {
+                            bat """
+                                build_reports.bat ..\\summaryTestResults \"AMD Link\" \"-\" \"-\" \"-\" \"${utils.escapeCharsByUnicode(game)}\"
+                            """
+                        }
                     }
                 }
             } catch (e) {
@@ -1849,6 +1855,9 @@ def call(String projectBranch = "",
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             Boolean executeBuild = true
+            String winTestingDriverName = ""
+            String branchName = ""
+            Boolean isDevelopBranch = false
 
             if (projectBranch) {
                 // Anroid tests required built Windows Streaming SDK to run server side
@@ -1859,18 +1868,7 @@ def call(String projectBranch = "",
                     winTestingBuildName = "debug_vs2019"
                 }
 
-                String winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
-
-                gpusCount = 0
-                platforms.split(';').each() { platform ->
-                    List tokens = platform.tokenize(':')
-                    if (tokens.size() > 1) {
-                        gpuNames = tokens.get(1)
-                        gpuNames.split(',').each() {
-                            gpusCount += 1
-                        }
-                    }
-                }
+                winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
 
                 println """
                     Platforms: ${platforms}
@@ -1893,8 +1891,8 @@ def call(String projectBranch = "",
                     Android build configuration: ${androidBuildConfiguration}"
                 """
 
-                String branchName = env.BRANCH_NAME ?: projectBranch
-                Boolean isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+                branchName = env.BRANCH_NAME ?: projectBranch
+                isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
             } else {
                 executeBuild = false
             }
@@ -1913,7 +1911,6 @@ def call(String projectBranch = "",
                         winTestingDriverName: winTestingDriverName,
                         androidBuildConfiguration: androidBuildConfiguration,
                         androidTestingBuildName: androidTestingBuildName,
-                        gpusCount: gpusCount,
                         nodeRetry: nodeRetry,
                         platforms: platforms,
                         clientTag: clientTag,
@@ -1937,7 +1934,7 @@ def call(String projectBranch = "",
                         finishedBuildStages: new ConcurrentHashMap(),
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
-                        executeBuild: executeBuilde,
+                        executeBuild: executeBuild,
                         executeTests: true
                         ]
         }

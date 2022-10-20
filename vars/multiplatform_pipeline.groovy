@@ -116,12 +116,12 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                     if (options.TESTER_TAG) {
                         if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
                             // possibility to test some disabled tester machine
-                            testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName}"
+                            testerLabels = "${osName} && ${options.TESTER_TAG} && ${asicName}"
                         } else {
-                            testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
+                            testerLabels = "${osName} && ${options.TESTER_TAG} && ${asicName} && !Disabled"
                         }
                     } else {
-                        testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
+                        testerLabels = "${osName} && Tester && ${asicName} && !Disabled"
                     }
 
                     testsList.removeAll({buildProfile && !doesProfilesCorrespond(buildProfile, it.split("-")[-1])})
