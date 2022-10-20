@@ -1712,7 +1712,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                             """
                         } else {
                             bat """
-                                build_reports.bat ..\\summaryTestResults \"AMD Link\" \"-\" \"-\" \"-\" \"${utils.escapeCharsByUnicode(game)}\"
+                                build_reports.bat ..\\summaryTestResults \"AMDLink\" \"-\" \"-\" \"-\" \"${utils.escapeCharsByUnicode(game)}\"
                             """
                         }
                     }
