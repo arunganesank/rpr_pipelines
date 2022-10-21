@@ -1236,7 +1236,8 @@ def call(
                                 testCaseRetries:testCaseRetries,
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,
-                                ADDITIONAL_XML_TIMEOUT:15
+                                ADDITIONAL_XML_TIMEOUT:15,
+                                nodeRetry: []
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
