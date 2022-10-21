@@ -716,7 +716,10 @@ def executePreBuild(Map options) {
     options.executeTests = true
 
     ws("WebUSD-prebuild") {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+        }
+
         options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
         options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
