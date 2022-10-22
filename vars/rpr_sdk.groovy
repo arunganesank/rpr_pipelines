@@ -113,7 +113,7 @@ def executeTests(String osName, String asicName, Map options)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
-            downloadFiles("/volume1/Assets/rpr_core_autotests/", assets_dir)
+            downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assets_dir)
         }
 
         String enginePostfix = options.engine == "HIPvsNS" ? "Northstar64" : options.engine
@@ -502,7 +502,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 withCredentials([string(credentialsId: 'buildsRemoteHost', variable: 'REMOTE_HOST')]) {
                     dir("core_tests_configuration") {
-                        downloadFiles("/volume1/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
+                        downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
                     }
                 }
             } catch (e) {
