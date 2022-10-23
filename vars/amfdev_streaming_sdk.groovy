@@ -1410,7 +1410,7 @@ def executePreBuild(Map options) {
                         }
                     }
                 }
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70, options.storeOnNAS ? 40 : 200)
 
                 options.engines.each { engine ->
                     if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
