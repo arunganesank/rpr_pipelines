@@ -47,8 +47,12 @@ String getMulticonnectionClientLabels(Map options) {
 
 
 def getReportBuildArgs(String engineName, Map options) {
-    String branchName = env.BRANCH_NAME ?: options.projectBranch
-    return "StreamingSDK ${options.commitSHA} ${branchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\""
+    if (options.storeOnNAS) {
+        String branchName = env.BRANCH_NAME ?: options.projectBranch
+        return "StreamingSDK ${options.commitSHA} ${branchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\""
+    } else {
+        return "AMDLink - - -"
+    }
 }
 
 
@@ -1711,15 +1715,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                             writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
                         }
 
-                        if (options.projectBranch) {
-                            bat """
-                                build_reports.bat ..\\summaryTestResults "StreamingSDK" ${options.commitSHA} ${branchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(game)}\"
-                            """
-                        } else {
-                            bat """
-                                build_reports.bat ..\\summaryTestResults \"AMDLink\" \"-\" \"-\" \"-\" \"${utils.escapeCharsByUnicode(game)}\"
-                            """
-                        }
+                        bat """
+                            build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(game, options)} \"${utils.escapeCharsByUnicode(game)}\"
+                        """
                     }
                 }
             } catch (e) {
