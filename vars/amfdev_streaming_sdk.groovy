@@ -1414,7 +1414,7 @@ def executePreBuild(Map options) {
                         }
                     }
                 }
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70, options.storeOnNAS ? 40 : 200)
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
                 options.engines.each { engine ->
                     if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
@@ -1451,7 +1451,7 @@ def executePreBuild(Map options) {
                     }
                 }
             } else if (options.tests) {
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List, collectTraces ? 90 : 70, options.storeOnNAS ? 40 : 200)
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List, collectTraces ? 90 : 70)
                 options.engines.each { engine ->
                     options.tests.each() {
                         tests << "${it}-${engine}"
