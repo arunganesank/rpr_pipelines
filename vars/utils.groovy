@@ -100,7 +100,9 @@ class utils {
 
     static Integer getBuildPriority(Object self) {
         if (self.env.JOB_NAME.contains('Auto/') || self.env.JOB_NAME.contains('-Hybrid/')) {
-            if (self.env.JOB_NAME.contains("USDViewer") || self.env.JOB_NAME.contains("InventorPluginInstaller")) {
+            if (self.env.JOB_NAME.contains("-Hybrid/")) {
+                return 15
+            } else if (self.env.JOB_NAME.contains("USDViewer") || self.env.JOB_NAME.contains("InventorPluginInstaller")) {
                 return 20
             } else if (self.env.JOB_NAME.contains("Core")) {
                 return 9
