@@ -448,13 +448,13 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
                     rm -rf ../libs
                 """
                 sh """#!/bin/bash
-                    virtualenv -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
+                    virtualenv --no-pip -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
                     source venv/bin/activate >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     export CPATH=/usr/include/python${pyVersion} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     export OS= >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
+                    curl -sS https://bootstrap.pypa.io/get-pip.py | python 2>&1
                     python --version >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
-                    pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
                     python tools/build.py -all -clean -bin-dir ../bin ${additionalKeys} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                 """
                 
@@ -463,15 +463,13 @@ def executeBuildLinux(String osName, Map options, String pyVersion = "3.9") {
                 }
             } else {
                 sh """#!/bin/bash
-                    virtualenv -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
+                    virtualenv --no-pip -p python${pyVersion} venv >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     source venv/bin/activate >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     export CPATH=/usr/include/python${pyVersion} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    export OS=
-                    python${pyVersion} --version >> ../${STAGE_NAME}_${pyVersion}.log  2>&1
+                    curl -sS https://bootstrap.pypa.io/get-pip.py | python 2>&1
                     python --version >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                     python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                    python${pyVersion} tools/build.py -libs -mx-classes -addon -bin-dir ../bin ${additionalKeys} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
+                    python tools/build.py -libs -mx-classes -addon -bin-dir ../bin ${additionalKeys} >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
                 """
             }
 
@@ -1056,7 +1054,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',
