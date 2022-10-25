@@ -424,8 +424,6 @@ def closeAmdLink(String osName, Map options, String executionType) {
                 """
         }
     } catch (e) {
-        println("[ERROR] Failed to close Adrenalin/AMD Link")
-        println(e)
     }
 }
 

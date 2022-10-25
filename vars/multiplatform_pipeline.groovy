@@ -114,14 +114,18 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                     def testerLabels
                     if (options.TESTER_TAG) {
-                        if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
-                            // possibility to test some disabled tester machine
-                            testerLabels = "${osName} && ${options.TESTER_TAG} && ${asicName}"
+                        if (options.TESTER_TAG == "AMDLink") {
+                            testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
                         } else {
-                            testerLabels = "${osName} && ${options.TESTER_TAG} && ${asicName} && !Disabled"
+                            if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
+                                // possibility to test some disabled tester machine
+                                testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName}"
+                            } else {
+                                testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
+                            }
                         }
                     } else {
-                        testerLabels = "${osName} && Tester && ${asicName} && !Disabled"
+                        testerLabels = "${osName} && Tester && gpu${asicName} && !Disabled"
                     }
 
                     testsList.removeAll({buildProfile && !doesProfilesCorrespond(buildProfile, it.split("-")[-1])})
