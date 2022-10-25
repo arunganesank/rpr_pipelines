@@ -115,7 +115,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                     def testerLabels
                     if (options.TESTER_TAG) {
                         if (options.TESTER_TAG == "AMDLink") {
-                            testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
+                            testerLabels = "${osName} && ${options.TESTER_TAG} && ${asicName} && !Disabled"
                         } else {
                             if (options.TESTER_TAG.contains("PC-") || options.TESTER_TAG.contains("LC-")) {
                                 // possibility to test some disabled tester machine
