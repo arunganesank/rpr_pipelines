@@ -151,16 +151,32 @@ def getClientScreenHeight(String osName, Map options) {
 }
 
 
-def prepareTool(String osName, Map options) {
+def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
-            makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "${options.winTestingBuildName}.zip")
+            if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
+                dir("StreamingSDK") {
+                    downloadFiles("/volume1/CIS/WebUSD/Drivers/FullSamples.zip", ".")
+                    unzip(zipFile: "FullSamples.zip")
+                }
 
-            if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
-                makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "LatencyTool_Windows.zip")
+                if (executionType && executionType == "server") {
+                    dir("driver") {
+                        // TODO: download necessary chrome driver from the official web site
+                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_web.exe", ".")
+                        bat("rename chromedriver_web.exe chromedriver.exe")
+                    }
+                }
+            } else {
+                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "${options.winTestingBuildName}.zip")
+
+                if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                    makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                    unzip(zipFile: "LatencyTool_Windows.zip")
+                }
             }
+
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -712,7 +728,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
                 if (options.projectBranch) {
                     dir("StreamingSDK") {
-                        prepareTool(osName, options)
+                        prepareTool(osName, options, "server")
                     }
 
                     // Android autotests support only Windows server machines
@@ -1935,7 +1951,7 @@ def call(String projectBranch = "",
                         finishedBuildStages: new ConcurrentHashMap(),
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
-                        executeBuild: executeBuild,
+                        executeBuild: false,
                         executeTests: true
                         ]
         }
