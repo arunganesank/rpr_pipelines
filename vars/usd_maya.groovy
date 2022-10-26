@@ -605,8 +605,8 @@ def executePreBuild(Map options) {
                         bat """
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
                             git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
                             git push origin HEAD:develop
                         """
