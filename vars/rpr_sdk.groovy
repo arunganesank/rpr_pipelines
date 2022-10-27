@@ -36,7 +36,7 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
         return true
     }
 
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) 

@@ -37,7 +37,7 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
     }
 
     // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6800")))
+    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
 
