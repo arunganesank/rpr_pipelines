@@ -156,7 +156,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Windows":
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
                 dir("StreamingSDK") {
-                    downloadFiles("/volume1/CIS/WebUSD/Drivers/FullSamples.zip", ".")
+                    downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
                     unzip(zipFile: "FullSamples.zip")
                 }
 
