@@ -262,7 +262,7 @@ def call(String jobName,
                                 def grouppedDirs = findFiles()
 
                                 for (currentDir in grouppedDirs) {
-                                    if (currentDir.directory && currentDir.name.startsWith(resultPath)) {
+                                    if (currentDir.directory && resultPath.endsWith(currentDir.name)) {
                                         dir("${currentDir.name}/Results") {
                                             // skip empty directories
                                             if (findFiles().length == 0) {
@@ -289,7 +289,7 @@ def call(String jobName,
 
                                 for (currentDir in grouppedDirs) {
                                     if (currentDir.directory && 
-                                        (currentDir.name.startsWith("NVIDIA_") || currentDir.name.startsWith("AppleM1") || currentDir.name.startsWith("AMD_"))) {
+                                        (currentDir.name.startsWith("NVIDIA_") || currentDir.name.startsWith("AppleM1") || currentDir.name.startsWith("AMD_")) || currentDir.name.startsWith("Chrome")) {
 
                                         def resultPathParts = currentDir.name.split("-")
                                         String gpuName = resultPathParts[0]
