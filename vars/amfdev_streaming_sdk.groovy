@@ -155,13 +155,11 @@ def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
-                dir("StreamingSDK") {
-                    downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
-                    unzip(zipFile: "FullSamples.zip")
-                }
+                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
+                unzip(zipFile: "FullSamples.zip")
 
                 if (executionType && executionType == "server") {
-                    dir("driver") {
+                    dir("../driver") {
                         // TODO: download necessary chrome driver from the official web site
                         downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_web.exe", ".")
                         bat("rename chromedriver_web.exe chromedriver.exe")
