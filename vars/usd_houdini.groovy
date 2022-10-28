@@ -41,6 +41,7 @@ def installHoudiniPlugin(String osName, Map options) {
 
         default:
             sh """
+                export HOUDINI_USER_PREF_DIR=/home/user/houdini${options.toolVersion.tokenize('.')[0]}.${options.toolVersion.tokenize('.')[1]}
                 cd hdRpr*
                 chmod +x activateHoudiniPlugin
                 echo y | ./activateHoudiniPlugin \"../${options.stageName}_${options.currentTry}.install.log\" 2>&1
@@ -65,6 +66,7 @@ def buildRenderCache(String osName, Map options) {
                 break
             default:
                 sh """
+                    export HOUDINI_USER_PREF_DIR=/home/user/houdini${options.toolVersion.tokenize('.')[0]}.${options.toolVersion.tokenize('.')[1]}
                     export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.toolVersion}/dsolib"
                     chmod +x build_rpr_cache.sh
                     ./build_rpr_cache.sh \"/home/user/${options.unix_tool_path}/bin/husk\" >> \"../${options.stageName}_${options.currentTry}.cb.log\" 2>&1
@@ -128,6 +130,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
                 default:
                     sh """
+                        export HOUDINI_USER_PREF_DIR=/home/user/houdini${options.toolVersion.tokenize('.')[0]}.${options.toolVersion.tokenize('.')[1]}
                         chmod +x run.sh
                         ./run.sh ${options.testsPackage} \"${options.tests}\" \"/home/user/${options.unix_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
