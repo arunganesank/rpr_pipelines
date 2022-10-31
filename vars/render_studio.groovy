@@ -246,8 +246,15 @@ def executeTests(String osName, String asicName, Map options) {
         if (osName == "Windows") {
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
                 timeout(time: "10", unit: "MINUTES") {
-                    getProduct("Windows", options)
-                    runApplicationTests(osName, options)
+                    try {
+                        getProduct("Windows", options)
+                        runApplicationTests(osName, options)
+                    } catch (e) {
+                        if (e instanceof ExpectedExceptionWrapper) {
+                            options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
+                        }
+                        throw e
+                    }
                 }
             }
 
