@@ -738,4 +738,34 @@ class utils {
                 }
         }
     }
+
+    def closeProcess(String procName, String osName, Map options){
+        switch(osName) {
+            case "Windows":
+                powershell"""
+                    Get-Process "${procName}" | Foreach-Object { $_.CloseMainWindow() | Out-Null }
+                """
+            default:
+                println "[WARNING] ${osName} is not supported"
+        }
+    }
+
+
+    def isProcessExists(String procName, String osName, Map options){
+        switch(osName) {
+            case 'Windows':
+                try{
+                    powershell"""
+                        Get-Process "${procName}"
+                    """
+                } catch (e) {
+                    return False
+                }
+            default:
+                println "[WARNING] ${osName} is not supported"
+                return False
+        }
+
+        return True
+    }
 }

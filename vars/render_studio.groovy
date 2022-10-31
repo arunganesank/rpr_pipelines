@@ -55,6 +55,108 @@ Integer removeClosedPRs(Map options) {
  }
 
 
+def uninstallAMDRenderStudio(String osName, Map options) {
+    def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
+
+    // TODO: compare product code of built application and installed application
+    if (installedProductCode) {
+        println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
+        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+    }
+}
+
+
+def installAMDRenderStudio(String osName, Map options) {
+    dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
+        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+    }
+}
+
+
+def getDesktopLink(String osName, Map options) {
+    switch(osName) {
+        case "Windows":
+            String desktopLinkName = "AMD RenderStudio.lnk"
+
+            String publicDir = "C:\\Users\\Public"
+            String userDir = bat(script: "echo %USERPROFILE%",returnStdout: true).split('\r\n')[2].trim()
+
+            if (fileExists(userDir)) {
+                throw new ExpectedExceptionWrapper("Failed to locate user profile directory")
+            }
+
+            String publicDesktopLinkPath = "${publicDir}\\Desktop\\${desktopLinkName}"
+            String userDesktopLinkPath = "${userDir}\\Desktop\\${desktopLinkName}"
+
+            return fileExists(publicDesktopLinkPath) ? publicDesktopLinkPath : fileExists(userDesktopLinkPath) ? userDesktopLinkPath : null
+        default:
+            println "[WARNING] ${osName} is not supported"
+    }
+}
+
+
+def runApplication(File appLink, String osName, Map options) {
+    switch(osName) {
+        case "Windows":
+            try {
+                bat "\"${appLink}\""
+            } catch (e) {
+                throw new ExpectedExceptionWrapper("Failed to launch Render Studio application")
+            }
+        default:
+            println "[WARNING] ${osName} is not supported"
+    }
+}
+
+
+def runApplicationTests(String osName, Map options) {
+    // Step 1: install app
+    installAMDRenderStudio(osName, options)
+
+    // Step 2: check app link on the desktop
+    String appLink = getDesktopLink(osName, options)
+
+    if (appLink == null) {
+        throw new ExpectedExceptionWrapper("Render Studio application link not found in Public/User directory")
+    }
+
+    // Step 3: check app link in start menu
+    String startMenuLink = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\AMD\\AMD RenderStudio.lnk"
+
+    if (fileExists(startMenuLink)) {
+        throw new ExpectedExceptionWrapper("Render Studio application link not found in start menu")
+    }
+
+    // Step 4: run app using link on the desktop
+    runApplication(appLink, osName, options)
+
+    // Step 5: try to uninstall app (should be unsuccessfull, issue on Render Studio side)
+    uninstallAMDRenderStudio(osName, options)
+
+    // Step 6: close app window
+    try {
+        utils.closeProcess("AMD RenderStudio", osName, options)
+    } catch (e) {
+        throw new ExpectedExceptionWrapper("Failed to close Render Studio process")
+    }
+
+    // Step 7: check processes after closing app
+    // Boolean process = utils.isProcessExists("AMD RenderStudio", osName, options) || utils.isProcessExists("StreamingApp", osName, options)
+    // if (process) {
+    //     throw new ExpectedExceptionWrapper("Render Studio processes are not closed after application closing")
+    // }
+
+    // Step 8: uninstall app
+    uninstallAMDRenderStudio(osName, options)
+
+    // Step 9: check processes after uninstalling
+    Boolean process = utils.isProcessExists("AMD RenderStudio", osName, options)
+    if (process) {
+        throw new ExpectedExceptionWrapper("Processes are not closed after application uninstallation")
+    }
+}
+
+
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
     dir('scripts') {
         bat """
@@ -131,21 +233,17 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         if (osName == "Windows") {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
+            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
                 timeout(time: "10", unit: "MINUTES") {
                     getProduct("Windows", options)
+                    runApplicationTests(osName, options)
+                }
+            }
 
-                    def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
-
-                    // TODO: compare product code of built application and installed application
-                    if (installedProductCode) {
-                        println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
-                        uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-                    }
-
-                    dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-                        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
-                    }
+            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
+                timeout(time: "10", unit: "MINUTES") {
+                    uninstallAMDRenderStudio(osName, options)
+                    installAMDRenderStudio(osName, options)
                 }
             }
 
