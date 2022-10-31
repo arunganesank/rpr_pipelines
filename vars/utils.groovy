@@ -669,7 +669,7 @@ class utils {
                                 httpMode: 'GET'
                             )
                         } catch(e1) {
-                            println("[INFO] Report '${publishedReportName}' not found")
+                            self.println("[INFO] Report '${publishedReportName}' not found")
                             allReportsExists = false
                             break
                         }
@@ -737,5 +737,35 @@ class utils {
                     self.println(e.getMessage())
                 }
         }
+    }
+
+    def closeProcess(Object self, String procName, String osName, Map options){
+        switch(osName) {
+            case "Windows":
+                self.powershell"""
+                    Get-Process "${procName}" | Foreach-Object { \$_.CloseMainWindow() | Out-Null }
+                """
+            default:
+                self.println "[WARNING] ${osName} is not supported"
+        }
+    }
+
+
+    def isProcessExists(Object self, String procName, String osName, Map options) {
+        switch(osName) {
+            case 'Windows':
+                try{
+                    self.powershell """
+                        Get-Process "${procName}" -ErrorAction Stop
+                    """
+                } catch (e) {
+                    return false
+                }
+            default:
+                self.println "[WARNING] ${osName} is not supported"
+                return false
+        }
+
+        return true
     }
 }

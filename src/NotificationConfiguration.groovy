@@ -443,6 +443,17 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static RUN_APPLICATION_TESTS = [
+        "begin": ["message": "Running application tests."],
+
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to run application tests.", 
+                "rethrow": ExceptionThrowType.RETHROW
+            ]
+        ]
+    ]
+
     def static UNINSTALL_APPPLICATION = [
         "begin": ["message": "Uninstalling the application."],
         "end": ["message": "App uninstalled"],
