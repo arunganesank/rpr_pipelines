@@ -81,21 +81,31 @@ def getDesktopLink(String osName, Map options) {
             String publicDir = "C:\\Users\\Public"
             String userDir = bat(script: "echo %USERPROFILE%",returnStdout: true).split('\r\n')[2].trim()
 
-            if (fileExists(userDir)) {
-                throw new ExpectedExceptionWrapper("Failed to locate user profile directory")
+            dir(userDir) {
+                if (!fileExists("/")) {
+                    throw new ExpectedExceptionWrapper("Failed to locate user profile directory")
+                }
             }
 
-            String publicDesktopLinkPath = "${publicDir}\\Desktop\\${desktopLinkName}"
-            String userDesktopLinkPath = "${userDir}\\Desktop\\${desktopLinkName}"
+            String publicDesktopLinkDir = "${publicDir}\\Desktop\\${desktopLinkName}"
+            String userDesktopLinkDir = "${userDir}\\Desktop\\${desktopLinkName}"
 
-            return fileExists(publicDesktopLinkPath) ? publicDesktopLinkPath : fileExists(userDesktopLinkPath) ? userDesktopLinkPath : null
+            if (fileExists(publicDesktopLinkDir)) {
+                return publicDesktopLinkDir
+            }
+
+            if (fileExists(userDesktopLinkDir)) {
+                return userDesktopLinkDir
+            }
+
+            return null
         default:
             println "[WARNING] ${osName} is not supported"
     }
 }
 
 
-def runApplication(File appLink, String osName, Map options) {
+def runApplication(String appLink, String osName, Map options) {
     switch(osName) {
         case "Windows":
             try {
@@ -121,9 +131,9 @@ def runApplicationTests(String osName, Map options) {
     }
 
     // Step 3: check app link in start menu
-    String startMenuLink = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\AMD\\AMD RenderStudio.lnk"
+    String startMenuLinkDir = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\AMD\\AMD RenderStudio.lnk"
 
-    if (fileExists(startMenuLink)) {
+    if (!fileExists(startMenuLinkDir)) {
         throw new ExpectedExceptionWrapper("Render Studio application link not found in start menu")
     }
 
@@ -135,13 +145,13 @@ def runApplicationTests(String osName, Map options) {
 
     // Step 6: close app window
     try {
-        utils.closeProcess("AMD RenderStudio", osName, options)
+        utils.closeProcess(this, "AMD RenderStudio", osName, options)
     } catch (e) {
         throw new ExpectedExceptionWrapper("Failed to close Render Studio process")
     }
 
     // Step 7: check processes after closing app
-    // Boolean process = utils.isProcessExists("AMD RenderStudio", osName, options) || utils.isProcessExists("StreamingApp", osName, options)
+    // Boolean process = utils.isProcessExists(this, "AMD RenderStudio", osName, options) || utils.isProcessExists(this, "StreamingApp", osName, options)
     // if (process) {
     //     throw new ExpectedExceptionWrapper("Render Studio processes are not closed after application closing")
     // }
@@ -150,8 +160,9 @@ def runApplicationTests(String osName, Map options) {
     uninstallAMDRenderStudio(osName, options)
 
     // Step 9: check processes after uninstalling
-    Boolean process = utils.isProcessExists("AMD RenderStudio", osName, options)
-    if (process) {
+    Boolean processFound = utils.isProcessExists(this, "AMD RenderStudio", osName, options)
+
+    if (processFound) {
         throw new ExpectedExceptionWrapper("Processes are not closed after application uninstallation")
     }
 }
