@@ -196,7 +196,13 @@ def call(String jobName,
                                 String osName = directory.split("-")[1]
                                 List groups = directory.split("-")[2].replace("/", "").split() as List
 
-                                if (!groups.contains(groupName)) {
+                                if (groups[0].startsWith("regression")) {
+                                    // find same regression parts as in the resultPath parameter
+                                    if (allPlatforms && groups[0] != resultPath.split("/")[0].split("-")[2]) {
+                                        println("[INFO] Directory ${directory} isn't a target regression directory")
+                                        return
+                                    }
+                                } else if (!groups.contains(groupName)) {
                                     println("[INFO] Directory ${directory} doesn't contain ${groupName} test group. Skip it")
                                     return
                                 }
