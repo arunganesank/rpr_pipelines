@@ -446,8 +446,13 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-        bat "move WebUsdFrontendServer\\env.desktop.template WebUsdFrontendServer\\.env.production"
+        if (options.projectBranchName.contains("demo/november")) {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
+            bat "move WebUsdFrontendServer\\env.demo.desktop.template WebUsdFrontendServer\\.env.production"
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
+            bat "move WebUsdFrontendServer\\env.desktop.template WebUsdFrontendServer\\.env.production"
+        }
 
         String frontendVersion
         String renderStudioVersion
