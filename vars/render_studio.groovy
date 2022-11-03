@@ -701,8 +701,6 @@ def executeBuildLinux(Map options) {
 def executeBuild(String osName, Map options) {  
     try {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            cleanWS(osName == "Windows" ? "Windows" : "Ubuntu20")
-
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
             patchVersions(options)
@@ -742,6 +740,8 @@ def executeBuild(String osName, Map options) {
                 }
             }
         }
+
+        utils.removeFile(this, osName, "*.log")
 
         outputEnvironmentInfo(osName == "Windows" ? "Windows" : "Ubuntu20")
 
