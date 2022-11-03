@@ -433,6 +433,33 @@ def patchVersions(Map options) {
 }
 
 
+def executeBuildScript(Map options) {
+    def shellFunction = isUnix() ? sh : bat
+
+    if (options.rebuildUSD) {
+        shellFunction """
+            python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+
+        dir("Build/Install/USD") {
+            uploadFiles("./Build/Install/USD/", "/volume1/CIS/WebUSD/Modules/default/", "--quiet")
+        }
+
+        shellFunction """
+            python Tools/Build.py -su -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+    } else {
+        dir("Build/Install/USD") {
+            downloadFiles("/volume1/CIS/WebUSD/Modules/default/", "./Build/Install/USD/", , "--quiet")
+        }
+
+        shellFunction """
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+    }
+}
+
+
 def executeBuildWindows(Map options) {
     options["stage"] = "Build"
 
@@ -489,9 +516,12 @@ def executeBuildWindows(Map options) {
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
                     echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                    python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
                 """
+
+                executeBuildScript(options)
+
                 println("[INFO] Start building installer")
+
                 bat """
                     python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
                 """
@@ -618,8 +648,9 @@ def executeBuildLinux(Map options) {
                 echo "[AMF]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
                 export OS=
-                python3 Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
             """
+
+            executeBuildScript(options)
 
             println("[INFO] Start building & sending docker containers to repo")
             String deployArgs = "-ba -da"
@@ -1287,7 +1318,8 @@ def call(
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
     Boolean skipBuild = false,
-    String customBuildLinkWindows = ""
+    String customBuildLinkWindows = "",
+    Boolean rebuildUSD = false
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -1361,7 +1393,8 @@ def call(
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 ADDITIONAL_XML_TIMEOUT:15,
-                                nodeRetry: []
+                                nodeRetry: [],
+                                rebuildUSD: rebuildUSD
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
