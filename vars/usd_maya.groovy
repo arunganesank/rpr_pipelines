@@ -71,7 +71,13 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
         bat """
             start /wait ${CIS_TOOLS}\\..\\PluginsBinaries\\${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
         """
-
+        
+        String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+        if(!envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
+            !envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
+            !envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
+                throw new Exception("Failed due to incorrect Maya.env")
+            }
     } catch (e) {
         throw new Exception("Failed to install plugin")
     }
@@ -88,6 +94,12 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                     bat """
                         start "" /wait "${defaultUninstallerPath}" /SILENT
                     """
+                    String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+                    if(envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
+                        envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
+                        envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
+                            throw new Exception("Failed due to incorrect Maya.env")
+                        }
                 } else {
                     println "[INFO] USD Maya plugin not found"
                 }
