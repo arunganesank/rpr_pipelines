@@ -433,27 +433,37 @@ def patchVersions(Map options) {
 }
 
 
-def executeBuildScript(Map options) {
-    def shellFunction = isUnix() ? sh : bat
-
+def executeBuildScript(String osName, Map options) {
     if (options.rebuildUSD) {
-        shellFunction """
-            python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
-        """
-
-        dir("Build/Install/USD") {
-            uploadFiles("./Build/Install/USD/", "/volume1/CIS/WebUSD/Modules/default/", "--quiet")
+        if (isUnix()) {
+            sh """
+                export OS=
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+            """
+        } else {
+            bat """
+                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+            """
         }
 
-        shellFunction """
-            python Tools/Build.py -su -v >> ${STAGE_NAME}.Build.log 2>&1
-        """
+        dir("Build/Install/USD") {
+            uploadFiles(".", "/volume1/CIS/WebUSD/Modules/${osName}/default/", "--quiet")
+        }
     } else {
         dir("Build/Install/USD") {
-            downloadFiles("/volume1/CIS/WebUSD/Modules/default/", "./Build/Install/USD/", , "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/default/", ".", , "--quiet")
         }
+    }
 
-        shellFunction """
+    if (isUnix()) {
+        sh """
+            export OS=
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+    } else {
+        bat """
+            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
             python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
         """
     }
@@ -507,7 +517,6 @@ def executeBuildWindows(Map options) {
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                     cmake --version >> ${STAGE_NAME}.Build.log 2>&1
                     python--version >> ${STAGE_NAME}.Build.log 2>&1
                     python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
@@ -518,7 +527,7 @@ def executeBuildWindows(Map options) {
                     echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
                 """
 
-                executeBuildScript(options)
+                executeBuildScript("Windows", options)
 
                 println("[INFO] Start building installer")
 
@@ -647,10 +656,9 @@ def executeBuildLinux(Map options) {
                 echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
                 echo "[AMF]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
-                export OS=
             """
 
-            executeBuildScript(options)
+            executeBuildScript("Linux", options)
 
             println("[INFO] Start building & sending docker containers to repo")
             String deployArgs = "-ba -da"
