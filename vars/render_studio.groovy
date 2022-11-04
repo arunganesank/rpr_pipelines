@@ -434,7 +434,7 @@ def patchVersions(Map options) {
 
 
 def executeBuildScript(String osName, Map options, String usdPath = "default") {
-    downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/info.json", ".", , "--quiet")
+    downloadFiles("/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/info.json", ".", , "--quiet")
     def usdInfo = readJSON(file: "info.json")
 
     println("[INFO] Found USD module hash: ${usdInfo['hash']}")
@@ -461,12 +461,12 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
             dir("Build/Install/USD") {
                 def newUSDInfo = JsonOutput.toJson(["hash": options.usdHash])
                 writeJSON(file: 'info.json', json: JSONSerializer.toJSON(newUSDInfo, new JsonConfig()), pretty: 4)
-                uploadFiles(".", "/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/", "--quiet")
+                uploadFiles(".", "/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/", "--quiet")
             }
         }
     } else {
         dir("Build/Install/USD") {
-            downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/", ".", , "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/", ".", , "--quiet")
         }
     }
 
