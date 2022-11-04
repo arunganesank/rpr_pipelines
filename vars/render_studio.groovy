@@ -433,7 +433,17 @@ def patchVersions(Map options) {
 }
 
 
-def executeBuildScript(String osName, Map options) {
+def executeBuildScript(String osName, Map options, String usdPath = "default") {
+    downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/info.json", ".", , "--quiet")
+    def usdInfo = readJSON(file: "info.json")
+
+    println("[INFO] Found USD module hash: ${usdInfo['hash']}")
+
+    if (options.usdHash != usdInfo["hash"] && env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
+        println("[INFO] New USD version detected in develop branch. It'll be saved")
+        options.saveUSD = true
+    }
+
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
@@ -447,12 +457,16 @@ def executeBuildScript(String osName, Map options) {
             """
         }
 
-        dir("Build/Install/USD") {
-            uploadFiles(".", "/volume1/CIS/WebUSD/Modules/${osName}/default/", "--quiet")
+        if (options.saveUSD) {
+            dir("Build/Install/USD") {
+                def newUSDInfo = JsonOutput.toJson(["hash": options.usdHash])
+                writeJSON(file: 'info.json', json: JSONSerializer.toJSON(newUSDInfo, new JsonConfig()), pretty: 4)
+                uploadFiles(".", "/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/", "--quiet")
+            }
         }
     } else {
         dir("Build/Install/USD") {
-            downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/default/", ".", , "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/Modules/${osName}/USD/${usdPath}/", ".", , "--quiet")
         }
     }
 
@@ -934,6 +948,8 @@ def executePreBuild(Map options) {
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             String version = readFile("VERSION.txt").trim()
 
+            options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
+
             if (env.BRANCH_NAME) {
                 withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                     GithubNotificator githubNotificator = new GithubNotificator(this, options)
@@ -942,7 +958,22 @@ def executePreBuild(Map options) {
                     githubNotificator.initPreBuild("${BUILD_URL}")
                     options.projectBranchName = githubNotificator.branchName
                 }
-            
+
+                if (env.CHANGE_URL) {
+                    GithubApiProvider githubApiProvider = GithubApiProvider(this)
+                    String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"], env.CHANGE_URL, "USD")
+
+                    bat """
+                        Original USD Hash: ${originalUSDHash}
+                        Current USD Hash: ${options.usdHash}
+                    """
+
+                    if (originalUSDHash != options.usdHash) {
+                        println("[INFO] USD module was updated. It'll be rebuilt")
+                        options.rebuildUSD = true
+                    }
+                }
+
                 if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                     println "[INFO] Current build version: ${version}"
@@ -1327,7 +1358,8 @@ def call(
     Integer testCaseRetries = 5,
     Boolean skipBuild = false,
     String customBuildLinkWindows = "",
-    Boolean rebuildUSD = false
+    Boolean rebuildUSD = false,
+    Boolean saveUSD = false
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -1402,7 +1434,8 @@ def call(
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 ADDITIONAL_XML_TIMEOUT:15,
                                 nodeRetry: [],
-                                rebuildUSD: rebuildUSD
+                                rebuildUSD: rebuildUSD,
+                                saveUSD: saveUSD
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
