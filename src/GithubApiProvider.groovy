@@ -372,4 +372,24 @@ class GithubApiProvider {
         }
     }
 
+    /**
+     * Function to request review (see https://docs.github.com/en/rest/repos/contents)
+     *
+     * @param repositoryUrl url to the target repository
+     * @param branchOrHash target branch name / commit hash
+     * @param path necessary location in the target repository
+     */
+    def getContentInfo(String repositoryUrl, String branchOrHash, String path) {
+        context.withCredentials([context.string(credentialsId: "github", variable: "GITHUB_TOKEN")]) {
+            def response = context.httpRequest(
+                url: "${repositoryUrl.replace('https://github.com', 'https://api.github.com/repos')}/contents/${path}?ref=${branchOrHash}",
+                httpMode: "GET",
+                customHeaders: [
+                    [name: "Authorization", value: "Bearer ${context.GITHUB_TOKEN}"]
+                ]
+            )
+
+            return parseResponse(response.content)
+        }
+    }
 }

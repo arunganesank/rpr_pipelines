@@ -433,6 +433,57 @@ def patchVersions(Map options) {
 }
 
 
+def executeBuildScript(String osName, Map options, String usdPath = "default") {
+    downloadFiles("/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/info.json", ".", , "--quiet")
+    def usdInfo = readJSON(file: "info.json")
+
+    println("[INFO] Found USD module hash: ${usdInfo['hash']}")
+
+    if (options.usdHash != usdInfo["hash"] && env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
+        println("[INFO] New USD version detected in develop branch. It'll be saved")
+        options.saveUSD = true
+    }
+
+    if (options.rebuildUSD) {
+        if (isUnix()) {
+            sh """
+                export OS=
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+            """
+        } else {
+            bat """
+                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+            """
+        }
+
+        if (options.saveUSD) {
+            dir("Build/Install/USD") {
+                def newUSDInfo = JsonOutput.toJson(["hash": options.usdHash])
+                writeJSON(file: 'info.json', json: JSONSerializer.toJSON(newUSDInfo, new JsonConfig()), pretty: 4)
+                uploadFiles(".", "/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/", "--quiet")
+            }
+        }
+    } else {
+        dir("Build/Install/USD") {
+            downloadFiles("/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/", ".", , "--quiet")
+        }
+    }
+
+    if (isUnix()) {
+        sh """
+            export OS=
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+    } else {
+        bat """
+            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+        """
+    }
+}
+
+
 def executeBuildWindows(Map options) {
     options["stage"] = "Build"
 
@@ -480,7 +531,6 @@ def executeBuildWindows(Map options) {
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                     cmake --version >> ${STAGE_NAME}.Build.log 2>&1
                     python--version >> ${STAGE_NAME}.Build.log 2>&1
                     python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
@@ -489,9 +539,12 @@ def executeBuildWindows(Map options) {
                     echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                     echo [AMF] >> Build/LocalBuildConfig.txt
                     echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                    python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
                 """
+
+                executeBuildScript("Windows", options)
+
                 println("[INFO] Start building installer")
+
                 bat """
                     python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
                 """
@@ -617,9 +670,9 @@ def executeBuildLinux(Map options) {
                 echo "path = ${CIS_TOOLS}/../thirdparty/webrtc/src" >> Build/LocalBuildConfig.txt
                 echo "[AMF]" >> Build/LocalBuildConfig.txt
                 echo "path = ${CIS_TOOLS}/../thirdparty/AMF/Install" >> Build/LocalBuildConfig.txt
-                export OS=
-                python3 Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
             """
+
+            executeBuildScript("Linux", options)
 
             println("[INFO] Start building & sending docker containers to repo")
             String deployArgs = "-ba -da"
@@ -895,6 +948,8 @@ def executePreBuild(Map options) {
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             String version = readFile("VERSION.txt").trim()
 
+            options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
+
             if (env.BRANCH_NAME) {
                 withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                     GithubNotificator githubNotificator = new GithubNotificator(this, options)
@@ -903,7 +958,22 @@ def executePreBuild(Map options) {
                     githubNotificator.initPreBuild("${BUILD_URL}")
                     options.projectBranchName = githubNotificator.branchName
                 }
-            
+
+                if (env.CHANGE_URL) {
+                    GithubApiProvider githubApiProvider = new GithubApiProvider(this)
+                    String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"].replace("git@github.com:", "https://github.com/").replaceAll(".git\$", ""), env.CHANGE_TARGET, "USD")["sha"]
+
+                    bat """
+                        Original USD Hash: ${originalUSDHash}
+                        Current USD Hash: ${options.usdHash}
+                    """
+
+                    if (originalUSDHash != options.usdHash) {
+                        println("[INFO] USD module was updated. It'll be rebuilt")
+                        options.rebuildUSD = true
+                    }
+                }
+
                 if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                     println "[INFO] Current build version: ${version}"
@@ -1287,7 +1357,9 @@ def call(
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
     Boolean skipBuild = false,
-    String customBuildLinkWindows = ""
+    String customBuildLinkWindows = "",
+    Boolean rebuildUSD = false,
+    Boolean saveUSD = false
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -1361,7 +1433,9 @@ def call(
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,
                                 ADDITIONAL_XML_TIMEOUT:15,
-                                nodeRetry: []
+                                nodeRetry: [],
+                                rebuildUSD: rebuildUSD,
+                                saveUSD: saveUSD
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
