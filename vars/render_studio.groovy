@@ -960,8 +960,8 @@ def executePreBuild(Map options) {
                 }
 
                 if (env.CHANGE_URL) {
-                    GithubApiProvider githubApiProvider = GithubApiProvider(this)
-                    String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"], env.CHANGE_URL, "USD")
+                    GithubApiProvider githubApiProvider = new GithubApiProvider(this)
+                    String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"].replace("git@github.com:", "https://github.com/").replaceAll(".git\$", ""), env.CHANGE_TARGET, "USD")["sha"]
 
                     bat """
                         Original USD Hash: ${originalUSDHash}
