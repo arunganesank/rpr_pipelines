@@ -1418,7 +1418,6 @@ def call(
                                 NON_SPLITTED_PACKAGE_TIMEOUT: 105,
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
-                                retriesForTestStage:1,
                                 splitTestsExecution: true,
                                 storeOnNAS: true,
                                 flexibleUpdates: true,
