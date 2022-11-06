@@ -39,7 +39,7 @@ def parseResponse(String response) {
 }
 
 
-Integer removeClosedPRs(Map options) {
+def removeClosedPRs(Map options) {
     // get list of existing PRs
     def rawInfo = httpRequest(
         url: "${env.JENKINS_URL}/job/RenderStudio-Auto/view/change-requests/api/json?tree=jobs[name,color]",
@@ -939,10 +939,8 @@ def executePreBuild(Map options) {
 
         if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
             options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
-
-            if (env.BRANCH_NAME == "master") {
-                removeClosedPRs(options)
-            }
+        } else if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
+            removeClosedPRs(options)
         }
 
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
@@ -1420,7 +1418,6 @@ def call(
                                 NON_SPLITTED_PACKAGE_TIMEOUT: 105,
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
-                                retriesForTestStage:1,
                                 splitTestsExecution: true,
                                 storeOnNAS: true,
                                 flexibleUpdates: true,
