@@ -7,8 +7,8 @@ import net.sf.json.JsonConfig
 import TestsExecutionType
 
 
-@Field final String PROJECT_REPO = "https://github.com/amfdev/StreamingSDK.git"
-@Field final String TESTS_REPO = "https://github.com/luxteam/jobs_test_streaming_sdk.git"
+@Field final String PROJECT_REPO = "https://github.amd.com/AMD-Radeon-Driver/drivers"
+@Field final String TESTS_REPO = "https://github.com/arunganesank/jobs_test_streaming_sdk"
 @Field final String DRIVER_REPO = "https://github.com/amfdev/AMDVirtualDrivers.git"
 @Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
