@@ -1113,10 +1113,10 @@ def executeBuildWindows(Map options) {
 
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
 
-                dir("amf\\protected\\samples") {
+                dir("amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
@@ -1134,14 +1134,14 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        dir("StreamingSDK\\amf\\protected\\samples") {
+        dir("StreamingSDK\\amf\\stable\\protected\\samples") {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
             bat """
                 set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
                 set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
                 set msbuild="${msBuildPath}"
-                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logName} 2>&1
+                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\${logName} 2>&1
             """
         }
 
@@ -1178,11 +1178,11 @@ def executeBuildAndroid(Map options) {
 
             String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+            dir("StreamingSDK/amf/stable/protected/samples/CPPSamples/RemoteGameClientAndroid") {
                 GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
                 bat """
-                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
 
                 String archiveUrl = ""
@@ -1220,18 +1220,18 @@ def executeBuildUbuntu(Map options) {
         """
     }
 
-    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+    dir("StreamingSDK/amf/stable/protected/samples/CPPSamples/RemoteGameServer") {
         // TODO: temporary ducktape. Waiting for fix from side of developers
         if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
-                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
-                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
+                mkdir -p ../../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
             """
         }
 
         sh """
-            chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
-            make >> ../../../../../../${logName} 2>&1
+            chmod u+x ../../../../../../Thirdparty/file_to_header/Linux64/file_to_header
+            make >> ../../../../../../../${logName} 2>&1
         """
 
         String archiveUrl = ""
@@ -1260,7 +1260,7 @@ def executeBuild(String osName, Map options) {
 
         dir("StreamingSDK") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation")
             }
         }
 
@@ -1314,7 +1314,7 @@ def executePreBuild(Map options) {
 
     if (options.projectBranch) {
         if ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", disableSubmodules: true)
         }
 
         if (options.projectBranch) {
