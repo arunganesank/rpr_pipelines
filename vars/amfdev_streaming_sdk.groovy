@@ -1860,8 +1860,11 @@ def call(String projectBranch = "",
             String branchName = ""
             Boolean isDevelopBranch = false
 
+            List winBuildConfigurationList
+            List androidBuildConfigurationList
+
             if (projectBranch) {
-                // Anroid tests required built Windows Streaming SDK to run server side
+                // Anroid and Ubuntu tests required built Windows Streaming SDK to run server side
                 if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
                     platforms = platforms + ";Windows"
 
@@ -1878,18 +1881,18 @@ def call(String projectBranch = "",
                     Store on NAS: ${storeOnNAS}
                 """
 
-                winBuildConfiguration = winBuildConfiguration.split(',') as List
+                winBuildConfigurationList = winBuildConfiguration.split(',') as List
 
                 println """
-                    Win build configuration: ${winBuildConfiguration}"
+                    Win build configuration: ${winBuildConfigurationList}"
                     Win testing build name: ${winTestingBuildName}
                     Win driver build name: ${winTestingDriverName}
                 """
 
-                androidBuildConfiguration = androidBuildConfiguration.split(',') as List
+                androidBuildConfigurationList = androidBuildConfiguration.split(',') as List
 
                 println """
-                    Android build configuration: ${androidBuildConfiguration}"
+                    Android build configuration: ${androidBuildConfigurationList}"
                 """
 
                 branchName = env.BRANCH_NAME ?: projectBranch
@@ -1907,10 +1910,10 @@ def call(String projectBranch = "",
                         tests:tests,
                         PRJ_NAME: "StreamingSDK",
                         splitTestsExecution: true,
-                        winBuildConfiguration: winBuildConfiguration,
+                        winBuildConfiguration: winBuildConfigurationList,
                         winTestingBuildName: winTestingBuildName,
                         winTestingDriverName: winTestingDriverName,
-                        androidBuildConfiguration: androidBuildConfiguration,
+                        androidBuildConfiguration: androidBuildConfigurationList,
                         androidTestingBuildName: androidTestingBuildName,
                         nodeRetry: nodeRetry,
                         platforms: platforms,
