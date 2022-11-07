@@ -1878,7 +1878,7 @@ def call(String projectBranch = "",
                     Store on NAS: ${storeOnNAS}
                 """
 
-                winBuildConfiguration = winBuildConfiguration.split(',')
+                winBuildConfiguration = winBuildConfiguration.split(',') as List
 
                 println """
                     Win build configuration: ${winBuildConfiguration}"
@@ -1886,7 +1886,7 @@ def call(String projectBranch = "",
                     Win driver build name: ${winTestingDriverName}
                 """
 
-                androidBuildConfiguration = androidBuildConfiguration.split(',')
+                androidBuildConfiguration = androidBuildConfiguration.split(',') as List
 
                 println """
                     Android build configuration: ${androidBuildConfiguration}"
