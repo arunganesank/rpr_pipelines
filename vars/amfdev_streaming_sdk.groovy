@@ -13,6 +13,7 @@ import TestsExecutionType
 @Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
+@Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "Android", "Ubuntu20"],
@@ -1260,7 +1261,7 @@ def executeBuild(String osName, Map options) {
 
         dir("StreamingSDK") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation")
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH)
             }
         }
 
@@ -1314,7 +1315,7 @@ def executePreBuild(Map options) {
 
     if (options.projectBranch) {
         if ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", disableSubmodules: true)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH, disableSubmodules: true)
         }
 
         if (options.projectBranch) {
