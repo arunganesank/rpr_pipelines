@@ -1061,6 +1061,10 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     options.winBuildConfiguration.each() { winBuildConf ->
 
         println "Current build configuration: ${winBuildConf}."
@@ -1169,6 +1173,10 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
@@ -1211,13 +1219,17 @@ def executeBuildAndroid(Map options) {
 
 
 def executeBuildUbuntu(Map options) {
+    dir("StreamingSDK/drivers/amf") {
+        sh "git submodule update --recursive --init ."
+    }
+
     String logName = "${STAGE_NAME}.log"
 
-    dir("StreamingSDK/amf/public/src/components/ComponentsFFMPEG") {
+    dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
         GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
         sh """
-            make >> ../../../../../../${logName} 2>&1
+            make >> ../../../../../../../${logName} 2>&1
         """
     }
 
