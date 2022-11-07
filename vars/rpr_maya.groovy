@@ -34,7 +34,7 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    return false
+    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
 
