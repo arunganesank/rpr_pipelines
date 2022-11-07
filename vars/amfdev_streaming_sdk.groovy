@@ -594,7 +594,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
         }
 
         timeout(time: "10", unit: "MINUTES") {
-            cleanWS(osName)
+            if (!options.skipBuild) {
+                cleanWS(osName)
+            }
+
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
         }
 
@@ -605,7 +608,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            if (options.projectBranch) {
+            if (options.projectBranch && !options.skipBuild) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
                 }
@@ -690,7 +693,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                cleanWS(osName)
+                if (!options.skipBuild) {
+                    cleanWS(osName)
+                }
+
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
             }
         }
@@ -710,7 +716,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                if (options.projectBranch) {
+                if (options.projectBranch && !options.skipBuild) {
                     dir("StreamingSDK") {
                         prepareTool(osName, options)
                     }
@@ -807,7 +813,10 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     try {
 
         timeout(time: "10", unit: "MINUTES") {
-            cleanWS(osName)
+            if (!options.skipBuild) {
+                cleanWS(osName)
+            }
+
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
         }
 
@@ -818,8 +827,10 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 """
             }
 
-            dir("StreamingSDK") {
-                prepareTool(osName, options)
+            if (!options.skipBuild) {
+                dir("StreamingSDK") {
+                    prepareTool(osName, options)
+                }
             }
         }
 
@@ -948,7 +959,10 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                cleanWS(osName)
+                if (!options.skipBuild) {
+                    cleanWS(osName)
+                }
+
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
             }
         }
@@ -961,12 +975,14 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     """
                 }
 
-                dir("StreamingSDK") {
-                    prepareTool("Windows", options)
-                }
-                dir("StreamingSDKAndroid") {
-                    prepareTool("Android", options)
-                    installAndroidClient()
+                if (!options.skipBuild) {
+                    dir("StreamingSDK") {
+                        prepareTool("Windows", options)
+                    }
+                    dir("StreamingSDKAndroid") {
+                        prepareTool("Android", options)
+                        installAndroidClient()
+                    }
                 }
             }
         }
@@ -1843,7 +1859,8 @@ def call(String projectBranch = "",
     String androidBuildConfiguration = "release,debug",
     String androidTestingBuildName = "debug",
     Boolean storeOnNAS = false,
-    Boolean collectInternalDriverVersion = false
+    Boolean collectInternalDriverVersion = false,
+    Boolean skipBuild = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1855,7 +1872,7 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = true
+            Boolean executeBuild = !skipBuild
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
@@ -1893,7 +1910,8 @@ def call(String projectBranch = "",
                 """
 
                 branchName = env.BRANCH_NAME ?: projectBranch
-                isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+                //Driver development is on hold
+                //isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
             } else {
                 executeBuild = false
             }
@@ -1936,6 +1954,7 @@ def call(String projectBranch = "",
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
+                        skipBuild: skipBuild,
                         executeTests: true
                         ]
         }
