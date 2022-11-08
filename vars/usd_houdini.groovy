@@ -546,6 +546,10 @@ def executePreBuild(Map options) {
         currentBuild.description = "<b>Project branch:</b> Prebuilt plugin<br/>"
         options.executeBuild = false
         options.executeTests = true
+
+        options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.houdiniVersions[0]}"
+        options.osx_tool_path = "/Applications/Houdini/Houdini${options.houdiniVersions[0]}/Frameworks/Houdini.framework/Versions/Current/Resources"
+        options.unix_tool_path = "Houdini/hfs${options.houdiniVersions[0]}"
     // manual job
     } else if (options.forceBuild) {
         options.executeBuild = true
