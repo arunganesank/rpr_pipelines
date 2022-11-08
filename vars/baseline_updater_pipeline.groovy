@@ -268,7 +268,7 @@ def call(String jobName,
                                 def grouppedDirs = findFiles()
 
                                 for (currentDir in grouppedDirs) {
-                                    if (currentDir.directory && resultPath.endsWith(currentDir.name)) {
+                                    if (currentDir.directory && currentDir.name.startsWith(resultPath)) {
                                         dir("${currentDir.name}/Results") {
                                             // skip empty directories
                                             if (findFiles().length == 0) {

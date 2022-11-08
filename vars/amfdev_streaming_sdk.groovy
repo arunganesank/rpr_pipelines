@@ -151,16 +151,22 @@ def getClientScreenHeight(String osName, Map options) {
 }
 
 
-def prepareTool(String osName, Map options) {
+def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
-            makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "${options.winTestingBuildName}.zip")
+            if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
+                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
+                unzip(zipFile: "FullSamples.zip")
+            } else {
+                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "${options.winTestingBuildName}.zip")
 
-            if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
-                makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "LatencyTool_Windows.zip")
+                if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                    makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                    unzip(zipFile: "LatencyTool_Windows.zip")
+                }
             }
+
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -718,7 +724,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
                 if (options.projectBranch && !options.skipBuild) {
                     dir("StreamingSDK") {
-                        prepareTool(osName, options)
+                        prepareTool(osName, options, "server")
                     }
 
                     // Android autotests support only Windows server machines
@@ -1877,8 +1883,11 @@ def call(String projectBranch = "",
             String branchName = ""
             Boolean isDevelopBranch = false
 
+            List winBuildConfigurationList
+            List androidBuildConfigurationList
+
             if (projectBranch) {
-                // Anroid tests required built Windows Streaming SDK to run server side
+                // Anroid and Ubuntu tests required built Windows Streaming SDK to run server side
                 if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
                     platforms = platforms + ";Windows"
 
@@ -1895,23 +1904,30 @@ def call(String projectBranch = "",
                     Store on NAS: ${storeOnNAS}
                 """
 
-                winBuildConfiguration = winBuildConfiguration.split(',')
+                winBuildConfigurationList = winBuildConfiguration.split(',') as List
 
                 println """
-                    Win build configuration: ${winBuildConfiguration}"
+                    Win build configuration: ${winBuildConfigurationList}"
                     Win testing build name: ${winTestingBuildName}
                     Win driver build name: ${winTestingDriverName}
                 """
 
-                androidBuildConfiguration = androidBuildConfiguration.split(',')
+                androidBuildConfigurationList = androidBuildConfiguration.split(',') as List
 
                 println """
-                    Android build configuration: ${androidBuildConfiguration}"
+                    Android build configuration: ${androidBuildConfigurationList}"
                 """
 
                 branchName = env.BRANCH_NAME ?: projectBranch
+
                 //Driver development is on hold
                 //isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
+                isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
+                if (tests.startsWith("FS_") || tests.contains(" FS_")) {
+                    executeBuild = false
+                }
             } else {
                 executeBuild = false
             }
@@ -1925,10 +1941,10 @@ def call(String projectBranch = "",
                         tests:tests,
                         PRJ_NAME: "StreamingSDK",
                         splitTestsExecution: true,
-                        winBuildConfiguration: winBuildConfiguration,
+                        winBuildConfiguration: winBuildConfigurationList,
                         winTestingBuildName: winTestingBuildName,
                         winTestingDriverName: winTestingDriverName,
-                        androidBuildConfiguration: androidBuildConfiguration,
+                        androidBuildConfiguration: androidBuildConfigurationList,
                         androidTestingBuildName: androidTestingBuildName,
                         nodeRetry: nodeRetry,
                         platforms: platforms,
