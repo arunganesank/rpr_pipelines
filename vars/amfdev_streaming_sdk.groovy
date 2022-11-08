@@ -151,16 +151,22 @@ def getClientScreenHeight(String osName, Map options) {
 }
 
 
-def prepareTool(String osName, Map options) {
+def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
-            makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "${options.winTestingBuildName}.zip")
+            if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
+                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
+                unzip(zipFile: "FullSamples.zip")
+            } else {
+                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "${options.winTestingBuildName}.zip")
 
-            if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
-                makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "LatencyTool_Windows.zip")
+                if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                    makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                    unzip(zipFile: "LatencyTool_Windows.zip")
+                }
             }
+
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
@@ -712,7 +718,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
                 if (options.projectBranch) {
                     dir("StreamingSDK") {
-                        prepareTool(osName, options)
+                        prepareTool(osName, options, "server")
                     }
 
                     // Android autotests support only Windows server machines
@@ -1897,6 +1903,10 @@ def call(String projectBranch = "",
 
                 branchName = env.BRANCH_NAME ?: projectBranch
                 isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
+                if (tests.startsWith("FS_") || tests.contains(" FS_")) {
+                    executeBuild = false
+                }
             } else {
                 executeBuild = false
             }
