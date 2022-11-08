@@ -602,9 +602,11 @@ def executeTestsClient(String osName, String asicName, Map options) {
         timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild) {
                 cleanWS(osName)
+            } else {
+                utils.removeDir(this, osName, options.stageName)
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -701,9 +703,11 @@ def executeTestsServer(String osName, String asicName, Map options) {
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild) {
                     cleanWS(osName)
+                } else {
+                    utils.removeDir(this, osName, options.stageName)
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
             }
         }
 
@@ -821,9 +825,11 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
         timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild) {
                 cleanWS(osName)
+            } else {
+                utils.removeDir(this, osName, options.stageName)
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -967,9 +973,11 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild) {
                     cleanWS(osName)
+                } else {
+                    utils.removeDir(this, "Windows", options.stageName)
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
             }
         }
 
