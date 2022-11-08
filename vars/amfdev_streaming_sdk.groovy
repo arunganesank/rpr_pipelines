@@ -155,18 +155,8 @@ def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
-                dir("StreamingSDK") {
-                    downloadFiles("/volume1/CIS/WebUSD/Drivers/FullSamples.zip", ".")
-                    unzip(zipFile: "FullSamples.zip")
-                }
-
-                if (executionType && executionType == "server") {
-                    dir("driver") {
-                        // TODO: download necessary chrome driver from the official web site
-                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_web.exe", ".")
-                        bat("rename chromedriver_web.exe chromedriver.exe")
-                    }
-                }
+                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
+                unzip(zipFile: "FullSamples.zip")
             } else {
                 makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
                 unzip(zipFile: "${options.winTestingBuildName}.zip")
@@ -1910,6 +1900,10 @@ def call(String projectBranch = "",
 
                 branchName = env.BRANCH_NAME ?: projectBranch
                 isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
+                if (tests.startsWith("FS_") || tests.contains(" FS_")) {
+                    executeBuild = false
+                }
             } else {
                 executeBuild = false
             }
@@ -1951,7 +1945,7 @@ def call(String projectBranch = "",
                         finishedBuildStages: new ConcurrentHashMap(),
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
-                        executeBuild: false,
+                        executeBuild: executeBuild,
                         executeTests: true
                         ]
         }
