@@ -171,6 +171,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 }
 
                                 // check that the current configuration shouldn't be skipped
+                                // TODO: rename to skipTestsCallback
                                 if (options.containsKey("skipCallback")) {
                                     Boolean skip = false
 
@@ -359,7 +360,22 @@ def executePlatform(String osName, String gpuNames, String buildProfile, def exe
         try {
 
             try {
-                if (options['executeBuild'] && executeBuild) {
+                // check that the building on the current OS shouldn't be skipped
+                Boolean skip = false
+
+                if (options.containsKey("skipBuildCallback")) {
+
+                    if (buildProfile) {
+                        skip = options["skipBuildCallback"](options, osName, buildProfile)
+                    } else {
+                        skip = options["skipBuildCallback"](options, osName)
+                    }
+
+                }
+
+                if (skip) {
+                    println("The building on the OS ${osName} is skipped on pipeline's layer")
+                } else if (options['executeBuild'] && executeBuild) {
                     String stageName = buildProfile ? "Build-${osName}-${buildProfile}" : "Build-${osName}"
 
                     stage(stageName) {

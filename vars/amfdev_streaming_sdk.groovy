@@ -37,6 +37,11 @@ import TestsExecutionType
 )
 
 
+Boolean shouldSkipBuild(Map options, String osName) {
+    return options.skipBuild.contains(osName)
+}
+
+
 String getClientLabels(Map options) {
     return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
 }
@@ -70,7 +75,7 @@ Boolean isIdleClient(Map options) {
         }
 
         if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-            return options["finishedBuildStages"]["Android"] || options.skipBuild
+            return options["finishedBuildStages"]["Android"] || options.skipBuild.contains("Android")
         }
 
         if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
@@ -89,7 +94,7 @@ Boolean isIdleClient(Map options) {
         return result
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
-        return options["finishedBuildStages"]["Windows"] || options.skipBuild
+        return options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows")
     } else if (options["osName"] == "Ubuntu20") {
         Boolean result = false
 
@@ -102,7 +107,7 @@ Boolean isIdleClient(Map options) {
             }
         }
 
-        if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild) {
+        if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild.contains("Windows")) {
             result = false
         }
 
@@ -158,6 +163,7 @@ def getClientScreenHeight(String osName, Map options) {
 def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
+            utils.clearCurrentDir(this, osName)
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
                 downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
                 unzip(zipFile: "FullSamples.zip")
@@ -178,6 +184,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
+            utils.clearCurrentDir(this, osName)
             makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             sh("chmod u+x RemoteGameServer")
@@ -604,7 +611,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
         }
 
         timeout(time: "10", unit: "MINUTES") {
-            if (!options.skipBuild) {
+            if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
                 utils.removeDir(this, osName, options.stageName)
@@ -615,7 +622,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -625,7 +632,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            if (options.projectBranch && !options.skipBuild) {
+            if (options.projectBranch && !options.skipBuild.contains("Windows")) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
                 }
@@ -710,7 +717,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                if (!options.skipBuild) {
+                if (!options.skipBuild.contains(osName)) {
                     cleanWS(osName)
                 } else {
                     utils.removeDir(this, osName, options.stageName)
@@ -722,7 +729,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
@@ -742,7 +749,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 }
 
                 if (options.projectBranch) {
-                    if (options.skipBuild) {
+                    if (options.skipBuild.contains(osName)) {
                         if (osName == "Windows") {
                             initAndroidDevice()
                         }
@@ -755,7 +762,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             initAndroidDevice()
 
-                            if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } 
+                                || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+
                                 dir("StreamingSDKAndroid") {
                                     prepareTool("Android", options)
                                     installAndroidClient()
@@ -844,7 +853,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     try {
 
         timeout(time: "10", unit: "MINUTES") {
-            if (!options.skipBuild) {
+            if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
                 utils.removeDir(this, osName, options.stageName)
@@ -855,7 +864,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -865,7 +874,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 """
             }
 
-            if (!options.skipBuild) {
+            if (!options.skipBuild.contains("Windows")) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
                 }
@@ -997,7 +1006,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                if (!options.skipBuild) {
+                if (!options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     cleanWS(osName)
                 } else {
                     utils.removeDir(this, "Windows", options.stageName)
@@ -1008,7 +1017,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
@@ -1020,10 +1029,13 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     """
                 }
 
-                if (!options.skipBuild) {
+                if (!options.skipBuild.contains("Windows")) {
                     dir("StreamingSDK") {
                         prepareTool("Windows", options)
                     }
+                }
+
+                if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
                         prepareTool("Android", options)
                         installAndroidClient()
@@ -1905,7 +1917,7 @@ def call(String projectBranch = "",
     String androidTestingBuildName = "debug",
     Boolean storeOnNAS = false,
     Boolean collectInternalDriverVersion = false,
-    Boolean skipBuild = false
+    String skipBuild = ""
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1917,13 +1929,14 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = !skipBuild
+            Boolean executeBuild = true
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
 
             List winBuildConfigurationList
             List androidBuildConfigurationList
+            List skipBuildList
 
             if (projectBranch) {
                 // Anroid and Ubuntu tests required built Windows Streaming SDK to run server side
@@ -1955,6 +1968,12 @@ def call(String projectBranch = "",
 
                 println """
                     Android build configuration: ${androidBuildConfigurationList}"
+                """
+
+                skipBuildList = skipBuild ? skipBuild.split(',') as List : []
+
+                println """
+                    Skip build configuration: ${skipBuildList}"
                 """
 
                 branchName = env.BRANCH_NAME ?: projectBranch
@@ -2010,7 +2029,8 @@ def call(String projectBranch = "",
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
-                        executeTests: true
+                        executeTests: true,
+                        skipBuildCallback: this.&shouldSkipBuild
                         ]
         }
 
