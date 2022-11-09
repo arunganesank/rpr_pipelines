@@ -38,7 +38,7 @@ import TestsExecutionType
 
 
 Boolean shouldSkipBuild(Map options, String osName) {
-    return options.skipBuild.contins(osName)
+    return options.skipBuild.contains(osName)
 }
 
 
