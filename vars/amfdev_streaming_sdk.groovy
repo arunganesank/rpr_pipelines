@@ -30,6 +30,7 @@ import TestsExecutionType
             "Dota2DX11": "Dota2DX11",
             "Dota2Vulkan": "Dota2Vulkan", 
             "CSGO": "CSGO",
+            "PUBG": "PUBG",
             "Nothing": "Nothing",
             "Empty": "Empty"
         ]
@@ -351,6 +352,7 @@ def closeGames(String osName, Map options, String gameName) {
                         taskkill /f /im \"superposition.exe\"
                         taskkill /f /im \"dota2.exe\"
                         taskkill /f /im \"csgo.exe\"
+                        taskkill /f /im \"TslGame.exe\"
                     """
                 } else if (gameName == "Borderlands3") {
                     bat """
@@ -391,6 +393,10 @@ def closeGames(String osName, Map options, String gameName) {
                 } else if (gameName == "CSGO") {
                     bat """
                         taskkill /f /im \"csgo.exe\"
+                    """
+                } else if (gameName == "PUBG") {
+                    bat """
+                        taskkill.exe /f /im \"TslGame.exe\"
                     """
                 }
 
