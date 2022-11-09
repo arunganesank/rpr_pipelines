@@ -161,10 +161,9 @@ def getClientScreenHeight(String osName, Map options) {
 
 
 def prepareTool(String osName, Map options, String executionType = null) {
-    utils.clearCurrentDir(this, osName)
-
     switch(osName) {
         case "Windows":
+            utils.clearCurrentDir(this, osName)
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
                 downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
                 unzip(zipFile: "FullSamples.zip")
@@ -185,6 +184,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
+            utils.clearCurrentDir(this, osName)
             makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             sh("chmod u+x RemoteGameServer")
