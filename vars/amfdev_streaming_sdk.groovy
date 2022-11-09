@@ -741,19 +741,25 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                if (options.projectBranch && !options.skipBuild) {
-                    dir("StreamingSDK") {
-                        prepareTool(osName, options, "server")
-                    }
+                if (options.projectBranch) {
+                    if (options.skipBuild) {
+                        if (osName == "Windows") {
+                            initAndroidDevice()
+                        }
+                    } else {
+                        dir("StreamingSDK") {
+                            prepareTool(osName, options, "server")
+                        }
 
-                    // Android autotests support only Windows server machines
-                    if (osName == "Windows") {
-                        initAndroidDevice()
+                        // Android autotests support only Windows server machines
+                        if (osName == "Windows") {
+                            initAndroidDevice()
 
-                        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-                            dir("StreamingSDKAndroid") {
-                                prepareTool("Android", options)
-                                installAndroidClient()
+                            if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+                                dir("StreamingSDKAndroid") {
+                                    prepareTool("Android", options)
+                                    installAndroidClient()
+                                }
                             }
                         }
                     }
