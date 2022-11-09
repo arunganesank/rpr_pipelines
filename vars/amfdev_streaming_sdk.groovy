@@ -69,6 +69,10 @@ Boolean isIdleClient(Map options) {
             }
         }
 
+        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+            return options["finishedBuildStages"]["Android"] || options.skipBuild
+        }
+
         if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
             result = false
 
@@ -604,6 +608,11 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 cleanWS(osName)
             } else {
                 utils.removeDir(this, osName, options.stageName)
+
+                if (!fileExists("StreamingSDK/RemoteGameClient.exe")) {
+                    options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                    throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                }
             }
 
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
@@ -705,6 +714,12 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     cleanWS(osName)
                 } else {
                     utils.removeDir(this, osName, options.stageName)
+
+                    String serverExecutableName = osName == "Windows" ? "RemoteGameServer.exe" : "RemoteGameServer"
+                    if (!fileExists("StreamingSDK/${serverExecutableName}")) {
+                        options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                        throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                    }
                 }
 
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
@@ -758,9 +773,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         options["serverInfo"]["communicationPort"] = getCommunicationPort(osName)
         println("[INFO] Communication port: ${options.serverInfo.communicationPort}")
 
-        options["serverInfo"]["ready"] = true
-        println("[INFO] Server is ready to run tests")
-
         while (!options["clientInfo"]["ready"]) {
             if (options["clientInfo"]["failed"]) {
                 throw new Exception("Client was failed")
@@ -778,6 +790,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 sleep(5)
             }
         }
+
+        options["serverInfo"]["ready"] = true
+        println("[INFO] Server is ready to run tests")
 
         println("Server is synchronized with state of client. Start tests")
 
@@ -827,6 +842,11 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 cleanWS(osName)
             } else {
                 utils.removeDir(this, osName, options.stageName)
+
+                if (!fileExists("StreamingSDK/RemoteGameClient.exe")) {
+                    options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                    throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                }
             }
 
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
@@ -975,6 +995,11 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     cleanWS(osName)
                 } else {
                     utils.removeDir(this, "Windows", options.stageName)
+
+                    if (!fileExists("StreamingSDK/RemoteGameServer.exe")) {
+                        options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                        throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                    }
                 }
 
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
