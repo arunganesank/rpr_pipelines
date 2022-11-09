@@ -1408,7 +1408,7 @@ def call(
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,
                                 deploy:deploy, 
-                                PRJ_NAME:'WebUsdViewer',
+                                PRJ_NAME:'RS',
                                 PRJ_ROOT:'radeon-pro',
                                 BUILDER_TAG:'BuilderWebUsdViewer',
                                 executeBuild:!isPreBuilt,
