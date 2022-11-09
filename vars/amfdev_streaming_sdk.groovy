@@ -85,7 +85,7 @@ Boolean isIdleClient(Map options) {
         return result
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
-        return options["finishedBuildStages"]["Windows"]
+        return options["finishedBuildStages"]["Windows"] || options.skipBuild
     } else if (options["osName"] == "Ubuntu20") {
         Boolean result = false
 
@@ -98,7 +98,7 @@ Boolean isIdleClient(Map options) {
             }
         }
 
-        if (!options["finishedBuildStages"]["Windows"]) {
+        if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild) {
             result = false
         }
 
