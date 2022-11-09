@@ -530,7 +530,7 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String toolName, Map options, String title = "USD") {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
 
     if (options["isPreBuilt"]) {
         return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
@@ -760,7 +760,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${testProfile}"
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
@@ -775,8 +775,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                         if (options.incrementVersion) {
                             options.branchName = "develop"
                         }
-                        options.commitMessage = options.commitMessage.replace("'", "")
-                        options.commitMessage = options.commitMessage.replace('"', '')
+
+                        if (!options["isPreBuilt"]) {
+                            options.commitMessage = options.commitMessage.replace("'", "")
+                            options.commitMessage = options.commitMessage.replace('"', '')
+                        }
 
                         def retryInfo = JsonOutput.toJson(options.nodeRetry)
                         dir("..\\summaryTestResults") {
