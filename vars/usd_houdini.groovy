@@ -1028,7 +1028,7 @@ def call(String projectRepo = PROJECT_REPO,
                         finishedBuildStages: new ConcurrentHashMap(),
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
-                        customBuildLinkMacOS: customBuildLinkMacOS,
+                        customBuildLinkOSX: customBuildLinkMacOS,
                         isPreBuilt:isPreBuilt
                         ]
         }
