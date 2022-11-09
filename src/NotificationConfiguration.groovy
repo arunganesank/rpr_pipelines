@@ -17,6 +17,15 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static HOUDINI_VERSIONS_PARAM = [
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Only one Houdini version for build can be selected in case of Pre Built plugin.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
+            ]
+        ]
+    ]
+
     def static DELEGATES_PARAM = [
         "exceptions": [
             [

@@ -530,13 +530,28 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String toolName, Map options, String title = "USD") {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-    return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
+
+    if (options["isPreBuilt"]) {
+        return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+    } else {
+        return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+    }
 }
 
 def executePreBuild(Map options) {
+    // manual job with prebuilt plugin
+    if (options["isPreBuilt"]) {
+        println "[INFO] Build was detected as prebuilt. Build stage will be skipped"
+        currentBuild.description = "<b>Project branch:</b> Prebuilt plugin<br/>"
+        options.executeBuild = false
+        options.executeTests = true
+
+        options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.houdiniVersions[0]}"
+        options.osx_tool_path = "/Applications/Houdini/Houdini${options.houdiniVersions[0]}/Frameworks/Houdini.framework/Versions/Current/Resources"
+        options.unix_tool_path = "Houdini/hfs${options.houdiniVersions[0]}"
     // manual job
-    if (options.forceBuild) {
+    } else if (options.forceBuild) {
         options.executeBuild = true
         options.executeTests = true
     // auto job
@@ -559,65 +574,67 @@ def executePreBuild(Map options) {
         }
     }
 
-    dir('RadeonProRenderUSD') {
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
-        }
-
-        options.commitAuthor = utils.getBatOutput(this, "git show -s --format=%%an HEAD ")
-        options.commitMessage = utils.getBatOutput(this, "git log --format=%%B -n 1")
-        options.commitSHA = utils.getBatOutput(this, "git log --format=%%H -1 ")
-        println """
-            The last commit was written by ${options.commitAuthor}.
-            Commit message: ${options.commitMessage}
-            Commit SHA: ${options.commitSHA}
-        """
-
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
-            options.majorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MAJOR_VERSION "', '')
-            options.minorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MINOR_VERSION "', '')
-            options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
-            options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-
-            if (options['incrementVersion']) {
-                withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-                    GithubNotificator githubNotificator = new GithubNotificator(this, options)
-                    githubNotificator.init(options)
-                    options["githubNotificator"] = githubNotificator
-                    githubNotificator.initPreBuild("${BUILD_URL}")
-                    options.projectBranchName = githubNotificator.branchName
-                }
-
-                if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
-                    println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                    println "[INFO] Current build version: ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-
-                    newVersion = version_inc(options.patchVersion, 1, ' ')
-                    println "[INFO] New build version: ${newVersion}"
-
-                    version_write("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', newVersion, '')
-                    options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
-                    options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-                    println "[INFO] Updated build version: ${options.patchVersion}"
-
-                    bat """
-                        git add cmake/defaults/Version.cmake
-                        git commit -m "buildmaster: version update to ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-                        git push origin HEAD:develop
-                    """
-
-                    //get commit's sha which have to be build
-                    options['projectBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-                    println "[INFO] Project branch hash: ${options.projectBranch}"
-                }
-            } else {
-                options.projectBranchName = options.projectBranch
+    if (!options['isPreBuilt']) {
+        dir('RadeonProRenderUSD') {
+            withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
             }
 
-            currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-            currentBuild.description += "<b>Version:</b> ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}<br/>"
-            currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
-            currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+            options.commitAuthor = utils.getBatOutput(this, "git show -s --format=%%an HEAD ")
+            options.commitMessage = utils.getBatOutput(this, "git log --format=%%B -n 1")
+            options.commitSHA = utils.getBatOutput(this, "git log --format=%%H -1 ")
+            println """
+                The last commit was written by ${options.commitAuthor}.
+                Commit message: ${options.commitMessage}
+                Commit SHA: ${options.commitSHA}
+            """
+
+            withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
+                options.majorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MAJOR_VERSION "', '')
+                options.minorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MINOR_VERSION "', '')
+                options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
+                options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+
+                if (options['incrementVersion']) {
+                    withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                        GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                        githubNotificator.init(options)
+                        options["githubNotificator"] = githubNotificator
+                        githubNotificator.initPreBuild("${BUILD_URL}")
+                        options.projectBranchName = githubNotificator.branchName
+                    }
+
+                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                        println "[INFO] Current build version: ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+
+                        newVersion = version_inc(options.patchVersion, 1, ' ')
+                        println "[INFO] New build version: ${newVersion}"
+
+                        version_write("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', newVersion, '')
+                        options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
+                        options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+                        println "[INFO] Updated build version: ${options.patchVersion}"
+
+                        bat """
+                            git add cmake/defaults/Version.cmake
+                            git commit -m "buildmaster: version update to ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+                            git push origin HEAD:develop
+                        """
+
+                        //get commit's sha which have to be build
+                        options['projectBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
+                        println "[INFO] Project branch hash: ${options.projectBranch}"
+                    }
+                } else {
+                    options.projectBranchName = options.projectBranch
+                }
+
+                currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
+                currentBuild.description += "<b>Version:</b> ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}<br/>"
+                currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+                currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+            }
         }
     }
 
@@ -743,7 +760,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${testProfile}"
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
@@ -758,8 +775,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                         if (options.incrementVersion) {
                             options.branchName = "develop"
                         }
-                        options.commitMessage = options.commitMessage.replace("'", "")
-                        options.commitMessage = options.commitMessage.replace('"', '')
+
+                        if (!options["isPreBuilt"]) {
+                            options.commitMessage = options.commitMessage.replace("'", "")
+                            options.commitMessage = options.commitMessage.replace('"', '')
+                        }
 
                         def retryInfo = JsonOutput.toJson(options.nodeRetry)
                         dir("..\\summaryTestResults") {
@@ -877,6 +897,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
 }
 
 
+def appendPlatform(String filteredPlatforms, String platform) {
+    if (filteredPlatforms) {
+        filteredPlatforms +=  ";" + platform
+    } else {
+        filteredPlatforms += platform
+    }
+    return filteredPlatforms
+}
+
+
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String usdBranch = "master",
@@ -900,7 +930,10 @@ def call(String projectRepo = PROJECT_REPO,
         Boolean splitTestsExecution = true,
         Boolean incrementVersion = true,
         String parallelExecutionTypeString = "TakeOneNodePerGPU",
-        Boolean forceBuild = false) {
+        Boolean forceBuild = false,
+        String customBuildLinkWindows = "",
+        String customBuildLinkUbuntu20 = "",
+        String customBuildLinkMacOS = "") {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
@@ -915,6 +948,44 @@ def call(String projectRepo = PROJECT_REPO,
 
             enginesNames = enginesNames.split(",") as List
             
+            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkMacOS || customBuildLinkUbuntu20
+
+            if (isPreBuilt) {
+                //remove platforms for which pre built plugin is not specified
+                String filteredPlatforms = ""
+
+                platforms.split(';').each() { platform ->
+                    List tokens = platform.tokenize(':')
+                    String platformName = tokens.get(0)
+
+                    switch(platformName) {
+                        case 'Windows':
+                            if (customBuildLinkWindows) {
+                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
+                            }
+                            break
+                        case 'OSX':
+                            if (customBuildLinkMacOS) {
+                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
+                            }
+                            break
+                        // Ubuntu20
+                        default:
+                            if (customBuildLinkUbuntu20) {
+                                filteredPlatforms = appendPlatform(filteredPlatforms, platform)
+                            }
+                        }
+                }
+
+                platforms = filteredPlatforms
+            }
+
+            withNotifications(options: options, configuration: NotificationConfiguration.HOUDINI_VERSIONS_PARAM) {
+                if (isPreBuilt && (houdiniVersions.split(",") as List).size() > 1) {
+                    throw new Exception()
+                }
+            }
+
             def parallelExecutionType = TestsExecutionType.valueOf(parallelExecutionTypeString)
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: projectRepo,
@@ -957,7 +1028,11 @@ def call(String projectRepo = PROJECT_REPO,
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        finishedBuildStages: new ConcurrentHashMap()
+                        finishedBuildStages: new ConcurrentHashMap(),
+                        customBuildLinkWindows: customBuildLinkWindows,
+                        customBuildLinkUbuntu20: customBuildLinkUbuntu20,
+                        customBuildLinkOSX: customBuildLinkMacOS,
+                        isPreBuilt:isPreBuilt
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
