@@ -762,7 +762,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             initAndroidDevice()
 
-                            if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } 
+                                || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+
                                 dir("StreamingSDKAndroid") {
                                     prepareTool("Android", options)
                                     installAndroidClient()
