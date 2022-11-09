@@ -412,6 +412,28 @@ class utils {
         }
     }
 
+    static def clearCurrentDir(Object self, String osName) {
+        try {
+            switch(osName) {
+                case 'Windows':
+                    self.bat """
+                        del /q PATH_TO_FOLDER\\*.*
+                        for /d %i in (PATH_TO_FOLDER\\*.*) do @rmdir /s /q "%i"
+                    """
+                    break
+                // OSX & Ubuntu
+                default:
+                    self.sh """
+                        rm -rf *
+                    """
+            }
+        } catch(Exception e) {
+            self.println("[ERROR] Can't clear directory")
+            self.println(e.toString())
+            self.println(e.getMessage())
+        }
+    }
+
     @NonCPS
     static def parseJson(Object self, String jsonString) {
         try {
