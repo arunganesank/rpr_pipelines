@@ -622,7 +622,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() > 0)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -729,7 +729,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() > 0)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
@@ -862,7 +862,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() > 0)
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -1015,7 +1015,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() > 0)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
