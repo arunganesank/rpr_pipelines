@@ -375,7 +375,6 @@ def executePlatform(String osName, String gpuNames, String buildProfile, def exe
 
                 if (skip) {
                     println("The building on the OS ${osName} is skipped on pipeline's layer")
-                    changeTestsCount(testsLeft, -1, testProfile)
                 } else if (options['executeBuild'] && executeBuild) {
                     String stageName = buildProfile ? "Build-${osName}-${buildProfile}" : "Build-${osName}"
 
