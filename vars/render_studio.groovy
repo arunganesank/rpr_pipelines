@@ -444,6 +444,10 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         options.saveUSD = true
     }
 
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-99") {
+        options.rebuildUSD = true
+    }
+
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
