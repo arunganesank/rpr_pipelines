@@ -37,6 +37,11 @@ import TestsExecutionType
 )
 
 
+Boolean shouldSkipBuild(Map options, String osName) {
+    return options.skipBuild.contins(osName)
+}
+
+
 String getClientLabels(Map options) {
     return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
 }
@@ -1922,7 +1927,7 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = !skipBuild
+            Boolean executeBuild = true
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
@@ -2022,7 +2027,8 @@ def call(String projectBranch = "",
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
-                        executeTests: true
+                        executeTests: true,
+                        skipBuildCallback: this.&shouldSkipBuild
                         ]
         }
 
