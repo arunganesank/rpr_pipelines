@@ -69,6 +69,10 @@ Boolean isIdleClient(Map options) {
             }
         }
 
+        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+            return options["finishedBuildStages"]["Android"] || options.skipBuild
+        }
+
         if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
             result = false
 
@@ -85,7 +89,7 @@ Boolean isIdleClient(Map options) {
         return result
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
-        return options["finishedBuildStages"]["Windows"]
+        return options["finishedBuildStages"]["Windows"] || options.skipBuild
     } else if (options["osName"] == "Ubuntu20") {
         Boolean result = false
 
@@ -98,7 +102,7 @@ Boolean isIdleClient(Map options) {
             }
         }
 
-        if (!options["finishedBuildStages"]["Windows"]) {
+        if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild) {
             result = false
         }
 
@@ -600,8 +604,18 @@ def executeTestsClient(String osName, String asicName, Map options) {
         }
 
         timeout(time: "10", unit: "MINUTES") {
-            cleanWS(osName)
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+            if (!options.skipBuild) {
+                cleanWS(osName)
+            } else {
+                utils.removeDir(this, osName, options.stageName)
+
+                if (!fileExists("StreamingSDK/RemoteGameClient.exe")) {
+                    options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                    throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                }
+            }
+
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -611,7 +625,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 """
             }
 
-            if (options.projectBranch) {
+            if (options.projectBranch && !options.skipBuild) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
                 }
@@ -696,8 +710,19 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                if (!options.skipBuild) {
+                    cleanWS(osName)
+                } else {
+                    utils.removeDir(this, osName, options.stageName)
+
+                    String serverExecutableName = osName == "Windows" ? "RemoteGameServer.exe" : "RemoteGameServer"
+                    if (!fileExists("StreamingSDK/${serverExecutableName}")) {
+                        options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                        throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                    }
+                }
+
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
             }
         }
 
@@ -717,18 +742,24 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 }
 
                 if (options.projectBranch) {
-                    dir("StreamingSDK") {
-                        prepareTool(osName, options, "server")
-                    }
+                    if (options.skipBuild) {
+                        if (osName == "Windows") {
+                            initAndroidDevice()
+                        }
+                    } else {
+                        dir("StreamingSDK") {
+                            prepareTool(osName, options, "server")
+                        }
 
-                    // Android autotests support only Windows server machines
-                    if (osName == "Windows") {
-                        initAndroidDevice()
+                        // Android autotests support only Windows server machines
+                        if (osName == "Windows") {
+                            initAndroidDevice()
 
-                        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-                            dir("StreamingSDKAndroid") {
-                                prepareTool("Android", options)
-                                installAndroidClient()
+                            if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+                                dir("StreamingSDKAndroid") {
+                                    prepareTool("Android", options)
+                                    installAndroidClient()
+                                }
                             }
                         }
                     }
@@ -748,9 +779,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         options["serverInfo"]["communicationPort"] = getCommunicationPort(osName)
         println("[INFO] Communication port: ${options.serverInfo.communicationPort}")
 
-        options["serverInfo"]["ready"] = true
-        println("[INFO] Server is ready to run tests")
-
         while (!options["clientInfo"]["ready"]) {
             if (options["clientInfo"]["failed"]) {
                 throw new Exception("Client was failed")
@@ -768,6 +796,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 sleep(5)
             }
         }
+
+        options["serverInfo"]["ready"] = true
+        println("[INFO] Server is ready to run tests")
 
         println("Server is synchronized with state of client. Start tests")
 
@@ -813,8 +844,18 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     try {
 
         timeout(time: "10", unit: "MINUTES") {
-            cleanWS(osName)
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+            if (!options.skipBuild) {
+                cleanWS(osName)
+            } else {
+                utils.removeDir(this, osName, options.stageName)
+
+                if (!fileExists("StreamingSDK/RemoteGameClient.exe")) {
+                    options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                    throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                }
+            }
+
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -824,8 +865,10 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 """
             }
 
-            dir("StreamingSDK") {
-                prepareTool(osName, options)
+            if (!options.skipBuild) {
+                dir("StreamingSDK") {
+                    prepareTool(osName, options)
+                }
             }
         }
 
@@ -954,8 +997,18 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                if (!options.skipBuild) {
+                    cleanWS(osName)
+                } else {
+                    utils.removeDir(this, "Windows", options.stageName)
+
+                    if (!fileExists("StreamingSDK/RemoteGameServer.exe")) {
+                        options.problemMessageManager.saveSpecificFailReason("Streaming SDK executable not found", options["stageName"], osName)
+                        throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
+                    }
+                }
+
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: !options.skipBuild)
             }
         }
 
@@ -967,12 +1020,14 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     """
                 }
 
-                dir("StreamingSDK") {
-                    prepareTool("Windows", options)
-                }
-                dir("StreamingSDKAndroid") {
-                    prepareTool("Android", options)
-                    installAndroidClient()
+                if (!options.skipBuild) {
+                    dir("StreamingSDK") {
+                        prepareTool("Windows", options)
+                    }
+                    dir("StreamingSDKAndroid") {
+                        prepareTool("Android", options)
+                        installAndroidClient()
+                    }
                 }
             }
         }
@@ -1849,7 +1904,8 @@ def call(String projectBranch = "",
     String androidBuildConfiguration = "release,debug",
     String androidTestingBuildName = "debug",
     Boolean storeOnNAS = false,
-    Boolean collectInternalDriverVersion = false
+    Boolean collectInternalDriverVersion = false,
+    Boolean skipBuild = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1861,7 +1917,7 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = true
+            Boolean executeBuild = !skipBuild
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
@@ -1902,6 +1958,10 @@ def call(String projectBranch = "",
                 """
 
                 branchName = env.BRANCH_NAME ?: projectBranch
+
+                //Driver development is on hold
+                //isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
                 isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
 
                 if (tests.startsWith("FS_") || tests.contains(" FS_")) {
@@ -1949,6 +2009,7 @@ def call(String projectBranch = "",
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
+                        skipBuild: skipBuild,
                         executeTests: true
                         ]
         }
