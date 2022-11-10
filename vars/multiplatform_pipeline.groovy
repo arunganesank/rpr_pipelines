@@ -493,12 +493,13 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
     try {
         this.executeDeploy = executeDeploy
 
-        try {
+        // Requested disabling of automatically build storage policy setup
+/*        try {
             setupBuildStoragePolicy()
         } catch (e) {
             println("[ERROR] Failed to setup build storage policty.")
             println(e.toString())
-        }
+        }*/
 
         try {
             options.baseBuildName = currentBuild.displayName
