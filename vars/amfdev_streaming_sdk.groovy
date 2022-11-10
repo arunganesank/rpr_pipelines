@@ -7,12 +7,13 @@ import net.sf.json.JsonConfig
 import TestsExecutionType
 
 
-@Field final String PROJECT_REPO = "https://github.com/amfdev/StreamingSDK.git"
-@Field final String TESTS_REPO = "https://github.com/luxteam/jobs_test_streaming_sdk.git"
+@Field final String PROJECT_REPO = "https://github.amd.com/AMD-Radeon-Driver/drivers"
+@Field final String TESTS_REPO = "https://github.com/arunganesank/jobs_test_streaming_sdk"
 @Field final String DRIVER_REPO = "https://github.com/amfdev/AMDVirtualDrivers.git"
 @Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
+@Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "Android", "Ubuntu20"],
@@ -1139,6 +1140,10 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     options.winBuildConfiguration.each() { winBuildConf ->
 
         println "Current build configuration: ${winBuildConf}."
@@ -1192,10 +1197,10 @@ def executeBuildWindows(Map options) {
 
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
 
-                dir("amf\\protected\\samples") {
+                dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
@@ -1213,14 +1218,14 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        dir("StreamingSDK\\amf\\protected\\samples") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\protected\\samples") {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
             bat """
                 set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
                 set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
                 set msbuild="${msBuildPath}"
-                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logName} 2>&1
+                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
             """
         }
 
@@ -1247,6 +1252,10 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
@@ -1257,11 +1266,11 @@ def executeBuildAndroid(Map options) {
 
             String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+            dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameClientAndroid") {
                 GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
                 bat """
-                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
 
                 String archiveUrl = ""
@@ -1289,28 +1298,32 @@ def executeBuildAndroid(Map options) {
 
 
 def executeBuildUbuntu(Map options) {
+    dir("StreamingSDK/drivers/amf") {
+        sh "git submodule update --recursive --init ."
+    }
+
     String logName = "${STAGE_NAME}.log"
 
-    dir("StreamingSDK/amf/public/src/components/ComponentsFFMPEG") {
+    dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
         GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
         sh """
-            make >> ../../../../../../${logName} 2>&1
+            make >> ../../../../../../../${logName} 2>&1
         """
     }
 
-    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+    dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameServer") {
         // TODO: temporary ducktape. Waiting for fix from side of developers
-        if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
+        if (!fileExists("../../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
-                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
-                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
+                mkdir -p ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
             """
         }
 
         sh """
-            chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
-            make >> ../../../../../../${logName} 2>&1
+            chmod u+x ../../../../../../../Thirdparty/file_to_header/Linux64/file_to_header
+            make >> ../../../../../../../../${logName} 2>&1
         """
 
         String archiveUrl = ""
@@ -1339,7 +1352,7 @@ def executeBuild(String osName, Map options) {
 
         dir("StreamingSDK") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH)
             }
         }
 
@@ -1393,7 +1406,7 @@ def executePreBuild(Map options) {
 
     if (options.projectBranch) {
         if ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH, disableSubmodules: true)
         }
 
         if (options.projectBranch) {
