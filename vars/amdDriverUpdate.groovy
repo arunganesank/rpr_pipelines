@@ -25,7 +25,7 @@ def main(Map options) {
         
         parallel updateTasks
 
-        if (newerDriverInstalled) {
+/*        if (newerDriverInstalled) {
             withCredentials([string(credentialsId: "TAN_JOB_NAME", variable: "jobName"), string(credentialsId: "TAN_DEFAULT_BRANCH", variable: "defaultBranch")]) {
                 build(
                     job: jobName + "/" + defaultBranch,
@@ -33,7 +33,7 @@ def main(Map options) {
                     wait: false
                 )
             }
-        }
+        }*/
 
         return 0
     }

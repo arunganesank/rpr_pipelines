@@ -500,10 +500,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                withCredentials([string(credentialsId: 'buildsRemoteHost', variable: 'REMOTE_HOST')]) {
-                    dir("core_tests_configuration") {
-                        downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
-                    }
+                dir("core_tests_configuration") {
+                    downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
                 }
             } catch (e) {
                 println("[ERROR] Can't download json files with core tests configuration")

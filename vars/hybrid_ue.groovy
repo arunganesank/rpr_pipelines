@@ -137,8 +137,8 @@ def executeBuildWindows(String projectName, Map options) {
         utils.removeFile(this, "Windows", "*.log")
 
         dir(svnRepoName) {
-            withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
-                String paragonGameURL = "svn://" + ART_NAS_IP + "/${svnRepoName}"
+            withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                String paragonGameURL = "svn://" + ${NAS_URL.split("@")[1]} + "/${svnRepoName}"
                 checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
             }
 
@@ -208,9 +208,9 @@ def executeBuildWindows(String projectName, Map options) {
             if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
                     
-                    withCredentials([string(credentialsId: "artNasIP", variable: 'ART_NAS_IP')]) {
+                    withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
                         bat """
-                            svn co svn://${ART_NAS_IP}/${projectName}Editor .
+                            svn co svn://${NAS_URL.split("@")[1]}/${projectName}Editor .
                             svn resolve --accept working -R .
                             svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
