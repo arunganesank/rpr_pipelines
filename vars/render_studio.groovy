@@ -823,7 +823,9 @@ def executeBuild(String osName, Map options) {
 
 
 def notifyByTg(Map options){
-    println currentBuild.result
+    // TODO: required actualization
+
+    /*println currentBuild.result
 
     String statusMessage = (currentBuild.result != null && currentBuild.result.contains("FAILED")) ? "Failed" : "Success"
     Boolean isPR = env.CHANGE_URL != null
@@ -840,7 +842,7 @@ def notifyByTg(Map options){
             returnStdout: true,
             returnStatus: true
         )
-    }
+    }*/
 }
 
 
