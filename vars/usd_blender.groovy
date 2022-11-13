@@ -1103,9 +1103,9 @@ def call(String projectRepo = PROJECT_REPO,
                 enginesNames = "Hybrid"
             }
 
-            enginesNames = enginesNames.split(",") as List
+            def enginesNamesList = enginesNames.split(',') as List
             def formattedEngines = []
-            enginesNames.each {
+            enginesNamesList.each {
                 formattedEngines.add((it == "RPR") ? "HdRprPlugin" : ((it == "GL") ? "HdStormRendererPlugin" : ((it == "Prman") ? "HdPrmanLoaderRendererPlugin" : "Hybrid")))
             }
 

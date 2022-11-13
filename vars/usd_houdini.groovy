@@ -946,7 +946,7 @@ def call(String projectRepo = PROJECT_REPO,
                 }
             }
 
-            enginesNames = enginesNames.split(",") as List
+            def enginesNamesList = enginesNames.split(",") as List
             
             Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkMacOS || customBuildLinkUbuntu20
 
@@ -1018,7 +1018,7 @@ def call(String projectRepo = PROJECT_REPO,
                         minSamples: minSamples,
                         maxSamples: maxSamples,
                         threshold: threshold,
-                        engines: enginesNames,
+                        engines: enginesNamesList,
                         enableRIFTracing:enableRIFTracing,
                         enableRPRTracing:enableRPRTracing,
                         nodeRetry: [],

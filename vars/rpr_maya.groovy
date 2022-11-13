@@ -1083,9 +1083,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 testsBranch = "inemankov/remove_tahoe"
             }
             
-            enginesNames = enginesNames.split(',') as List
+            def enginesNamesList = enginesNames.split(',') as List
             def formattedEngines = []
-            enginesNames.each {
+            enginesNamesList.each {
                 formattedEngines.add(it.replace(' ', '_'))
             }
 
