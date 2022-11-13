@@ -684,7 +684,7 @@ def call(String projectBranch = "",
                 }
             }
 
-            enginesNames = enginesNames.split(',') as List
+            enginesNamesList = enginesNames.split(',') as List
 
             Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkUbuntu18 || customBuildLinkUbuntu20
 
@@ -764,7 +764,7 @@ def call(String projectBranch = "",
                         executeBuild:true,
                         executeTests:true,
                         reportName:'Test_20Report',
-                        engines:enginesNames,
+                        engines:enginesNamesList,
                         TEST_TIMEOUT:180,
                         DEPLOY_TIMEOUT:30,
                         width:width,

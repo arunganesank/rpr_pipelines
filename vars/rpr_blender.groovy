@@ -1096,9 +1096,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 }
             }
 
-            enginesNames = enginesNames.split(',') as List
+            def enginesNamesList = enginesNames.split(',') as List
             def formattedEngines = []
-            enginesNames.each {
+            enginesNamesList.each {
                 if (it == 'HybridPro') {
                     formattedEngines.add('HYBRIDPRO')
                 } else if (it.contains('Hybrid')) {
