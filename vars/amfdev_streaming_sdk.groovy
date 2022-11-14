@@ -1153,7 +1153,7 @@ def executeBuildWindows(Map options) {
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
-        String buildSln = "StreamingSDK_vs2019.sln"
+        String buildSln = "StreamingSDK_All_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
@@ -1218,20 +1218,41 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        dir("StreamingSDK\\drivers\\amf\\stable\\protected\\samples") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\build\\solution") {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-            bat """
-                set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
-                set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
-                set msbuild="${msBuildPath}"
-                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
-            """
+            try {
+                bat """
+                    set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
+                    set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
+                    set msbuild="${msBuildPath}"
+                    %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                """
+            } catch (e) {
+                String buildLog = readFile("..\\..\\..\\..\\..\\..\\${logName}")
+                // if true - there is some errors
+                if (!buildLog.contains("0 Error(s)")) {
+                    // if number of errors is bigger than 1 or the error isn't connected with amfrt32.lib - it's unexpected error
+                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("fatal error LNK1104: cannot open file 'amfrt32.lib'")) {
+                        throw e
+                    }
+                }
+            }
         }
 
         String archiveUrl = ""
 
-        dir("StreamingSDK\\amf\\bin\\${winArtifactsDir}") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\bin\\${winArtifactsDir}") {
+            if (!fileExists("RemoteGameClient.exe")) {
+                String errorMessage = "RemoteGameClient.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            } else if (!fileExists("RemoteGameServer.exe")) {
+                String errorMessage = "RemoteGameServer.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            }
+
             String BUILD_NAME = "StreamingSDK_Windows_${winBuildName}.zip"
 
             zip archive: true, zipFile: BUILD_NAME
