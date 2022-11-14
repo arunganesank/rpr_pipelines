@@ -470,7 +470,7 @@ def executeBuild(String osName, Map options) {
     try {
         dir ("RadeonProRenderUSD") {
             withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
 
             if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX) && osName != "OSX") {
@@ -577,7 +577,7 @@ def executePreBuild(Map options) {
     if (!options['isPreBuilt']) {
         dir('RadeonProRenderUSD') {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, disableSubmodules: true)
             }
 
             options.commitAuthor = utils.getBatOutput(this, "git show -s --format=%%an HEAD ")
@@ -933,7 +933,8 @@ def call(String projectRepo = PROJECT_REPO,
         Boolean forceBuild = false,
         String customBuildLinkWindows = "",
         String customBuildLinkUbuntu20 = "",
-        String customBuildLinkMacOS = "") {
+        String customBuildLinkMacOS = "",
+        String mergeablePR = "") {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
@@ -987,6 +988,15 @@ def call(String projectRepo = PROJECT_REPO,
             }
 
             def parallelExecutionType = TestsExecutionType.valueOf(parallelExecutionTypeString)
+
+            String prRepoName = ""
+            String prBranchName = ""
+            if (mergeablePR) {
+                String[] prInfo = mergeablePR.split(";")
+                prRepoName = prInfo[0]
+                prBranchName = prInfo[1]
+            }
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: projectRepo,
                         projectBranch: projectBranch,
@@ -1032,7 +1042,9 @@ def call(String projectRepo = PROJECT_REPO,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
                         customBuildLinkOSX: customBuildLinkMacOS,
-                        isPreBuilt:isPreBuilt
+                        isPreBuilt:isPreBuilt,
+                        prRepoName:prRepoName,
+                        prBranchName:prBranchName
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
