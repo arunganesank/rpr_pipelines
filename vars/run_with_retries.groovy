@@ -13,7 +13,7 @@ def abortOldBuilds(Map options) {
 }
 
 
-def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLastNode, def stageName, def options, List allowedExceptions = [], Integer maxNumberOfRetries = -1, String osName = "", Boolean setBuildStatus = false) {
+def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLastNode, def stageName, def options, Integer maxNumberOfRetries = -1, String osName = "", Boolean setBuildStatus = false) {
     List nodesList = nodesByLabel label: labels, offline: true
     println "[INFO] Found ${nodesList.size()} suitable nodes"
     // if 0 suitable nodes are found - wait some node in loop
@@ -55,6 +55,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
         title = osName
     } else if (stageName == "Test") {
         title = options['stageName']
+    } else if (stageName == "PreBuild") {
+        title = "Jenkins build configuration"
     } else {
         title = "Building test report"
     }
@@ -162,6 +164,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                     }
                 }
             } else if (exceptionClassName.contains("RemotingSystemException")) {
+
+                isExceptionAllowed = true
                 
                 try {
                     // take Windows node for send exception in Slack channel
@@ -176,7 +180,10 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                     }
                 }
 
-            } else if (exceptionClassName.contains("ClosedChannelException")) {
+            } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("IOException") 
+                || exceptionClassName.contains("InterruptedException") || exceptionClassName.contains("AgentOfflineException")) {
+
+                isExceptionAllowed = true
                 GithubNotificator.updateStatus(stageName, title, "failure", options, NotificationConfiguration.LOST_CONNECTION_WITH_MACHINE)
             }
 
@@ -190,40 +197,31 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                 GithubNotificator.updateStatus(stageName, title, "timed_out", options, NotificationConfiguration.STAGE_TIMEOUT_EXCEEDED)
             }
 
-            if (allowedExceptions.size() != 0) {
-                for (allowedException in allowedExceptions) {
-                    if (exceptionClassName.contains(allowedException)) {
-                        isExceptionAllowed = true
-                        break
+            if (!isExceptionAllowed) {
+                println("[INFO] Exception isn't allowed")
+                if (options.problemMessageManager) {
+                    if (stageName == 'Test') {
+                        options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.SOME_TESTS_FAILED, stageName, osName)
+                    } else if (utils.isTimeoutExceeded(e)) {
+                        options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.TIMEOUT_EXCEEDED, stageName, osName)
+                    } else {
+                        options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, stageName, osName)
                     }
                 }
+                GithubNotificator.updateStatus(stageName, title, "action_required", options)
+                if (stageName == 'Build') {
+                    GithubNotificator.failPluginBuilding(options, osName)
 
-                if (!isExceptionAllowed) {
-                    println("[INFO] Exception isn't allowed")
-                    if (options.problemMessageManager) {
-                        if (stageName == 'Test') {
-                            options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.SOME_TESTS_FAILED, stageName, osName)
-                        } else if (utils.isTimeoutExceeded(e)) {
-                            options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.TIMEOUT_EXCEEDED, stageName, osName)
-                        } else {
-                            options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, stageName, osName)
-                        }
+                    if (options.containsKey("finishedBuildStages")) {
+                        options["finishedBuildStages"][osName] = [successfully: false]
                     }
-                    GithubNotificator.updateStatus(stageName, title, "action_required", options)
-                    if (stageName == 'Build') {
-                        GithubNotificator.failPluginBuilding(options, osName)
-
-                        if (options.containsKey("finishedBuildStages")) {
-                            options["finishedBuildStages"][osName] = [successfully: false]
-                        }
-                    }
-                    if (setBuildStatus) {
-                        currentBuild.result = "FAILURE"
-                    }
-                    throw e
-                } else {
-                    println("[INFO] Exception found in allowed exceptions")
                 }
+                if (setBuildStatus) {
+                    currentBuild.result = "FAILURE"
+                }
+                throw e
+            } else {
+                println("[INFO] Exception found in allowed exceptions")
             }
 
             if (i == tries - 1) {

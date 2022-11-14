@@ -260,7 +260,9 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                                     expectedExceptionMessage = "Timeout exceeded (pipelines layer)."
                                                 }
                                             }
-                                        } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("RemotingSystemException") || exceptionClassName.contains("InterruptedException")) {
+                                        } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("RemotingSystemException") 
+                                            || exceptionClassName.contains("InterruptedException") || exceptionClassName.contains("AgentOfflineException") || exceptionClassName.contains("IOException")) {
+
                                             expectedExceptionMessage = "Lost connection with machine."
                                         }
 
@@ -325,7 +327,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                                 try {
                                     Integer retries_count = options.retriesForTestStage ?: -1
-                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, [], retries_count, osName)
+                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, osName)
                                 } catch(FlowInterruptedException e) {
                                     options.buildWasAborted = true
                                     e.getCauses().each(){
@@ -383,7 +385,7 @@ def executePlatform(String osName, String gpuNames, String buildProfile, def exe
                         def retringFunction = { nodesList, currentTry ->
                             executeBuild(osName, options)
                         }
-                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, false, "Build", options, ['FlowInterruptedException', 'IOException'], -1, osName, true)
+                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, true, "Build", options, -1, osName, true)
                     }
                 }
             } catch (e1) {
@@ -483,7 +485,7 @@ def makeDeploy(Map options, String buildProfile = "", String testProfile = "") {
                 println("[INFO] Deploy stage finished without unexpected exception. Clean workspace")
                 cleanWS("Windows")
             }
-            run_with_retries(reportBuilderLabels, options.DEPLOY_TIMEOUT, retringFunction, false, "Deploy", options, [], 3)
+            run_with_retries(reportBuilderLabels, options.DEPLOY_TIMEOUT, retringFunction, false, "Deploy", options, 3)
         }
     }
 }
@@ -562,41 +564,43 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
 
             try {
                 if (executePreBuild) {
-                    node("Windows && PreBuild") {
-                        ws("WS/${options.PRJ_NAME}_Build") {
+                    try {
+                        timeout(time: "${options.PREBUILD_TIMEOUT}", unit: 'MINUTES') {
+                            options["stage"] = "PreBuild"
+
                             stage("PreBuild") {
-                                try {
-                                    timeout(time: "${options.PREBUILD_TIMEOUT}", unit: 'MINUTES') {
-                                        options["stage"] = "PreBuild"
-                                        executePreBuild(options)
-                                        if(!options['executeBuild']) {
-                                            options.CBR = 'SKIPPED'
-                                            echo "Build SKIPPED"
-                                        }
-                                    }
-                                } catch (e) {
-                                    println("[ERROR] Failed during prebuild stage on ${env.NODE_NAME}")
-                                    println(e.toString())
-                                    println(e.getMessage())
-                                    String exceptionClassName = e.getClass().toString()
-                                    if (exceptionClassName.contains("FlowInterruptedException")) {
-                                        e.getCauses().each(){
-                                            String causeClassName = it.getClass().toString()
-                                            if (causeClassName.contains("ExceededTimeout")) {
-                                                if (options.problemMessageManager) {
-                                                    options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.TIMEOUT_EXCEEDED, "PreBuild")
-                                                }
-                                            }
-                                        }
-                                    }
+                                def preBuildLabels = "Windows && PreBuild"
+                                def retringFunction = { nodesList, currentTry ->
+                                    executePreBuild(options)
+                                }
+                                run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3)
+                            }
+
+                            if(!options['executeBuild']) {
+                                options.CBR = 'SKIPPED'
+                                echo "Build SKIPPED"
+                            }
+                        }
+                    } catch (e) {
+                        println("[ERROR] Failed during prebuild stage")
+                        println(e.toString())
+                        println(e.getMessage())
+                        String exceptionClassName = e.getClass().toString()
+                        if (exceptionClassName.contains("FlowInterruptedException")) {
+                            e.getCauses().each(){
+                                String causeClassName = it.getClass().toString()
+                                if (causeClassName.contains("ExceededTimeout")) {
                                     if (options.problemMessageManager) {
-                                        options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, "PreBuild")
+                                        options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.TIMEOUT_EXCEEDED, "PreBuild")
                                     }
-                                    GithubNotificator.closeUnfinishedSteps(options, NotificationConfiguration.PRE_BUILD_STAGE_FAILED)
-                                    throw e
                                 }
                             }
                         }
+                        if (options.problemMessageManager) {
+                            options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, "PreBuild")
+                        }
+                        GithubNotificator.closeUnfinishedSteps(options, NotificationConfiguration.PRE_BUILD_STAGE_FAILED)
+                        throw e
                     }
                 }
 
