@@ -1,9 +1,5 @@
 import java.text.SimpleDateFormat
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
-import hudson.plugins.git.GitException
-import java.nio.channels.ClosedChannelException
-import hudson.remoting.RequestAbortedException
-import java.lang.IllegalArgumentException
 import java.time.*
 import java.time.format.DateTimeFormatter
 import jenkins.model.Jenkins
@@ -260,7 +256,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                                     expectedExceptionMessage = "Timeout exceeded (pipelines layer)."
                                                 }
                                             }
-                                        } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("RemotingSystemException") 
+                                        } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("RemotingSystemException") || exceptionClassName.contains("RequestAbortedException")
                                             || exceptionClassName.contains("InterruptedException") || exceptionClassName.contains("AgentOfflineException") || exceptionClassName.contains("IOException")) {
 
                                             expectedExceptionMessage = "Lost connection with machine."

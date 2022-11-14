@@ -180,7 +180,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                     }
                 }
 
-            } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("IOException") 
+            } else if (exceptionClassName.contains("ClosedChannelException") || exceptionClassName.contains("IOException") || exceptionClassName.contains("RequestAbortedException")
                 || exceptionClassName.contains("InterruptedException") || exceptionClassName.contains("AgentOfflineException")) {
 
                 isExceptionAllowed = true
