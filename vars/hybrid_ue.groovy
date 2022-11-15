@@ -111,8 +111,8 @@ def executeBuildWindows(String projectName, Map options) {
     }
 
     String targetDir = projectsInfo[projectName]["targetDir"]
-    String svnRepoName = projectsInfo[projectName].containsKey("svnRepoName")
-    String sceneFolder = projectsInfo[projectName].containsKey("sceneFolder")
+    String svnRepoName = projectsInfo[projectName]["svnRepoName"]
+    String sceneFolder = projectsInfo[projectName]["sceneFolder"]
 
     def stages = ["Default"]
 
