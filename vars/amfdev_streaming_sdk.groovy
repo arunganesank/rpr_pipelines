@@ -1228,6 +1228,7 @@ def executeBuildWindows(Map options) {
                 """
             } catch (e) {
                 // Temporary disable sanity check
+                String buildLog = readFile("..\\..\\..\\..\\..\\..\\${logName}")
                 println """
                     Contains 0 Error: ${buildLog.contains("0 Error(s)")}
                     Contains 1 Errors: ${buildLog.contains("1 Error(s)")}
