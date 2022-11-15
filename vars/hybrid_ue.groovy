@@ -9,7 +9,11 @@ import groovy.transform.Field
     "ToyShop": [
         "targetDir": "TOYSHOP_BINARY",
         "svnRepoName": "ToyShopUnreal"
-    ]
+    ],
+    "VictorianTrains": [
+        "targetDir": "VictorianTrains26_ML_Packed",
+        "sceneFolder": "VictorianTrains26_ML"
+    ],
 ]
 
 @Field finishedProjects = []
@@ -107,7 +111,8 @@ def executeBuildWindows(String projectName, Map options) {
     }
 
     String targetDir = projectsInfo[projectName]["targetDir"]
-    String svnRepoName = projectsInfo[projectName]["svnRepoName"]
+    String svnRepoName = projectsInfo[projectName].containsKey("svnRepoName")
+    String sceneFolder = projectsInfo[projectName].containsKey("sceneFolder")
 
     def stages = ["Default"]
 
@@ -136,24 +141,30 @@ def executeBuildWindows(String projectName, Map options) {
 
         utils.removeFile(this, "Windows", "*.log")
 
-        dir(svnRepoName) {
-            withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
-                String paragonGameURL = "svn://" + ${NAS_URL.split("@")[1]} + "/${svnRepoName}"
-                checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
-            }
+        if (svnRepoName) {
+            dir(svnRepoName) {
+                withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                    String paragonGameURL = "svn://" + ${NAS_URL.split("@")[1]} + "/${svnRepoName}"
+                    checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+                }
 
-            if (projectName == "ToyShop") {
-                dir("Config") {
-                    switch(it) {
-                        case "Default" :
-                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
-                            break
-                        case "VideoRecording":
-                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
-                            break
+                if (projectName == "ToyShop") {
+                    dir("Config") {
+                        switch(it) {
+                            case "Default" :
+                                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
+                                break
+                            case "VideoRecording":
+                                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
+                                break
+                        }
                     }
                 }
             }
+        } else if (sceneFolder) {
+            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/Scenes/${sceneFolder}", ".", "", false)
+        } else {
+            throw new Exception("Nor svnRepoName, nor sceneFolder are specified")
         }
 
         dir("RPRHybrid") {
@@ -205,7 +216,7 @@ def executeBuildWindows(String projectName, Map options) {
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
             
-            if (options.saveEngine) {
+            if (options.saveEngine && projectName == "ToyShop") {
                 dir("RPRHybrid-UE") {
                     
                     withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
@@ -320,6 +331,11 @@ def call(String projectBranch = "",
         if (!projects) {
             problemMessageManager.saveGlobalFailReason("Missing 'projects' param")
             throw new Exception("Missing 'projects' param")
+        }
+
+        if (saveEngine && projects != "ToyShop") {
+            problemMessageManager.saveGlobalFailReason("'saveEngine' parameter is supported only with ToyShop project")
+            throw new Exception("'saveEngine' parameter is supported only with ToyShop project")
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
