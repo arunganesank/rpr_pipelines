@@ -123,23 +123,23 @@ def executeBuildWindows(String projectName, Map options) {
         }
     }
 
-    // download build scripts
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
-
-    // prepare UE
-    getUE(options, projectName)
-
-    // download textures
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
-
     stages.each() { 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
         if (options.cleanBuild && it == "Default") {
             bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
         }
-
+        
         utils.removeFile(this, "Windows", "*.log")
+
+        // download build scripts
+        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
+
+        // prepare UE
+        getUE(options, projectName)
+
+        // download textures
+        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
 
         if (svnRepoName) {
             dir(svnRepoName) {
@@ -191,17 +191,19 @@ def executeBuildWindows(String projectName, Map options) {
         }
 
         dir("RPRHybrid-UE\\Engine\\Binaries\\Win64") {
-            if(fileExists("UE4Editor.exe")){
-                def script = """ @echo off
-                for %%I in (UE4Editor.exe) do @echo %%~zI
-                """
-                def output = bat(script: script, returnStdout: true).trim() as Integer
-                println("File size UE4Editor.exe ${output} bytes")
-                if (output == 0) {
-                    throw new Exception("File size UE4Editor.exe 0 bytes")
+            if (projectName == "ToyShop") {
+                if(fileExists("UE4Editor.exe")){
+                    def script = """ @echo off
+                    for %%I in (UE4Editor.exe) do @echo %%~zI
+                    """
+                    def output = bat(script: script, returnStdout: true).trim() as Integer
+                    println("File size UE4Editor.exe ${output} bytes")
+                    if (output == 0) {
+                        throw new Exception("File size UE4Editor.exe 0 bytes")
+                    }
+                } else {
+                    throw new Exception("File UE4Editor.exe doesn't exists")
                 }
-            } else {
-                throw new Exception("File UE4Editor.exe doesn't exists")
             }
         }
 
