@@ -1378,6 +1378,8 @@ def executeBuildUbuntu(Map options) {
 
 
 def executeBuild(String osName, Map options) {
+    cleanWS(osName)
+
     try {
         //utils.reboot(this, osName != "Android" ? osName : "Windows")
 
@@ -1418,6 +1420,8 @@ def executeBuild(String osName, Map options) {
 
 
 def executePreBuild(Map options) {
+    cleanWS("Windows")
+
     // manual job
     if (!env.BRANCH_NAME) {
     // auto job
