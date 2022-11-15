@@ -1155,7 +1155,7 @@ def executeBuildWindows(Map options) {
 
         String buildSln = "StreamingSDK_All_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
-        String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String winArtifactsDir = "vs2019x32${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winLatencyToolDir = "amf/bin/vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
 
@@ -1226,7 +1226,7 @@ def executeBuildWindows(Map options) {
                     set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
                     set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
                     set msbuild="${msBuildPath}"
-                    %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                    %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x32 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
             } catch (e) {
                 String buildLog = readFile("..\\..\\..\\..\\..\\..\\${logName}")
