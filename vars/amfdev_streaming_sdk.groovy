@@ -183,6 +183,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
+            utils.removeFile(this, "Windows", "app-arm.apk")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
