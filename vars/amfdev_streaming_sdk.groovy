@@ -1424,7 +1424,7 @@ def executePreBuild(Map options) {
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
 
     if (options.projectBranch) {
-        if ("StreamingSDK") {
+        dir ("StreamingSDK") {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH, disableSubmodules: true)
         }
 
