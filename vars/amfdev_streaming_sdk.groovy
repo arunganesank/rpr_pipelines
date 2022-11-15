@@ -7,12 +7,13 @@ import net.sf.json.JsonConfig
 import TestsExecutionType
 
 
-@Field final String PROJECT_REPO = "https://github.com/amfdev/StreamingSDK.git"
-@Field final String TESTS_REPO = "https://github.com/luxteam/jobs_test_streaming_sdk.git"
+@Field final String PROJECT_REPO = "https://github.amd.com/AMD-Radeon-Driver/drivers"
+@Field final String TESTS_REPO = "https://github.com/arunganesank/jobs_test_streaming_sdk"
 @Field final String DRIVER_REPO = "https://github.com/amfdev/AMDVirtualDrivers.git"
 @Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
+@Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "Android", "Ubuntu20"],
@@ -182,6 +183,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
+            utils.removeFile(this, "Windows", "app-arm.apk")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
@@ -1139,6 +1141,10 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     options.winBuildConfiguration.each() { winBuildConf ->
 
         println "Current build configuration: ${winBuildConf}."
@@ -1148,7 +1154,7 @@ def executeBuildWindows(Map options) {
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
-        String buildSln = "StreamingSDK_vs2019.sln"
+        String buildSln = "StreamingSDK_All_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
@@ -1192,10 +1198,10 @@ def executeBuildWindows(Map options) {
 
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
 
-                dir("amf\\protected\\samples") {
+                dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
@@ -1213,20 +1219,39 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        dir("StreamingSDK\\amf\\protected\\samples") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\build\\solution") {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-            bat """
-                set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
-                set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
-                set msbuild="${msBuildPath}"
-                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logName} 2>&1
-            """
+            try {
+                bat """
+                    set msbuild="${msBuildPath}"
+                    %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                """
+            } catch (e) {
+                String buildLog = readFile("..\\..\\..\\..\\..\\..\\${logName}")
+                // if true - there is some errors
+                if (!buildLog.contains("0 Error(s)")) {
+                    // if number of errors is bigger than 1 or the error isn't connected with amfrt64.lib - it's unexpected error
+                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("cannot open input file 'amfrt64.lib'")) {
+                        throw e
+                    }
+                }
+            }
         }
 
         String archiveUrl = ""
 
-        dir("StreamingSDK\\amf\\bin\\${winArtifactsDir}") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\bin\\${winArtifactsDir}") {
+            if (!fileExists("RemoteGameClient.exe")) {
+                String errorMessage = "RemoteGameClient.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            } else if (!fileExists("RemoteGameServer.exe")) {
+                String errorMessage = "RemoteGameServer.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            }
+
             String BUILD_NAME = "StreamingSDK_Windows_${winBuildName}.zip"
 
             zip archive: true, zipFile: BUILD_NAME
@@ -1247,6 +1272,10 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
@@ -1257,11 +1286,11 @@ def executeBuildAndroid(Map options) {
 
             String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+            dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameClientAndroid") {
                 GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
                 bat """
-                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
 
                 String archiveUrl = ""
@@ -1289,28 +1318,32 @@ def executeBuildAndroid(Map options) {
 
 
 def executeBuildUbuntu(Map options) {
+    dir("StreamingSDK/drivers/amf") {
+        sh "git submodule update --recursive --init ."
+    }
+
     String logName = "${STAGE_NAME}.log"
 
-    dir("StreamingSDK/amf/public/src/components/ComponentsFFMPEG") {
+    dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
         GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
         sh """
-            make >> ../../../../../../${logName} 2>&1
+            make >> ../../../../../../../${logName} 2>&1
         """
     }
 
-    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+    dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameServer") {
         // TODO: temporary ducktape. Waiting for fix from side of developers
-        if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
+        if (!fileExists("../../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
-                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
-                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
+                mkdir -p ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
             """
         }
 
         sh """
-            chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
-            make >> ../../../../../../${logName} 2>&1
+            chmod u+x ../../../../../../../Thirdparty/file_to_header/Linux64/file_to_header
+            make >> ../../../../../../../../${logName} 2>&1
         """
 
         String archiveUrl = ""
@@ -1334,12 +1367,14 @@ def executeBuildUbuntu(Map options) {
 
 
 def executeBuild(String osName, Map options) {
+    cleanWS(osName)
+
     try {
         //utils.reboot(this, osName != "Android" ? osName : "Windows")
 
         dir("StreamingSDK") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH)
             }
         }
 
@@ -1374,6 +1409,8 @@ def executeBuild(String osName, Map options) {
 
 
 def executePreBuild(Map options) {
+    cleanWS("Windows")
+
     // manual job
     if (!env.BRANCH_NAME) {
     // auto job
@@ -1392,39 +1429,39 @@ def executePreBuild(Map options) {
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
 
     if (options.projectBranch) {
-        if ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
-        }
+        dir ("StreamingSDK") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH, disableSubmodules: true)
 
-        if (options.projectBranch) {
-            currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
-        } else {
-            currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
-        }
-
-        options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-        options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
-        options.commitSHA = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-        options.commitShortSHA = options.commitSHA[0..6]
-
-        println "The last commit was written by ${options.commitAuthor}."
-        println "Commit message: ${options.commitMessage}"
-        println "Commit SHA: ${options.commitSHA}"
-        println "Commit shortSHA: ${options.commitShortSHA}"
-
-        if (env.BRANCH_NAME) {
-            withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-                GithubNotificator githubNotificator = new GithubNotificator(this, options)
-                githubNotificator.init(options)
-                options["githubNotificator"] = githubNotificator
-                githubNotificator.initPreBuild("${BUILD_URL}")
-                options.projectBranchName = githubNotificator.branchName
+            if (options.projectBranch) {
+                currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
+            } else {
+                currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
             }
-        }
 
-        currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
-        currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
-        currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+            options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
+            options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
+            options.commitSHA = bat(script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            options.commitShortSHA = options.commitSHA[0..6]
+
+            println "The last commit was written by ${options.commitAuthor}."
+            println "Commit message: ${options.commitMessage}"
+            println "Commit SHA: ${options.commitSHA}"
+            println "Commit shortSHA: ${options.commitShortSHA}"
+
+            if (env.BRANCH_NAME) {
+                withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                    GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                    githubNotificator.init(options)
+                    options["githubNotificator"] = githubNotificator
+                    githubNotificator.initPreBuild("${BUILD_URL}")
+                    options.projectBranchName = githubNotificator.branchName
+                }
+            }
+
+            currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
+            currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+            currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+        }
     }
 
     def tests = []
@@ -1987,8 +2024,6 @@ def call(String projectBranch = "",
                 //Driver development is on hold
                 //isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
 
-                isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
-
                 if (tests.startsWith("FS_") || tests.contains(" FS_")) {
                     executeBuild = false
                 }
@@ -2013,7 +2048,8 @@ def call(String projectBranch = "",
                         nodeRetry: nodeRetry,
                         platforms: platforms,
                         clientTag: clientTag,
-                        BUILD_TIMEOUT: 15,
+                        PREBUILD_TIMEOUT: 45,
+                        BUILD_TIMEOUT: 45,
                         // update timeouts dynamicly based on number of cases + traces are generated or not
                         TEST_TIMEOUT: 120,
                         DEPLOY_TIMEOUT: 150,
