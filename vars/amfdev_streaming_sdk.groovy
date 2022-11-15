@@ -1231,7 +1231,7 @@ def executeBuildWindows(Map options) {
                 // if true - there is some errors
                 if (!buildLog.contains("0 Error(s)")) {
                     // if number of errors is bigger than 1 or the error isn't connected with amfrt32.lib - it's unexpected error
-                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("fatal error LNK1104: cannot open file 'amfrt64.lib'")) {
+                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("cannot open file 'amfrt64.lib'")) {
                         throw e
                     }
                 }
