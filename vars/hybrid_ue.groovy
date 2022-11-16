@@ -12,7 +12,8 @@ import groovy.transform.Field
     ],
     "VictorianTrains": [
         "targetDir": "VictorianTrains26_ML_Packed",
-        "sceneFolder": "VictorianTrains26_ML"
+        "sceneFolder": "VictorianTrains26_ML",
+        "iniFile": "VictorianTrains26_ML.ini"
     ],
 ]
 
@@ -40,6 +41,16 @@ def getUE(Map options, String projectName) {
         // start script which presses enter to register UE file types
         bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\unreal\\register_ue_file_types.py && exit 0\"")
         bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
+    }
+
+    if (projectsInfo[projectName].containsKey("iniFile")) {
+        String iniFile = projectsInfo[projectName]["iniFile"]
+
+        dir("RPRHybrid-UE/Engine/Config") {
+            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/${iniFile}", ".")
+            utils.removeFile(this, "Windows", "BaseEngine.ini")
+            utils.renameFile(this, "Windows", "${iniFile}", "BaseEngine.ini")
+        }
     }
 
     println("[INFO] Prepared UE is ready.")
@@ -338,6 +349,11 @@ def call(String projectBranch = "",
         if (saveEngine && projects != "ToyShop") {
             problemMessageManager.saveGlobalFailReason("'saveEngine' parameter is supported only with ToyShop project")
             throw new Exception("'saveEngine' parameter is supported only with ToyShop project")
+        }
+
+        if (videoRecording && projects != "ToyShop") {
+            problemMessageManager.saveGlobalFailReason("'videoRecording' parameter is supported only with ToyShop project")
+            throw new Exception("'videoRecording' parameter is supported only with ToyShop project")
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
