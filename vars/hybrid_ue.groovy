@@ -243,13 +243,18 @@ def executeBuildWindows(String projectName, Map options) {
             if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
                     
-                    withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                    withCredentials([
+                        string(credentialsId: "nasURL", variable: 'NAS_URL'), 
+                        [$class: 'UsernamePasswordMultiBinding', credentialsId: 'svnEditorUser', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]
+                    ) {
+                        bat("if exist .svn rmdir /Q /S .svn")
+
                         bat """
                             svn co svn://${NAS_URL.split("@")[1]}/${projectName}Editor .
                             svn resolve --accept working -R .
                             svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
-                            svn commit -m "Build #${currentBuild.number}"
+                            svn commit --username ${USERNAME} --password ${PASSWORD} -m "Build #${currentBuild.number}"
                         """
                     }
                     
