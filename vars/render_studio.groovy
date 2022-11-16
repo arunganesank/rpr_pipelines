@@ -51,7 +51,7 @@ def removeClosedPRs(Map options) {
 
     for (job in parsedInfo["jobs"]) {
         if (job["color"] == "disabled") {
-            render_studio_deploy("pr${job['color'].split('-')[1]}", "remove")
+            render_studio_deploy("pr${job['name'].split('-')[1]}", "remove")
         }
     }
  }
