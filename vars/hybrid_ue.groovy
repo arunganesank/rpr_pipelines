@@ -47,7 +47,7 @@ def getUE(Map options, String projectName) {
         String iniFile = projectsInfo[projectName]["iniFile"]
 
         dir("RPRHybrid-UE/Engine/Config") {
-            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/${iniFile}", ".")
+            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".")
             utils.removeFile(this, "Windows", "BaseEngine.ini")
             utils.renameFile(this, "Windows", "${iniFile}", "BaseEngine.ini")
         }
@@ -144,13 +144,13 @@ def executeBuildWindows(String projectName, Map options) {
         utils.removeFile(this, "Windows", "*.log")
 
         // download build scripts
-        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
+        downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildScripts/*", ".")
 
         // prepare UE
         getUE(options, projectName)
 
         // download textures
-        downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
+        downloadFiles("/volume1/CIS/bin-storage/HybridUE/textures/*", "textures")
 
         if (svnRepoName) {
             dir(svnRepoName) {
@@ -163,17 +163,17 @@ def executeBuildWindows(String projectName, Map options) {
                     dir("Config") {
                         switch(it) {
                             case "Default" :
-                                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
+                                downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/DefaultEngine.ini", ".", "", false)
                                 break
                             case "VideoRecording":
-                                downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
+                                downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
                                 break
                         }
                     }
                 }
             }
         } else if (sceneFolder) {
-            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/Scenes/${sceneFolder}", ".", "", false)
+            downloadFiles("/volume1/Shared/HybridUE/Scenes/${sceneFolder}", ".", "", false)
         } else {
             throw new Exception("Nor svnRepoName, nor sceneFolder are specified")
         }
@@ -218,18 +218,16 @@ def executeBuildWindows(String projectName, Map options) {
             }
         }
 
-        if (it == "VideoRecording" && projectName == "ToyShop") {
+        if (it == "VideoRecording") {
             executeVideoRecording(svnRepoName, options)
-        }
-
-        if (it == "Default") {
+        } else if (it == "Default") {
             dir("${targetDir}\\WindowsNoEditor") {
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
             
-            if (options.saveEngine && projectName == "ToyShop") {
+            if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
                     
                     withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
