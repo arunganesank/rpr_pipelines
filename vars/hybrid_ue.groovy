@@ -155,7 +155,7 @@ def executeBuildWindows(String projectName, Map options) {
         if (svnRepoName) {
             dir(svnRepoName) {
                 withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
-                    String paragonGameURL = "svn://" + ${NAS_URL.split("@")[1]} + "/${svnRepoName}"
+                    String paragonGameURL = "svn://" + NAS_URL.split("@")[1] + "/${svnRepoName}"
                     checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
                 }
 
@@ -344,11 +344,6 @@ def call(String projectBranch = "",
         if (!projects) {
             problemMessageManager.saveGlobalFailReason("Missing 'projects' param")
             throw new Exception("Missing 'projects' param")
-        }
-
-        if (saveEngine && projects != "ToyShop") {
-            problemMessageManager.saveGlobalFailReason("'saveEngine' parameter is supported only with ToyShop project")
-            throw new Exception("'saveEngine' parameter is supported only with ToyShop project")
         }
 
         if (videoRecording && projects != "ToyShop") {
