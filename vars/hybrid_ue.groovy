@@ -9,7 +9,12 @@ import groovy.transform.Field
     "ToyShop": [
         "targetDir": "TOYSHOP_BINARY",
         "svnRepoName": "ToyShopUnreal"
-    ]
+    ],
+    "VictorianTrains": [
+        "targetDir": "VictorianTrains26_ML_Packed",
+        "sceneFolder": "VictorianTrains26_ML",
+        "iniFile": "VictorianTrains26_ML.ini"
+    ],
 ]
 
 @Field finishedProjects = []
@@ -36,6 +41,16 @@ def getUE(Map options, String projectName) {
         // start script which presses enter to register UE file types
         bat("start cmd.exe /k \"C:\\Python39\\python.exe %CIS_TOOLS%\\unreal\\register_ue_file_types.py && exit 0\"")
         bat("0_SetupUE.bat > \"0_SetupUE_${projectName}.log\" 2>&1")
+    }
+
+    if (projectsInfo[projectName].containsKey("iniFile")) {
+        String iniFile = projectsInfo[projectName]["iniFile"]
+
+        dir("RPRHybrid-UE/Engine/Config") {
+            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".")
+            utils.removeFile(this, "Windows", "BaseEngine.ini")
+            utils.renameFile(this, "Windows", "${iniFile}", "BaseEngine.ini")
+        }
     }
 
     println("[INFO] Prepared UE is ready.")
@@ -108,6 +123,7 @@ def executeBuildWindows(String projectName, Map options) {
 
     String targetDir = projectsInfo[projectName]["targetDir"]
     String svnRepoName = projectsInfo[projectName]["svnRepoName"]
+    String sceneFolder = projectsInfo[projectName]["sceneFolder"]
 
     def stages = ["Default"]
 
@@ -118,42 +134,63 @@ def executeBuildWindows(String projectName, Map options) {
         }
     }
 
-    // download build scripts
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildScripts/*", ".")
-
-    // prepare UE
-    getUE(options, projectName)
-
-    // download textures
-    downloadFiles("/volume1/CIS/bin-storage/HybridParagon/textures/*", "textures")
-
     stages.each() { 
         bat("if exist \"${targetDir}\" rmdir /Q /S ${targetDir}")
 
         if (options.cleanBuild && it == "Default") {
             bat("if exist \"RPRHybrid-UE\" rmdir /Q /S RPRHybrid-UE")
         }
-
+        
         utils.removeFile(this, "Windows", "*.log")
 
-        dir(svnRepoName) {
-            withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
-                String paragonGameURL = "svn://" + ${NAS_URL.split("@")[1]} + "/${svnRepoName}"
-                checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+        // download build scripts
+        downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildScripts/*", ".")
+
+        // prepare UE
+        getUE(options, projectName)
+
+        // download textures
+        downloadFiles("/volume1/CIS/bin-storage/HybridUE/textures/*", "textures")
+
+        if (it == "Default") {
+            String rprHybridSha
+            String rprHybridUESha
+
+            dir("RPRHybrid") {
+                rprHybridSha = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                currentBuild.description = "<b>RPRHybrid commit SHA:</b> ${rprHybridSha}<br/>"
             }
 
-            if (projectName == "ToyShop") {
-                dir("Config") {
-                    switch(it) {
-                        case "Default" :
-                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigs/DefaultEngine.ini", ".", "", false)
-                            break
-                        case "VideoRecording":
-                            downloadFiles("/volume1/CIS/bin-storage/HybridParagon/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
-                            break
+            dir("RPRHybrid-UE") {
+                rprHybridUESha = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                currentBuild.description += "<b>RPRHybrid-UE commit SHA:</b> ${rprHybridUESha}<br/>"
+            }
+        }
+
+        if (svnRepoName) {
+            dir(svnRepoName) {
+                withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                    String paragonGameURL = "svn://" + NAS_URL.split("@")[1] + "/${svnRepoName}"
+                    checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
+                }
+
+                if (projectName == "ToyShop") {
+                    dir("Config") {
+                        switch(it) {
+                            case "Default" :
+                                downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/DefaultEngine.ini", ".", "", false)
+                                break
+                            case "VideoRecording":
+                                downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigOptimized/DefaultEngine.ini", ".", "", false)
+                                break
+                        }
                     }
                 }
             }
+        } else if (sceneFolder) {
+            downloadFiles("/volume1/Shared/HybridUE/Scenes/${sceneFolder}", ".", "", false)
+        } else {
+            throw new Exception("Nor svnRepoName, nor sceneFolder are specified")
         }
 
         dir("RPRHybrid") {
@@ -194,11 +231,9 @@ def executeBuildWindows(String projectName, Map options) {
             }
         }
 
-        if (it == "VideoRecording" && projectName == "ToyShop") {
+        if (it == "VideoRecording") {
             executeVideoRecording(svnRepoName, options)
-        }
-
-        if (it == "Default") {
+        } else if (it == "Default") {
             dir("${targetDir}\\WindowsNoEditor") {
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
@@ -208,13 +243,18 @@ def executeBuildWindows(String projectName, Map options) {
             if (options.saveEngine) {
                 dir("RPRHybrid-UE") {
                     
-                    withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                    withCredentials([
+                        string(credentialsId: "nasURL", variable: 'NAS_URL'), 
+                        [$class: 'UsernamePasswordMultiBinding', credentialsId: 'svnEditorUser', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]
+                    ) {
+                        bat("if exist .svn rmdir /Q /S .svn")
+
                         bat """
                             svn co svn://${NAS_URL.split("@")[1]}/${projectName}Editor .
                             svn resolve --accept working -R .
                             svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
-                            svn commit -m "Build #${currentBuild.number}"
+                            svn commit --username ${USERNAME} --password ${PASSWORD} -m "Build #${currentBuild.number}"
                         """
                     }
                     
@@ -320,6 +360,11 @@ def call(String projectBranch = "",
         if (!projects) {
             problemMessageManager.saveGlobalFailReason("Missing 'projects' param")
             throw new Exception("Missing 'projects' param")
+        }
+
+        if (videoRecording && projects != "ToyShop") {
+            problemMessageManager.saveGlobalFailReason("'videoRecording' parameter is supported only with ToyShop project")
+            throw new Exception("'videoRecording' parameter is supported only with ToyShop project")
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
