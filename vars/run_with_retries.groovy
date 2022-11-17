@@ -13,7 +13,7 @@ def abortOldBuilds(Map options) {
 }
 
 
-def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLastNode, def stageName, def options, Integer maxNumberOfRetries = -1, String osName = "", Boolean setBuildStatus = false) {
+def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLastNode, def stageName, def options, Integer maxNumberOfRetries = -1, Boolean checkIsExceptionAllowed = false, String osName = "", Boolean setBuildStatus = false) {
     List nodesList = nodesByLabel label: labels, offline: true
     println "[INFO] Found ${nodesList.size()} suitable nodes"
     // if 0 suitable nodes are found - wait some node in loop
@@ -112,7 +112,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                 }
             }
         } catch(Exception e) {
-            Boolean isExceptionAllowed = false
+            Boolean isExceptionAllowed = !checkIsExceptionAllowed
 
             if (e instanceof ExpectedExceptionWrapper) {
                 if (e.abortCurrentOS) {
