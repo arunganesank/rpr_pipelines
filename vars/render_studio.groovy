@@ -897,121 +897,119 @@ def fillDescription(Map options) {
 def executePreBuild(Map options) {
     options.executeTests = true
 
-    ws("WebUSD-prebuild") {
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+    }
+
+    options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
+    options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
+    options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+    options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
+
+    if (options["executeBuild"]) {
+        // get links to the latest built HybridPro
+        def rawInfo = httpRequest(
+            url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]",
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
+
+        def parsedInfo = parseResponse(rawInfo.content)
+
+
+        Integer hybridBuildNumber
+        String hybridBuildUrl
+
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
+            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
+            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
         }
 
-        options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
-        options.commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true).split('\r\n')[2].trim()
-        options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-        options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
-
-        if (options["executeBuild"]) {
-            // get links to the latest built HybridPro
-            def rawInfo = httpRequest(
-                url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]",
-                authentication: 'jenkinsCredentials',
-                httpMode: 'GET'
-            )
-
-            def parsedInfo = parseResponse(rawInfo.content)
-
-
-            Integer hybridBuildNumber
-            String hybridBuildUrl
-
-            if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-                hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
-                hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
-            } else {
-                hybridBuildNumber = parsedInfo.lastUnstableBuild.number
-                hybridBuildUrl = parsedInfo.lastUnstableBuild.url
-            }
-
-            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-            }
-
-            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
-
-            // branch postfix
-            options["branchPostfix"] = ""
-            if (env.BRANCH_NAME) {
-                options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
-            } else {
-                options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
-            }
+        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+            options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
-        if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
-            options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
-        } else if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
-            removeClosedPRs(options)
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+
+        // branch postfix
+        options["branchPostfix"] = ""
+        if (env.BRANCH_NAME) {
+            options["branchPostfix"] = "auto" + "_" + env.BRANCH_NAME.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
+        } else {
+            options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
         }
+    }
 
-        withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
-            String version = readFile("VERSION.txt").trim()
+    if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
+        options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
+        removeClosedPRs(options)
+    }
 
-            options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
+    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
+        String version = readFile("VERSION.txt").trim()
 
-            if (env.BRANCH_NAME) {
-                withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-                    GithubNotificator githubNotificator = new GithubNotificator(this, options)
-                    githubNotificator.init(options)
-                    options["githubNotificator"] = githubNotificator
-                    githubNotificator.initPreBuild("${BUILD_URL}")
-                    options.projectBranchName = githubNotificator.branchName
+        options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
+
+        if (env.BRANCH_NAME) {
+            withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
+                GithubNotificator githubNotificator = new GithubNotificator(this, options)
+                githubNotificator.init(options)
+                options["githubNotificator"] = githubNotificator
+                githubNotificator.initPreBuild("${BUILD_URL}")
+                options.projectBranchName = githubNotificator.branchName
+            }
+
+            if (env.CHANGE_URL) {
+                GithubApiProvider githubApiProvider = new GithubApiProvider(this)
+                String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"].replace("git@github.com:", "https://github.com/").replaceAll(".git\$", ""), env.CHANGE_TARGET, "USD")["sha"]
+
+                println """
+                    Original USD Hash: ${originalUSDHash}
+                    Current USD Hash: ${options.usdHash}
+                """
+
+                if (originalUSDHash != options.usdHash) {
+                    println("[INFO] USD module was updated. It'll be rebuilt")
+                    options.rebuildUSD = true
+                }
+            }
+
+            if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
+                println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                println "[INFO] Current build version: ${version}"
+
+                if (env.BRANCH_NAME == "main") {
+                    version = version_inc(version, 2)
+                } else {
+                    version = version_inc(version, 3)
                 }
 
-                if (env.CHANGE_URL) {
-                    GithubApiProvider githubApiProvider = new GithubApiProvider(this)
-                    String originalUSDHash = githubApiProvider.getContentInfo(options["projectRepo"].replace("git@github.com:", "https://github.com/").replaceAll(".git\$", ""), env.CHANGE_TARGET, "USD")["sha"]
+                println "[INFO] New build version: ${version}"
+                writeFile(file: "VERSION.txt", text: version)
 
-                    println """
-                        Original USD Hash: ${originalUSDHash}
-                        Current USD Hash: ${options.usdHash}
-                    """
+                bat """
+                    git commit VERSION.txt -m "buildmaster: version update to ${version}"
+                    git push origin HEAD:${env.BRANCH_NAME}
+                """
 
-                    if (originalUSDHash != options.usdHash) {
-                        println("[INFO] USD module was updated. It'll be rebuilt")
-                        options.rebuildUSD = true
-                    }
-                }
-
-                if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
-                    println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                    println "[INFO] Current build version: ${version}"
-
-                    if (env.BRANCH_NAME == "main") {
-                        version = version_inc(version, 2)
-                    } else {
-                        version = version_inc(version, 3)
-                    }
-
-                    println "[INFO] New build version: ${version}"
-                    writeFile(file: "VERSION.txt", text: version)
-
-                    bat """
-                        git commit VERSION.txt -m "buildmaster: version update to ${version}"
-                        git push origin HEAD:${env.BRANCH_NAME}
-                    """
-
-                    //get commit's sha which have to be build
-                    options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
-                    options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
-                    options.projectBranch = options.commitSHA
-                    println "[INFO] Project branch hash: ${options.projectBranch}"
-                }
-            } else {
-                options.projectBranchName = options.projectBranch
+                //get commit's sha which have to be build
+                options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+                options.commitShortSHA = bat (script: "git log --format=%%h -1 ", returnStdout: true).split('\r\n')[2].trim()
+                options.projectBranch = options.commitSHA
+                println "[INFO] Project branch hash: ${options.projectBranch}"
             }
-
-            options.version = version
-
-            fillDescription(options)
+        } else {
+            options.projectBranchName = options.projectBranch
         }
+
+        options.version = version
+
+        fillDescription(options)
     }
 
     def tests = []
