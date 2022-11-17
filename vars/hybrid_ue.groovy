@@ -238,6 +238,7 @@ def executeBuildWindows(String projectName, Map options) {
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                utils.removeFile(this, "Windows", ARTIFACT_NAME)
             }
             
             if (options.saveEngine) {

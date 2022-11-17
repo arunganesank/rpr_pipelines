@@ -92,7 +92,9 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
 
             node(labels) {
                 timeout(time: "${stageTimeout}", unit: 'MINUTES') {
-                    ws("WS/${options.PRJ_NAME}_${stageName}") {
+                    String stageNameWS = stageName == "PreBuild" ? "Build" : stageName
+
+                    ws("WS/${options.PRJ_NAME}_${stageNameWS}") {
                         abortOldBuilds(options)
 
                         nodeName = env.NODE_NAME
