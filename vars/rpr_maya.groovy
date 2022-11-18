@@ -641,7 +641,7 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if(env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
 
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
@@ -656,7 +656,7 @@ def executePreBuild(Map options)
                         bat """
                           git add version.h
                           git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                          git push origin HEAD:develop
+                          git push origin HEAD:master
                         """
 
                         //get commit's sha which have to be build
