@@ -1349,7 +1349,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX6800XT;Web:Chrome',
+    String platforms = 'Windows:AMD_RX6800XT;Web',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
