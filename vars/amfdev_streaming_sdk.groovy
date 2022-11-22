@@ -920,20 +920,26 @@ def rebootAndroidDevice() {
 
 
 def initAndroidDevice() {
-    try {
+    String androidDeviceIp = bat(script: "if \"%ANDROID_DEVICE_IP%\"==\"\" (echo empty) else (echo %ANDROID_DEVICE_IP%)",returnStdout: true).split('\r\n')[2].trim()
+
+    if (androidDeviceIp == "empty") {
+        println("[INFO] ANDROID_DEVICE_IP env variable didn't found on the current server machine. Use IP address from androidDeviceIp Jenkins credential")
+
         withCredentials([string(credentialsId: "androidDeviceIp", variable: "ANDROID_DEVICE_IP")]) {
-            bat "adb kill-server"
-            println "[INFO] ADB server is killed"
+            androidDeviceIp = ANDROID_DEVICE_IP
         }
+    }
+
+    try {
+        bat "adb kill-server"
+        println "[INFO] ADB server is killed"
     } catch (Exception e) {
         println "[ERROR] Failed to kill adb server"
     }
 
     try {
-        withCredentials([string(credentialsId: "androidDeviceIp", variable: "ANDROID_DEVICE_IP")]) {
-            bat "adb connect " + ANDROID_DEVICE_IP + ":5555"
-            println "[INFO] Connected to Android device"
-        }
+        bat "adb connect " + androidDeviceIp + ":5555"
+        println "[INFO] Connected to Android device"
     } catch (Exception e) {
         println "[ERROR] Failed to connect to Android device"
     }
