@@ -1055,63 +1055,71 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
-    dir("autotests") {
-        try {
-            if (osName == "Windows" || osName == "Ubuntu20") {
-                options["clientInfo"] = new ConcurrentHashMap()
-                options["serverInfo"] = new ConcurrentHashMap()
-                options["mcClientInfo"] = new ConcurrentHashMap()
+    try {
+        if (osName == "Windows" || osName == "Ubuntu20") {
+            options["clientInfo"] = new ConcurrentHashMap()
+            options["serverInfo"] = new ConcurrentHashMap()
+            options["mcClientInfo"] = new ConcurrentHashMap()
 
-                println("[INFO] Start Client and Server processes for ${asicName}-${osName}")
-                // create client and server threads and run them parallel
-                Map threads = [:]
+            println("[INFO] Start Client and Server processes for ${asicName}-${osName}")
+            // create client and server threads and run them parallel
+            Map threads = [:]
 
-                threads["${options.stageName}-client"] = { 
-                    node(getClientLabels(options)) {
-                        timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
-                            ws("WS/${options.PRJ_NAME}_Test") {
+            threads["${options.stageName}-client"] = { 
+                node(getClientLabels(options)) {
+                    timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
+                        ws("WS/${options.PRJ_NAME}_Test") {
+                            dir("autotests") {
                                 executeTestsClient("Windows", asicName, options)
                             }
                         }
                     }
                 }
+            }
 
-                if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
-                    threads["${options.stageName}-multiconnection-client"] = { 
-                        node(getMulticonnectionClientLabels(options)) {
-                            timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
-                                ws("WS/${options.PRJ_NAME}_Test") {
+            if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+                threads["${options.stageName}-multiconnection-client"] = { 
+                    node(getMulticonnectionClientLabels(options)) {
+                        timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
+                            ws("WS/${options.PRJ_NAME}_Test") {
+                                dir("autotests") {
                                     executeTestsMulticonnectionClient("Windows", asicName, options)
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                threads["${options.stageName}-server"] = { executeTestsServer(osName, asicName, options) }
+            threads["${options.stageName}-server"] = { 
+                dir("autotests") { 
+                    executeTestsServer(osName, asicName, options) 
+                } 
+            }
 
-                parallel threads
+            parallel threads
 
-                if (options["serverInfo"]["failed"]) {
-                    def exception = options["serverInfo"]["exception"]
-                    throw new ExpectedExceptionWrapper("Server side tests got an error: ${exception.getMessage()}", exception)
-                } else if (options["clientInfo"]["failed"]) {
-                    def exception = options["clientInfo"]["exception"]
-                    throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
-                }
-            } else if (osName == "Android") {
+            if (options["serverInfo"]["failed"]) {
+                def exception = options["serverInfo"]["exception"]
+                throw new ExpectedExceptionWrapper("Server side tests got an error: ${exception.getMessage()}", exception)
+            } else if (options["clientInfo"]["failed"]) {
+                def exception = options["clientInfo"]["exception"]
+                throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
+            }
+        } else if (osName == "Android") {
+            dir("autotests") { 
                 executeTestsAndroid(osName, asicName, options)
-            } else {
-                println("Unsupported OS")
             }
-        } catch (e) {
-            if (e instanceof ExpectedExceptionWrapper) {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
-                throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
-            } else {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
-                throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
-            }
+        } else {
+            println("Unsupported OS")
+        }
+    } catch (e) {
+        if (e instanceof ExpectedExceptionWrapper) {
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
+        } else {
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     }
 }
