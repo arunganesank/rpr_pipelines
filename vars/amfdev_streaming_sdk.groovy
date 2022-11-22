@@ -920,7 +920,7 @@ def rebootAndroidDevice() {
 
 
 def initAndroidDevice() {
-    String androidDeviceIp = bat(script: "if \"%ANDROID_DEVICE_IP%\"==\"\" echo empty",returnStdout: true).split('\r\n')[2].trim()
+    String androidDeviceIp = bat(script: "if \"%ANDROID_DEVICE_IP%\"==\"\" (echo empty) else (echo %ANDROID_DEVICE_IP%)",returnStdout: true).split('\r\n')[2].trim()
 
     if (androidDeviceIp == "empty") {
         println("[INFO] ANDROID_DEVICE_IP env variable didn't found on the current server machine. Use IP address from androidDeviceIp Jenkins credential")
