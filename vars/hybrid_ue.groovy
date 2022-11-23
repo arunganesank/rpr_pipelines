@@ -338,7 +338,7 @@ def executePreBuild(Map options) {
 def call(String projectBranch = "",
          String ueBranch = "rpr_material_serialization_particles",
          String platforms = "Windows",
-         String projects = "ShooterGame,ToyShop",
+         String projects = "",
          Boolean saveEngine = false,
          Boolean cleanBuild = false,
          Boolean videoRecording = false,
@@ -368,6 +368,19 @@ def call(String projectBranch = "",
             throw new Exception("'videoRecording' parameter is supported only with ToyShop project")
         }
 
+        // TODO: do not build different projects on different machines
+        String builderTag
+
+        if (projects == "ShooterGame") {
+            builderTag = "BuilderU_ShooterGame"
+        } else if (projects == "ToyShop") {
+            builderTag = "BuilderU_ToyShop"
+        } else if (projects == "VictorianTrains") {
+            builderTag = "BuilderU_VictorianTrains"
+        } else {
+            throw new Exception("Unexpected project name ${projects}")
+        }
+
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
                                [platforms:platforms,
                                 PRJ_NAME:"HybridParagon",
@@ -375,7 +388,7 @@ def call(String projectBranch = "",
                                 projectBranch:projectBranch,
                                 ueRepo:"git@github.com:Radeon-Pro/RPRHybrid-UE.git",
                                 ueBranch:env.BRANCH_NAME ?: ueBranch,
-                                BUILDER_TAG:"BuilderU",
+                                BUILDER_TAG:builderTag,
                                 TESTER_TAG:"HybridTester",
                                 executeBuild:true,
                                 executeTests:true,
