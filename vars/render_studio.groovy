@@ -32,6 +32,15 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
 }
 
 
+Boolean isWebDeployed(Map options) {
+    if (options["osName"] == "Windows" && options["platforms"].contains("Web")) {
+        return options["finishedBuildStages"]["Web"]
+    } else {
+        return true
+    }
+}
+
+
 @NonCPS
 def parseResponse(String response) {
     def jsonSlurper = new groovy.json.JsonSlurperClassic()
@@ -446,10 +455,6 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         options.saveUSD = true
     }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-99") {
-        options.rebuildUSD = true
-    }
-
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
@@ -523,13 +528,11 @@ def executeBuildWindows(Map options) {
         String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
         envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
-        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-99") {
-            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                String url = TEMPLATE.replace("<instance>", "pr${env.BRANCH_NAME.split('-')[1]}")
+        withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+            String url = TEMPLATE.replace("<instance>", "pr${env.BRANCH_NAME.split('-')[1]}")
 
-                envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
-                envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
-            }
+            envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
+            envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
         }
 
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
@@ -1438,7 +1441,8 @@ def call(
                                 ADDITIONAL_XML_TIMEOUT:15,
                                 nodeRetry: [],
                                 rebuildUSD: rebuildUSD,
-                                saveUSD: saveUSD
+                                saveUSD: saveUSD,
+                                testsPreCondition: this.&isWebDeployed
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
