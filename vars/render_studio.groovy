@@ -529,7 +529,7 @@ def executeBuildWindows(Map options) {
         envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
         withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-            String url = TEMPLATE.replace("<instance>", "pr${env.BRANCH_NAME.split('-')[1]}")
+            String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
 
             envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
             envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
