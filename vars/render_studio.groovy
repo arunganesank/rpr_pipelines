@@ -1,4 +1,5 @@
 import groovy.transform.Field
+import java.util.concurrent.ConcurrentHashMap
 import groovy.json.JsonOutput
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
@@ -33,7 +34,7 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
 
 
 Boolean isWebDeployed(Map options) {
-    if (options["osName"] == "Windows" && options["platforms"].contains("Web")) {
+    if (options["osName"] == "Windows" && options["platforms"].contains("Web") && !options["skipBuild"]) {
         return options["finishedBuildStages"]["Web"]
     } else {
         return true
@@ -532,7 +533,6 @@ def executeBuildWindows(Map options) {
             String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
 
             envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
-            envProductionContent = envProductionContent + "\nVUE_APP_URL_CONVERT=${url}/convert/"
         }
 
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
@@ -1442,6 +1442,7 @@ def call(
                                 nodeRetry: [],
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
+                                finishedBuildStages: new ConcurrentHashMap(),
                                 testsPreCondition: this.&isWebDeployed
                                 ]
     try {
