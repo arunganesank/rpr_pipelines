@@ -634,6 +634,12 @@ def executeTestsClient(String osName, String asicName, Map options) {
         }
 
         timeout(time: "5", unit: "MINUTES") {
+            dir("jobs_launcher/install"){
+                bat """
+                    install_pylibs.bat
+                """
+            }
+
             if (options.projectBranch && !options.skipBuild.contains("Windows")) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
@@ -739,6 +745,19 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
+                dir("jobs_launcher/install"){
+                    if (isUnix()) {
+                        sh """
+                            chmod u+x install_pylibs.sh
+                            ./install_pylibs.sh
+                        """
+                    } else {
+                        bat """
+                            install_pylibs.bat
+                        """
+                    }
+                }
+
                 if (options.projectBranch) {
                     if (options.skipBuild.contains(osName)) {
                         if (osName == "Windows") {
@@ -861,6 +880,12 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
         }
 
         timeout(time: "5", unit: "MINUTES") {
+            dir("jobs_launcher/install"){
+                bat """
+                    install_pylibs.bat
+                """
+            }
+
             if (!options.skipBuild.contains("Windows")) {
                 dir("StreamingSDK") {
                     prepareTool(osName, options)
@@ -1018,6 +1043,12 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
+                dir("jobs_launcher/install"){
+                    bat """
+                        install_pylibs.bat
+                    """
+                }
+
                 if (!options.skipBuild.contains("Windows")) {
                     dir("StreamingSDK") {
                         prepareTool("Windows", options)
