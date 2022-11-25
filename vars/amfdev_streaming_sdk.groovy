@@ -333,106 +333,6 @@ def getCommunicationPort(String osName) {
 }
 
 
-def closeGames(String osName, Map options, String gameName) {
-    try {
-        switch(osName) {
-            case "Windows":
-            case "Android":
-                if (gameName == "All") {
-                    bat """
-                        taskkill /f /im \"borderlands3.exe\"
-                        taskkill /f /im \"VALORANT-Win64-Shipping.exe\"
-                        taskkill /f /im \"r5apex.exe\"
-                        taskkill /f /im \"LeagueClient.exe\"
-                        taskkill /f /im \"League of Legends.exe\"
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Heaven.exe\"
-                        taskkill /f /im \"Valley.exe\"
-                        taskkill /f /im \"launcher.exe\"
-                        taskkill /f /im \"superposition.exe\"
-                        taskkill /f /im \"dota2.exe\"
-                        taskkill /f /im \"csgo.exe\"
-                        taskkill /f /im \"TslGame.exe\"
-                    """
-                } else if (gameName == "Borderlands3") {
-                    bat """
-                        taskkill /f /im \"borderlands3.exe\"
-                    """
-                } else if (gameName == "Valorant") {
-                    bat """
-                        taskkill /f /im \"VALORANT-Win64-Shipping.exe\"
-                    """
-                } else if (gameName == "ApexLegends") {
-                    bat """
-                        taskkill /f /im \"r5apex.exe\"
-                    """
-                } else if (gameName == "LoL") {
-                    bat """
-                        taskkill /f /im \"LeagueClient.exe\"
-                        taskkill /f /im \"League of Legends.exe\"
-                    """
-                } else if (gameName == "HeavenDX9" || gameName == "HeavenDX11" || gameName == "HeavenOpenGL") {
-                    bat """
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Heaven.exe\"
-                    """
-                } else if (gameName == "ValleyDX9" || gameName == "ValleyDX11" || gameName == "ValleyOpenGL") {
-                    bat """
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Valley.exe\"
-                    """
-                } else if (gameName == "Superposition") {
-                    bat """
-                        taskkill /f /im \"launcher.exe\"
-                        taskkill /f /im \"superposition.exe\"
-                    """
-                } else if (gameName == "Dota2DX11" || gameName == "Dota2Vulkan") {
-                    bat """
-                        taskkill /f /im \"dota2.exe\"
-                    """
-                } else if (gameName == "CSGO") {
-                    bat """
-                        taskkill /f /im \"csgo.exe\"
-                    """
-                } else if (gameName == "PUBG") {
-                    bat """
-                        taskkill.exe /f /im \"TslGame.exe\"
-                    """
-                }
-
-                break
-            case "Ubuntu20":
-                if (gameName == "All") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "heaven_x64"
-                        pkill "valley_x64"
-                    """
-                } else if (gameName == "HeavenOpenGL") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "heaven_x64"
-                    """
-                } else if (gameName == "ValleyOpenGL") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "valley_x64"
-                    """
-                }
-                break
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
-        }
-    } catch (e) {
-        println("[ERROR] Failed to close games")
-        println(e)
-    }
-}
-
-
 def closeAmdLink(String osName, Map options, String executionType) {
     try {
         switch(executionType) {
@@ -848,8 +748,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         saveResults(osName, options, "server", stashResults, options["serverInfo"]["executeTestsFinished"])
 
-        closeGames(osName, options, options.engine)
-
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
         }
@@ -1082,8 +980,6 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
         println "Exception stack trace: ${e.getStackTrace()}"
     } finally {
         saveResults("Windows", options, "android", stashResults, true)
-
-        closeGames(osName, options, options.engine)
     }
 }
 
