@@ -853,10 +853,12 @@ def notifyByTg(Map options){
 
 
 def getReportBuildArgs(String mode, Map options) {
+    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+
     if (options["isPreBuilt"]) {
-        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" """
+        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     } else {
-        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" """
+        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
     }
 }
 
@@ -1220,7 +1222,14 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             try {
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/${mode}"
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+
+                if (useTrackedMetrics) {
+                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+                }
 
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
@@ -1256,6 +1265,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                             }
                         }
                     }
+                }
+
+                if (saveTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
