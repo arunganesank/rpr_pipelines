@@ -763,7 +763,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                 boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
                 String toolVersionParts = toolVersion.split("\\.")
-                String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
+                String[] metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
