@@ -4,6 +4,7 @@ import groovy.json.JsonOutput
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
+import TestsExecutionType
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
 @Field final String TEST_REPO = "git@github.com:luxteam/jobs_test_web_viewer.git"
@@ -1456,7 +1457,8 @@ def call(
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
-                                testsPreCondition: this.&isWebDeployed
+                                testsPreCondition: this.&isWebDeployed,
+                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
