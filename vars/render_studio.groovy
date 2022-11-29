@@ -133,6 +133,9 @@ def runApplication(String appLink, String osName, Map options) {
 
 
 def runApplicationTests(String osName, Map options) {
+    // Step 0: remove existing application
+    uninstallAMDRenderStudio(osName, options)
+
     // Step 1: install app
     installAMDRenderStudio(osName, options)
 
