@@ -455,8 +455,8 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
 
     println("[INFO] Found USD module hash: ${usdInfo['hash']}")
 
-    if (options.usdHash != usdInfo["hash"] && env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
-        println("[INFO] New USD version detected in develop branch. It'll be saved")
+    if (options.usdHash != usdInfo["hash"] && env.BRANCH_NAME && env.BRANCH_NAME == "main") {
+        println("[INFO] New USD version detected in main branch. It'll be saved")
         options.saveUSD = true
     }
 
@@ -968,7 +968,7 @@ def executePreBuild(Map options) {
 
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
-    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "main") {
         removeClosedPRs(options)
     }
 
@@ -1001,11 +1001,11 @@ def executePreBuild(Map options) {
                 }
             }
 
-            if ((env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "main") && options.commitAuthor != "radeonprorender") {
+            if ((env.BRANCH_NAME == "main" || env.BRANCH_NAME == "release") && options.commitAuthor != "radeonprorender") {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                 println "[INFO] Current build version: ${version}"
 
-                if (env.BRANCH_NAME == "main") {
+                if (env.BRANCH_NAME == "release") {
                     version = version_inc(version, 2)
                 } else {
                     version = version_inc(version, 3)
@@ -1402,10 +1402,10 @@ def call(
 
     if (env.BRANCH_NAME) {
         switch (env.BRANCH_NAME) {
-            case "develop":
+            case "main":
                 deployEnvironment = "dev"
                 break
-            case "main":
+            case "release":
                 deployEnvironment = "prod"
                 break
         }
