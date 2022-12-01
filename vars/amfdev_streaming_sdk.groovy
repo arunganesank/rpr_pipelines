@@ -14,6 +14,7 @@ import TestsExecutionType
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
 @Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
+@Field final String AUTOTESTS_PATH = "autotests"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "Android", "Ubuntu20"],
@@ -1004,7 +1005,7 @@ def executeTests(String osName, String asicName, Map options) {
                 node(getClientLabels(options)) {
                     timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                         ws("WS/${options.PRJ_NAME}_Test") {
-                            dir("autotests") {
+                            dir(AUTOTESTS_PATH) {
                                 executeTestsClient("Windows", asicName, options)
                             }
                         }
@@ -1017,7 +1018,7 @@ def executeTests(String osName, String asicName, Map options) {
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                dir("autotests") {
+                                dir(AUTOTESTS_PATH) {
                                     executeTestsMulticonnectionClient("Windows", asicName, options)
                                 }
                             }
@@ -1027,7 +1028,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
 
             threads["${options.stageName}-server"] = { 
-                dir("autotests") { 
+                dir(AUTOTESTS_PATH) { 
                     executeTestsServer(osName, asicName, options) 
                 } 
             }
@@ -1042,7 +1043,7 @@ def executeTests(String osName, String asicName, Map options) {
                 throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
             }
         } else if (osName == "Android") {
-            dir("autotests") { 
+            dir(AUTOTESTS_PATH) { 
                 executeTestsAndroid(osName, asicName, options)
             }
         } else {
@@ -1390,7 +1391,7 @@ def executePreBuild(Map options) {
         dir("jobs_test_streaming_sdk") {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
 
-            dir("autotests") {
+            dir(AUTOTESTS_PATH) {
                 options["testsBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
                 dir('jobs_launcher') {
                     options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
@@ -1511,7 +1512,7 @@ def executePreBuild(Map options) {
 
         println "Groups: ${options.testsList}"
 
-        dir("jobs_test_streaming_sdk/autotests") {
+        dir("jobs_test_streaming_sdk/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
@@ -1549,7 +1550,7 @@ def executePreBuild(Map options) {
 
 
 def executeDeploy(Map options, List platformList, List testResultList, String game) {
-    dir("autotests") {
+    dir(AUTOTESTS_PATH) {
         try {
 
             if (options["executeTests"] && testResultList) {
@@ -1999,7 +2000,8 @@ def call(String projectBranch = "",
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
                         executeTests: true,
-                        skipBuildCallback: this.&shouldSkipBuild
+                        skipBuildCallback: this.&shouldSkipBuild,
+                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
                         ]
         }
 
