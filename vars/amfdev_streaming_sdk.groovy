@@ -335,106 +335,6 @@ def getCommunicationPort(String osName) {
 }
 
 
-def closeGames(String osName, Map options, String gameName) {
-    try {
-        switch(osName) {
-            case "Windows":
-            case "Android":
-                if (gameName == "All") {
-                    bat """
-                        taskkill /f /im \"borderlands3.exe\"
-                        taskkill /f /im \"VALORANT-Win64-Shipping.exe\"
-                        taskkill /f /im \"r5apex.exe\"
-                        taskkill /f /im \"LeagueClient.exe\"
-                        taskkill /f /im \"League of Legends.exe\"
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Heaven.exe\"
-                        taskkill /f /im \"Valley.exe\"
-                        taskkill /f /im \"launcher.exe\"
-                        taskkill /f /im \"superposition.exe\"
-                        taskkill /f /im \"dota2.exe\"
-                        taskkill /f /im \"csgo.exe\"
-                        taskkill /f /im \"TslGame.exe\"
-                    """
-                } else if (gameName == "Borderlands3") {
-                    bat """
-                        taskkill /f /im \"borderlands3.exe\"
-                    """
-                } else if (gameName == "Valorant") {
-                    bat """
-                        taskkill /f /im \"VALORANT-Win64-Shipping.exe\"
-                    """
-                } else if (gameName == "ApexLegends") {
-                    bat """
-                        taskkill /f /im \"r5apex.exe\"
-                    """
-                } else if (gameName == "LoL") {
-                    bat """
-                        taskkill /f /im \"LeagueClient.exe\"
-                        taskkill /f /im \"League of Legends.exe\"
-                    """
-                } else if (gameName == "HeavenDX9" || gameName == "HeavenDX11" || gameName == "HeavenOpenGL") {
-                    bat """
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Heaven.exe\"
-                    """
-                } else if (gameName == "ValleyDX9" || gameName == "ValleyDX11" || gameName == "ValleyOpenGL") {
-                    bat """
-                        taskkill /f /im \"browser_x86.exe\"
-                        taskkill /f /im \"Valley.exe\"
-                    """
-                } else if (gameName == "Superposition") {
-                    bat """
-                        taskkill /f /im \"launcher.exe\"
-                        taskkill /f /im \"superposition.exe\"
-                    """
-                } else if (gameName == "Dota2DX11" || gameName == "Dota2Vulkan") {
-                    bat """
-                        taskkill /f /im \"dota2.exe\"
-                    """
-                } else if (gameName == "CSGO") {
-                    bat """
-                        taskkill /f /im \"csgo.exe\"
-                    """
-                } else if (gameName == "PUBG") {
-                    bat """
-                        taskkill.exe /f /im \"TslGame.exe\"
-                    """
-                }
-
-                break
-            case "Ubuntu20":
-                if (gameName == "All") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "heaven_x64"
-                        pkill "valley_x64"
-                    """
-                } else if (gameName == "HeavenOpenGL") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "heaven_x64"
-                    """
-                } else if (gameName == "ValleyOpenGL") {
-                    sh """
-                        pkill "browser_x64"
-                        pkill "valley_x64"
-                    """
-                }
-                break
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
-        }
-    } catch (e) {
-        println("[ERROR] Failed to close games")
-        println(e)
-    }
-}
-
-
 def closeAmdLink(String osName, Map options, String executionType) {
     try {
         switch(executionType) {
@@ -630,7 +530,9 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+            dir("..") {
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+            }
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -737,7 +639,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                dir("..") {
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                }
             }
         }
 
@@ -846,8 +750,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         saveResults(osName, options, "server", stashResults, options["serverInfo"]["executeTestsFinished"])
 
-        closeGames(osName, options, options.engine)
-
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
         }
@@ -872,7 +774,9 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 }
             }
 
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+            dir("..") {
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+            }
         }
 
         timeout(time: "5", unit: "MINUTES") {
@@ -941,20 +845,26 @@ def rebootAndroidDevice() {
 
 
 def initAndroidDevice() {
-    try {
+    String androidDeviceIp = bat(script: "if \"%ANDROID_DEVICE_IP%\"==\"\" (echo empty) else (echo %ANDROID_DEVICE_IP%)",returnStdout: true).split('\r\n')[2].trim()
+
+    if (androidDeviceIp == "empty") {
+        println("[INFO] ANDROID_DEVICE_IP env variable didn't found on the current server machine. Use IP address from androidDeviceIp Jenkins credential")
+
         withCredentials([string(credentialsId: "androidDeviceIp", variable: "ANDROID_DEVICE_IP")]) {
-            bat "adb kill-server"
-            println "[INFO] ADB server is killed"
+            androidDeviceIp = ANDROID_DEVICE_IP
         }
+    }
+
+    try {
+        bat "adb kill-server"
+        println "[INFO] ADB server is killed"
     } catch (Exception e) {
         println "[ERROR] Failed to kill adb server"
     }
 
     try {
-        withCredentials([string(credentialsId: "androidDeviceIp", variable: "ANDROID_DEVICE_IP")]) {
-            bat "adb connect " + ANDROID_DEVICE_IP + ":5555"
-            println "[INFO] Connected to Android device"
-        }
+        bat "adb connect " + androidDeviceIp + ":5555"
+        println "[INFO] Connected to Android device"
     } catch (Exception e) {
         println "[ERROR] Failed to connect to Android device"
     }
@@ -1025,7 +935,9 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     }
                 }
 
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                dir("..") {
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                }
             }
         }
 
@@ -1070,8 +982,6 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
         println "Exception stack trace: ${e.getStackTrace()}"
     } finally {
         saveResults("Windows", options, "android", stashResults, true)
-
-        closeGames(osName, options, options.engine)
     }
 }
 
@@ -1094,7 +1004,9 @@ def executeTests(String osName, String asicName, Map options) {
                 node(getClientLabels(options)) {
                     timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                         ws("WS/${options.PRJ_NAME}_Test") {
-                            executeTestsClient("Windows", asicName, options)
+                            dir("autotests") {
+                                executeTestsClient("Windows", asicName, options)
+                            }
                         }
                     }
                 }
@@ -1105,14 +1017,20 @@ def executeTests(String osName, String asicName, Map options) {
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                executeTestsMulticonnectionClient("Windows", asicName, options)
+                                dir("autotests") {
+                                    executeTestsMulticonnectionClient("Windows", asicName, options)
+                                }
                             }
                         }
                     }
                 }
             }
 
-            threads["${options.stageName}-server"] = { executeTestsServer(osName, asicName, options) }
+            threads["${options.stageName}-server"] = { 
+                dir("autotests") { 
+                    executeTestsServer(osName, asicName, options) 
+                } 
+            }
 
             parallel threads
 
@@ -1124,7 +1042,9 @@ def executeTests(String osName, String asicName, Map options) {
                 throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
             }
         } else if (osName == "Android") {
-            executeTestsAndroid(osName, asicName, options)
+            dir("autotests") { 
+                executeTestsAndroid(osName, asicName, options)
+            }
         } else {
             println("Unsupported OS")
         }
@@ -1469,113 +1389,116 @@ def executePreBuild(Map options) {
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
         dir("jobs_test_streaming_sdk") {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
-            options["testsBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-            dir('jobs_launcher') {
-                options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-            }
-            println "[INFO] Test branch hash: ${options['testsBranch']}"
 
-            def packageInfo
-
-            if (options.testsPackage != "none") {
-                if (fileExists("jobs/${options.testsPackage}")) {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage}"
-                } else {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-windows.json')}"
+            dir("autotests") {
+                options["testsBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
+                dir('jobs_launcher') {
+                    options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
                 }
+                println "[INFO] Test branch hash: ${options['testsBranch']}"
 
-                options.isPackageSplitted = packageInfo["split"]
-                // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
-                    options.testsPackage = "none"
-                }
-            }
+                def packageInfo
 
-            if (options.testsPackage != "none") {
-                def tempTests = []
-
-                if (options.isPackageSplitted) {
-                    println "[INFO] Tests package '${options.testsPackage}' can be splitted"
-                } else {
-                    // save tests which user wants to run with non-splitted tests package
-                    if (options.tests) {
-                        tests = options.tests.split(" ") as List
+                if (options.testsPackage != "none") {
+                    if (fileExists("jobs/${options.testsPackage}")) {
+                        packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                    } else {
+                        packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-windows.json')}"
                     }
-                    println "[INFO] Tests package '${options.testsPackage}' can't be splitted"
-                }
-                // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
-                String modifiedPackageName = "${options.testsPackage}~"
 
-                // receive list of group names from package
-                List groupsFromPackage = []
-
-                if (packageInfo["groups"] instanceof Map) {
-                    groupsFromPackage = packageInfo["groups"].keySet() as List
-                } else {
-                    // iterate through all parts of package
-                    packageInfo["groups"].each() {
-                        groupsFromPackage.addAll(it.keySet() as List)
+                    options.isPackageSplitted = packageInfo["split"]
+                    // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
+                    if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
+                        options.testsPackage = "none"
                     }
                 }
 
-                groupsFromPackage.each {
+                if (options.testsPackage != "none") {
+                    def tempTests = []
+
                     if (options.isPackageSplitted) {
-                        tempTests << it
+                        println "[INFO] Tests package '${options.testsPackage}' can be splitted"
                     } else {
-                        if (tempTests.contains(it)) {
-                            // add duplicated group name in name of package group name for exclude it
-                            modifiedPackageName = "${modifiedPackageName},${it}"
+                        // save tests which user wants to run with non-splitted tests package
+                        if (options.tests) {
+                            tests = options.tests.split(" ") as List
+                        }
+                        println "[INFO] Tests package '${options.testsPackage}' can't be splitted"
+                    }
+                    // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
+                    String modifiedPackageName = "${options.testsPackage}~"
+
+                    // receive list of group names from package
+                    List groupsFromPackage = []
+
+                    if (packageInfo["groups"] instanceof Map) {
+                        groupsFromPackage = packageInfo["groups"].keySet() as List
+                    } else {
+                        // iterate through all parts of package
+                        packageInfo["groups"].each() {
+                            groupsFromPackage.addAll(it.keySet() as List)
                         }
                     }
-                }
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
-                options.engines.each { engine ->
-                    if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
-                        packageInfo = readJSON file: "jobs/regression-windows.json"
-
-                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
-                            tests << "regression.${i}.json~-${engine}"
+                    groupsFromPackage.each {
+                        if (options.isPackageSplitted) {
+                            tempTests << it
+                        } else {
+                            if (tempTests.contains(it)) {
+                                // add duplicated group name in name of package group name for exclude it
+                                modifiedPackageName = "${modifiedPackageName},${it}"
+                            }
                         }
+                    }
+                    options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
+
+                    options.engines.each { engine ->
+                        if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+                            packageInfo = readJSON file: "jobs/regression-windows.json"
+
+                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                                tests << "regression.${i}.json~-${engine}"
+                            }
+                        } else {
+                            options.tests.each() {
+                                tests << "${it}-${engine}"
+                            }
+                        }
+                    }
+
+                    modifiedPackageName = modifiedPackageName.replace('~,', '~')
+
+                    if (options.isPackageSplitted) {
+                        options.testsPackage = "none"
                     } else {
+                        options.testsPackage = modifiedPackageName
+                        // check that package is splitted to parts or not
+                        if (packageInfo["groups"] instanceof Map) {
+                            options.engines.each { engine ->
+                                tests << "${modifiedPackageName}-${engine}"
+                            } 
+                        } else {
+                            // add group stub for each part of package
+                            options.engines.each { engine ->
+                                for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                                    tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
+                                }
+                            }
+                        }
+                    }
+                } else if (options.tests) {
+                    options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List, collectTraces ? 90 : 70)
+                    options.engines.each { engine ->
                         options.tests.each() {
                             tests << "${it}-${engine}"
                         }
                     }
-                }
-
-                modifiedPackageName = modifiedPackageName.replace('~,', '~')
-
-                if (options.isPackageSplitted) {
-                    options.testsPackage = "none"
                 } else {
-                    options.testsPackage = modifiedPackageName
-                    // check that package is splitted to parts or not
-                    if (packageInfo["groups"] instanceof Map) {
-                        options.engines.each { engine ->
-                            tests << "${modifiedPackageName}-${engine}"
-                        } 
-                    } else {
-                        // add group stub for each part of package
-                        options.engines.each { engine ->
-                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
-                                tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
-                            }
-                        }
-                    }
+                    options.executeTests = false
                 }
-            } else if (options.tests) {
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List, collectTraces ? 90 : 70)
-                options.engines.each { engine ->
-                    options.tests.each() {
-                        tests << "${it}-${engine}"
-                    }
-                }
-            } else {
-                options.executeTests = false
-            }
 
-            options.tests = tests
+                options.tests = tests
+            }
         }
 
         // clear games list if there isn't any test group in build or games string is empty
@@ -1588,7 +1511,7 @@ def executePreBuild(Map options) {
 
         println "Groups: ${options.testsList}"
 
-        dir("jobs_test_streaming_sdk") {
+        dir("jobs_test_streaming_sdk/autotests") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
@@ -1626,318 +1549,322 @@ def executePreBuild(Map options) {
 
 
 def executeDeploy(Map options, List platformList, List testResultList, String game) {
-    try {
+    dir("autotests") {
+        try {
 
-        if (options["executeTests"] && testResultList) {
-            withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
-            }
+            if (options["executeTests"] && testResultList) {
+                withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+                    dir("..") {
+                        checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                    }
+                }
 
-            List lostStashesWindows = []
-            List lostStashesAndroid = []
-            dir("summaryTestResults") {
-                testResultList.each {
-                    Boolean groupLost = false
+                List lostStashesWindows = []
+                List lostStashesAndroid = []
+                dir("summaryTestResults") {
+                    testResultList.each {
+                        Boolean groupLost = false
 
-                    if (it.endsWith(game)) {
-                        List testNameParts = it.split("-") as List
+                        if (it.endsWith(game)) {
+                            List testNameParts = it.split("-") as List
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                        dir(testName.replace("testResult-", "")) {
-                            if (it.contains("Android")) {
-                                try {
-                                    makeUnstash(name: "${it}", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}
-                                        ${e.toString()}
-                                    """
-
-                                    lostStashesAndroid << ("'${it}'".replace("testResult-", ""))
-                                }
-                            } else {
-                                try {
-                                    makeUnstash(name: "${it}_serv_l", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_serv_l
-                                        ${e.toString()}
-                                    """
-
-                                    groupLost = true
-                                }
-
-                                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                            String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+                            dir(testName.replace("testResult-", "")) {
+                                if (it.contains("Android")) {
                                     try {
-                                        makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
+                                        makeUnstash(name: "${it}", storeOnNAS: options.storeOnNAS)
                                     } catch (e) {
                                         println """
-                                            [ERROR] Failed to unstash ${it}_sec_cl
+                                            [ERROR] Failed to unstash ${it}
+                                            ${e.toString()}
+                                        """
+
+                                        lostStashesAndroid << ("'${it}'".replace("testResult-", ""))
+                                    }
+                                } else {
+                                    try {
+                                        makeUnstash(name: "${it}_serv_l", storeOnNAS: options.storeOnNAS)
+                                    } catch (e) {
+                                        println """
+                                            [ERROR] Failed to unstash ${it}_serv_l
+                                            ${e.toString()}
+                                        """
+
+                                        groupLost = true
+                                    }
+
+                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                                        try {
+                                            makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
+                                        } catch (e) {
+                                            println """
+                                                [ERROR] Failed to unstash ${it}_sec_cl
+                                                ${e.toString()}
+                                            """
+                                        }
+                                    }
+
+                                    try {
+                                        makeUnstash(name: "${it}_client", storeOnNAS: options.storeOnNAS)
+                                    } catch (e) {
+                                        println """
+                                            [ERROR] Failed to unstash ${it}_client
+                                            ${e.toString()}
+                                        """
+
+                                        groupLost = true
+                                    }
+
+                                    try {
+                                        makeUnstash(name: "${it}_and_cl", storeOnNAS: options.storeOnNAS)
+                                    } catch (e) {
+                                        println """
+                                            [ERROR] Failed to unstash ${it}_and_cl
+                                            ${e.toString()}
+                                        """
+                                    }
+
+                                    try {
+                                        makeUnstash(name: "${it}_ser_t", storeOnNAS: options.storeOnNAS)
+                                    } catch (e) {
+                                        println """
+                                            [ERROR] Failed to unstash ${it}_ser_t
+                                            ${e.toString()}
+                                        """
+                                    }
+
+                                    if (groupLost) {
+                                        lostStashesWindows << ("'${it}'".replace("testResult-", ""))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                dir("serverTestResults") {
+                    testResultList.each {
+                        if (it.endsWith(game)) {
+                            List testNameParts = it.split("-") as List
+
+                            String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+                            dir(testName.replace("testResult-", "")) {
+                                try {
+                                    makeUnstash(name: "${it}_server", storeOnNAS: options.storeOnNAS)
+                                } catch (e) {
+                                    println """
+                                        [ERROR] Failed to unstash ${it}_server
+                                        ${e.toString()}
+                                    """
+                                }
+                            }
+                        }
+                    }
+                }
+
+                dir("secondClientTestResults") {
+                    testResultList.each {
+                        if (it.endsWith(game)) {
+                            List testNameParts = it.split("-") as List
+
+                            String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+
+                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                                dir(testName.replace("testResult-", "")) {
+                                    try {
+                                        makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
+                                    } catch (e) {
+                                        println """
+                                            [ERROR] Failed to unstash ${it}_sec_cl_j
                                             ${e.toString()}
                                         """
                                     }
                                 }
-
-                                try {
-                                    makeUnstash(name: "${it}_client", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_client
-                                        ${e.toString()}
-                                    """
-
-                                    groupLost = true
-                                }
-
-                                try {
-                                    makeUnstash(name: "${it}_and_cl", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_and_cl
-                                        ${e.toString()}
-                                    """
-                                }
-
-                                try {
-                                    makeUnstash(name: "${it}_ser_t", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_ser_t
-                                        ${e.toString()}
-                                    """
-                                }
-
-                                if (groupLost) {
-                                    lostStashesWindows << ("'${it}'".replace("testResult-", ""))
-                                }
                             }
                         }
                     }
                 }
-            }
 
-            dir("serverTestResults") {
-                testResultList.each {
-                    if (it.endsWith(game)) {
-                        List testNameParts = it.split("-") as List
+                try {
+                    dir ("scripts") {
+                        python3("unite_case_results.py --target_dir \"..\\summaryTestResults\" --source_dir \"..\\serverTestResults\" --second_client_dir \"..\\secondClientTestResults\"")
+                    }
+                } catch (e) {
+                    println "[ERROR] Can't unite server and client test results"
+                }
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                        dir(testName.replace("testResult-", "")) {
+                try {
+                    dir("scripts") {
+                        python3("prepare_test_cases.py --os_name \"Windows\"")
+                    }
+
+                    dir("jobs_launcher") {
+                        bat """
+                            count_lost_tests.bat \"${lostStashesWindows}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${game}\" \"{}\"
+                        """
+                    }
+
+                    dir("scripts") {
+                        python3("prepare_test_cases.py --os_name \"Android\"")
+                    }
+
+                    dir("jobs_launcher") {
+                        bat """
+                            count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
+                        """
+                    }
+
+                    dir("scripts") {
+                        python3("prepare_test_cases.py --os_name \"Ubuntu\"")
+                    }
+
+                    dir("jobs_launcher") {
+                        bat """
+                            count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
+                        """
+                    }
+                } catch (e) {
+                    println "[ERROR] Can't generate number of lost tests"
+                }
+
+                String branchName = env.BRANCH_NAME ?: options.projectBranch
+                try {
+                    Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
+
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}"]) {
+                        dir("jobs_launcher") {
+                            List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
+                            retryInfoList.each{ gpu ->
+                                gpu['Tries'].each{ group ->
+                                    group.each{ groupKey, retries ->
+                                        if (groupKey.endsWith(game)) {
+                                            List testNameParts = groupKey.split("-") as List
+                                            String parsedName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+                                            group[parsedName] = retries
+                                        }
+                                        group.remove(groupKey)
+                                    }
+                                }
+                                gpu['Tries'] = gpu['Tries'].findAll{ it.size() != 0 }
+                            }
+
+                            def retryInfo = JsonOutput.toJson(retryInfoList)
+                            dir("..\\summaryTestResults") {
+                                JSON jsonResponse = JSONSerializer.toJSON(retryInfo, new JsonConfig());
+                                writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
+                            }
+
+                            bat """
+                                build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(game, options)} \"${utils.escapeCharsByUnicode(game)}\"
+                            """
+                        }
+                    }
+                } catch (e) {
+                    String errorMessage = utils.getReportFailReason(e.getMessage())
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "failure", options, errorMessage, "${BUILD_URL}")
+                    if (utils.isReportFailCritical(e.getMessage())) {
+                        options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
+                        println """
+                            [ERROR] Failed to build test report.
+                            ${e.toString()}
+                        """
+                        if (!options.testDataSaved) {
                             try {
-                                makeUnstash(name: "${it}_server", storeOnNAS: options.storeOnNAS)
-                            } catch (e) {
+                                // Save test data for access it manually anyway
+                                // FIXME: save reports on NAS
+                                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                                    "Test Report ${game}", "Summary Report, Compare Report", false, \
+                                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                                options.testDataSaved = true 
+                            } catch (e1) {
                                 println """
-                                    [ERROR] Failed to unstash ${it}_server
+                                    [WARNING] Failed to publish test data.
                                     ${e.toString()}
                                 """
                             }
                         }
+                        throw e
+                    } else {
+                        currentBuild.result = "FAILURE"
+                        options.problemMessageManager.saveGlobalFailReason(errorMessage)
                     }
                 }
-            }
 
-            dir("secondClientTestResults") {
-                testResultList.each {
-                    if (it.endsWith(game)) {
-                        List testNameParts = it.split("-") as List
-
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-
-                        if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
-                            dir(testName.replace("testResult-", "")) {
-                                try {
-                                    makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
-                                } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_sec_cl_j
-                                        ${e.toString()}
-                                    """
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            try {
-                dir ("scripts") {
-                    python3("unite_case_results.py --target_dir \"..\\summaryTestResults\" --source_dir \"..\\serverTestResults\" --second_client_dir \"..\\secondClientTestResults\"")
-                }
-            } catch (e) {
-                println "[ERROR] Can't unite server and client test results"
-            }
-
-            try {
-                dir("scripts") {
-                    python3("prepare_test_cases.py --os_name \"Windows\"")
-                }
-
-                dir("jobs_launcher") {
-                    bat """
-                        count_lost_tests.bat \"${lostStashesWindows}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${game}\" \"{}\"
-                    """
-                }
-
-                dir("scripts") {
-                    python3("prepare_test_cases.py --os_name \"Android\"")
-                }
-
-                dir("jobs_launcher") {
-                    bat """
-                        count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
-                    """
-                }
-
-                dir("scripts") {
-                    python3("prepare_test_cases.py --os_name \"Ubuntu\"")
-                }
-
-                dir("jobs_launcher") {
-                    bat """
-                        count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
-                    """
-                }
-            } catch (e) {
-                println "[ERROR] Can't generate number of lost tests"
-            }
-
-            String branchName = env.BRANCH_NAME ?: options.projectBranch
-            try {
-                Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
-
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}"]) {
+                try {
                     dir("jobs_launcher") {
-                        List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
-                        retryInfoList.each{ gpu ->
-                            gpu['Tries'].each{ group ->
-                                group.each{ groupKey, retries ->
-                                    if (groupKey.endsWith(game)) {
-                                        List testNameParts = groupKey.split("-") as List
-                                        String parsedName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                                        group[parsedName] = retries
-                                    }
-                                    group.remove(groupKey)
-                                }
-                            }
-                            gpu['Tries'] = gpu['Tries'].findAll{ it.size() != 0 }
-                        }
-
-                        def retryInfo = JsonOutput.toJson(retryInfoList)
-                        dir("..\\summaryTestResults") {
-                            JSON jsonResponse = JSONSerializer.toJSON(retryInfo, new JsonConfig());
-                            writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
-                        }
-
                         bat """
-                            build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(game, options)} \"${utils.escapeCharsByUnicode(game)}\"
+                            get_status.bat ..\\summaryTestResults
                         """
                     }
-                }
-            } catch (e) {
-                String errorMessage = utils.getReportFailReason(e.getMessage())
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "failure", options, errorMessage, "${BUILD_URL}")
-                if (utils.isReportFailCritical(e.getMessage())) {
-                    options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
+                } catch (e) {
                     println """
-                        [ERROR] Failed to build test report.
+                        [ERROR] during slack status generation.
                         ${e.toString()}
                     """
-                    if (!options.testDataSaved) {
-                        try {
-                            // Save test data for access it manually anyway
-                            // FIXME: save reports on NAS
-                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                                "Test Report ${game}", "Summary Report, Compare Report", false, \
-                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
-                            options.testDataSaved = true 
-                        } catch (e1) {
-                            println """
-                                [WARNING] Failed to publish test data.
-                                ${e.toString()}
-                            """
-                        }
-                    }
-                    throw e
-                } else {
-                    currentBuild.result = "FAILURE"
-                    options.problemMessageManager.saveGlobalFailReason(errorMessage)
                 }
-            }
 
-            try {
-                dir("jobs_launcher") {
-                    bat """
-                        get_status.bat ..\\summaryTestResults
+                try {
+                    dir("jobs_launcher") {
+                        archiveArtifacts "launcher.engine.log"
+                    }
+                } catch(e) {
+                    println """
+                        [ERROR] during archiving launcher.engine.log
+                        ${e.toString()}
                     """
                 }
-            } catch (e) {
-                println """
-                    [ERROR] during slack status generation.
-                    ${e.toString()}
-                """
-            }
 
-            try {
-                dir("jobs_launcher") {
-                    archiveArtifacts "launcher.engine.log"
-                }
-            } catch(e) {
-                println """
-                    [ERROR] during archiving launcher.engine.log
-                    ${e.toString()}
-                """
-            }
-
-            Map summaryTestResults = [:]
-            try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
-                summaryTestResults = [passed: summaryReport.passed, failed: summaryReport.failed, error: summaryReport.error]
-                if (summaryReport.error > 0) {
-                    println "[INFO] Some tests marked as error. Build result = FAILURE."
-                    currentBuild.result = "FAILURE"
-                    options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SOME_TESTS_ERRORED)
-                } else if (summaryReport.failed > 0) {
-                    println "[INFO] Some tests marked as failed. Build result = UNSTABLE."
+                Map summaryTestResults = [:]
+                try {
+                    def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                    summaryTestResults = [passed: summaryReport.passed, failed: summaryReport.failed, error: summaryReport.error]
+                    if (summaryReport.error > 0) {
+                        println "[INFO] Some tests marked as error. Build result = FAILURE."
+                        currentBuild.result = "FAILURE"
+                        options.problemMessageManager.saveGlobalFailReason(NotificationConfiguration.SOME_TESTS_ERRORED)
+                    } else if (summaryReport.failed > 0) {
+                        println "[INFO] Some tests marked as failed. Build result = UNSTABLE."
+                        currentBuild.result = "UNSTABLE"
+                        options.problemMessageManager.saveUnstableReason(NotificationConfiguration.SOME_TESTS_FAILED)
+                    }
+                } catch(e) {
+                    println """
+                        [ERROR] CAN'T GET TESTS STATUS
+                        ${e.toString()}
+                    """
+                    options.problemMessageManager.saveUnstableReason(NotificationConfiguration.CAN_NOT_GET_TESTS_STATUS)
                     currentBuild.result = "UNSTABLE"
-                    options.problemMessageManager.saveUnstableReason(NotificationConfiguration.SOME_TESTS_FAILED)
                 }
-            } catch(e) {
-                println """
-                    [ERROR] CAN'T GET TESTS STATUS
-                    ${e.toString()}
-                """
-                options.problemMessageManager.saveUnstableReason(NotificationConfiguration.CAN_NOT_GET_TESTS_STATUS)
-                currentBuild.result = "UNSTABLE"
-            }
 
-            try {
-                options.testsStatus = readFile("summaryTestResults/slack_status.json")
-            } catch (e) {
-                println e.toString()
-                options.testsStatus = ""
-            }
+                try {
+                    options.testsStatus = readFile("summaryTestResults/slack_status.json")
+                } catch (e) {
+                    println e.toString()
+                    options.testsStatus = ""
+                }
 
-            withNotifications(title: "Building test report for ${game}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                // FIXME: save reports on NAS
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                    "Test Report ${game}", "Summary Report, Compare Report", false, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                withNotifications(title: "Building test report for ${game}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
+                    // FIXME: save reports on NAS
+                    utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                        "Test Report ${game}", "Summary Report, Compare Report", false, \
+                        ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
-                if (summaryTestResults) {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
-                            "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
-                } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
-                            NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    if (summaryTestResults) {
+                        GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
+                                "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    } else {
+                        GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
+                                NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    }
                 }
             }
+        } catch (e) {
+            println(e.toString())
+            throw e
+        } finally {
+            utils.generateOverviewReport(this, this.&getReportBuildArgs, options)
         }
-    } catch (e) {
-        println(e.toString())
-        throw e
-    } finally {
-        utils.generateOverviewReport(this, this.&getReportBuildArgs, options)
     }
 }
 
@@ -2051,7 +1978,7 @@ def call(String projectBranch = "",
                         PREBUILD_TIMEOUT: 45,
                         BUILD_TIMEOUT: 45,
                         // update timeouts dynamicly based on number of cases + traces are generated or not
-                        TEST_TIMEOUT: 120,
+                        TEST_TIMEOUT: 180,
                         DEPLOY_TIMEOUT: 150,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         BUILDER_TAG: "BuilderStreamingSDK",

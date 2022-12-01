@@ -858,5 +858,8 @@ def call(String projectBranch = "",
 
     if (env.BRANCH_NAME == "master") {
         build(job: "HybridProMTLX-Auto/master", wait: false)
+        build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
+        build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
+        build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
     }
 }
