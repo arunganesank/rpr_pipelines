@@ -1964,7 +1964,8 @@ def call(String projectBranch = "",
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
                         executeTests: true,
-                        skipBuildCallback: this.&shouldSkipBuild
+                        skipBuildCallback: this.&shouldSkipBuild,
+                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
                         ]
         }
 
