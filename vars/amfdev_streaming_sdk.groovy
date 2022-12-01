@@ -14,7 +14,7 @@ import TestsExecutionType
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
 @Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
-@Field final String AUTOTESTS_PATH = "autotests"
+@Field final String AUTOTESTS_PATH = "drivers/amf/stable/tools/tests/StreamingSDKTests"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows", "Android", "Ubuntu20"],
@@ -244,7 +244,7 @@ def runDriverTests(Map options) {
             Start-Process powershell "\$command" -Verb RunAs -Wait
         """
 
-        dir("..") {
+        dir("../../../../../..") {
             archiveArtifacts artifacts: logName, allowEmptyArchive: true
         }
 
@@ -531,7 +531,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 }
             }
 
-            dir("..") {
+            dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
             }
         }
@@ -640,7 +640,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                dir("..") {
+                dir("../../../../../..") {
                     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
                 }
             }
@@ -775,7 +775,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 }
             }
 
-            dir("..") {
+            dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
             }
         }
@@ -936,7 +936,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                     }
                 }
 
-                dir("..") {
+                dir("../../../../../..") {
                     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
                 }
             }
@@ -1553,7 +1553,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
             if (options["executeTests"] && testResultList) {
                 withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-                    dir("..") {
+                    dir("../../../../../..") {
                         checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH])
                     }
                 }
