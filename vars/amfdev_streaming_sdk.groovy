@@ -532,7 +532,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
             }
 
             dir("..") {
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
@@ -641,7 +641,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 }
 
                 dir("..") {
-                    checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
                 }
             }
         }
@@ -776,7 +776,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
             }
 
             dir("..") {
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
             }
         }
 
@@ -937,7 +937,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                 }
 
                 dir("..") {
-                    checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], cleanCheckout: options.skipBuild.size() == 0)
                 }
             }
         }
@@ -1351,7 +1351,7 @@ def executePreBuild(Map options) {
 
     if (options.projectBranch) {
         dir ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH, disableSubmodules: true)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH + [AUTOTESTS_PATH], disableSubmodules: true)
 
             if (options.projectBranch) {
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
@@ -1388,9 +1388,7 @@ def executePreBuild(Map options) {
     def tests = []
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
-        dir("jobs_test_streaming_sdk") {
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
-
+        dir("StreamingSDK") {
             dir(AUTOTESTS_PATH) {
                 options["testsBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
                 dir('jobs_launcher') {
@@ -1512,7 +1510,7 @@ def executePreBuild(Map options) {
 
         println "Groups: ${options.testsList}"
 
-        dir("jobs_test_streaming_sdk/${AUTOTESTS_PATH}") {
+        dir("StreamingSDK/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
@@ -1556,7 +1554,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
             if (options["executeTests"] && testResultList) {
                 withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                     dir("..") {
-                        checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
+                        checkoutScm(branchName: options.testsBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH])
                     }
                 }
 
