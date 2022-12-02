@@ -1152,7 +1152,7 @@ def executeBuildWindows(Map options) {
                 // if true - there is some errors
                 if (!buildLog.contains("0 Error(s)")) {
                     // if number of errors is bigger than 1 or the error isn't connected with amfrt64.lib - it's unexpected error
-                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("cannot open input file 'amfrt64.lib'")) {
+                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("'amfrt64.lib'")) {
                         throw e
                     }
                 }
