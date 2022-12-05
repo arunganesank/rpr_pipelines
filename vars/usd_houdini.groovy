@@ -114,14 +114,12 @@ def executeTestCommand(String osName, String asicName, Map options) {
         timeout(time: testTimeout, unit: 'MINUTES') { 
             switch(osName) {
                 case 'Windows':
-                    // set PXR_PLUGINPATH_NAME=
                     bat """
                         run.bat ${options.testsPackage} \"${options.tests}\" \"${options.win_tool_path}\\bin\\husk.exe\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                     break
 
                 case 'OSX':
-                    // export PXR_PLUGINPATH_NAME=
                     sh """
                         chmod +x run.sh
                         ./run.sh ${options.testsPackage} \"${options.tests}\" \"${options.osx_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\"  >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
@@ -281,66 +279,34 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(String osName, Map options) {
-    withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
-        clearBinariesWin()
+    clearBinariesWin()
 
-        if (options.rebuildUSD) {
-            dir ("USD") {
-                bat """
-                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
-                    
-                    if exist USDgen rmdir /s/q USDgen
-                    if exist USDinst rmdir /s/q USDinst
+    dir ("RadeonProRenderUSD") {
+        GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+        
+        String additionalKeys = ""
 
-                    python build_scripts\\build_usd.py -v --build USDgen/build --src USDgen/src USDinst >> ${STAGE_NAME}_USD.log 2>&1
-                """
-            }
+        if (options.toolVersion.startsWith("18.5.")) {
+            additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
         }
 
-        dir ("RadeonProRenderUSD") {
-            GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
-            
-            String additionalKeys = ""
+        options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
+        bat """
+            mkdir build
+            set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+            set HFS=${options.win_tool_path}
+            python --version >> ..\\${STAGE_NAME}.log 2>&1
+            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
+        """
 
-            if (options.toolVersion.startsWith("18.5.")) {
-                additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
-            }
+        dir("build") {                
+            String ARTIFACT_NAME = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}.tar.gz"
+            bat "rename hdRpr* ${ARTIFACT_NAME}"
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-            if (options.buildType == "Houdini") {
-                options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
-                bat """
-                    mkdir build
-                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                    set HFS=${options.win_tool_path}
-                    python --version >> ..\\${STAGE_NAME}.log 2>&1
-                    python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
-                """
-            } else {
-                bat """
-                    mkdir build
-                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-                    python --version >> ..\\${STAGE_NAME}.log 2>&1
-                    python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" --cmake_options " -Dpxr_DIR=../USD/USDinst ${additionalKeys}" >> ..\\${STAGE_NAME}.log 2>&1
-                """
-            } 
-
-            dir("build") {
-                if (options.buildType == "Houdini") {
-                    options.win_build_name = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}"
-                } else if (options.buildType == "USD") {
-                    options.win_build_name = "hdRpr-${options.pluginVersion}-USD-${osName}"
-                }
-                
-                bat "rename hdRpr* ${options.win_build_name}.tar.gz"
-
-                String ARTIFACT_NAME = "${options.win_build_name}.tar.gz"
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-                bat "rename hdRpr* hdRpr_${osName}.tar.gz"
-                makeStash(includes: "hdRpr_${osName}.tar.gz", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
-                GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-            }
+            bat "rename hdRpr* hdRpr_${osName}.tar.gz"
+            makeStash(includes: "hdRpr_${osName}.tar.gz", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+            GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
     }
 }
@@ -349,51 +315,21 @@ def executeBuildWindows(String osName, Map options) {
 def executeBuildOSX(String osName, Map options) {
     clearBinariesUnix()
 
-    if (options.rebuildUSD) {
-        dir ("USD") {
-            sh """
-                if [ -d "./USDgen" ]; then
-                    rm -fdr ./USDgen
-                fi
-
-                if [ -d "./USDinst" ]; then
-                    rm -fdr ./USDinst
-                fi
-
-                export OS=Darwin
-                python3 build_scripts/build_usd.py -vvv --build USDgen/build --src USDgen/src USDinst >> ${STAGE_NAME}_USD.log 2>&1
-            """
-        }
-    }
-
     dir ("RadeonProRenderUSD") {
         GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
-        if (options.buildType == "Houdini") {
-            options.osx_tool_path = "/Applications/Houdini/Houdini${options.toolVersion}/Frameworks/Houdini.framework/Versions/Current/Resources"
-            String[] versionParts = options.toolVersion.split("\\.")
-            sh """
-                mkdir build
-                export HFS=${options.osx_tool_path}
-                /Applications/Houdini/Houdini${options.toolVersion}/Frameworks/Houdini.framework/Versions/${versionParts[0]}.${versionParts[1]}/Resources/bin/hserver
-                python3 --version >> ../${STAGE_NAME}.log 2>&1
-                python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
-            """
-        } else {
-            sh """
-                mkdir build
-                python3 --version >> ../${STAGE_NAME}.log 2>&1
-                python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" --cmake_options " -Dpxr_DIR=../USD/USDinst" >> ../${STAGE_NAME}.log 2>&1
-            """
-        }
 
-        dir("build") {
-            if (options.buildType == "Houdini") {
-                options.osx_build_name = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-macOS"
-            } else if (options.buildType == "USD") {
-                options.osx_build_name = "hdRpr-${options.pluginVersion}-USD-macOS"
-            }
-
-            String ARTIFACT_NAME = "${options.osx_build_name}.tar.gz"
+        options.osx_tool_path = "/Applications/Houdini/Houdini${options.toolVersion}/Frameworks/Houdini.framework/Versions/Current/Resources"
+        String[] versionParts = options.toolVersion.split("\\.")
+        sh """
+            mkdir build
+            export HFS=${options.osx_tool_path}
+            /Applications/Houdini/Houdini${options.toolVersion}/Frameworks/Houdini.framework/Versions/${versionParts[0]}.${versionParts[1]}/Resources/bin/hserver
+            python3 --version >> ../${STAGE_NAME}.log 2>&1
+            python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
+        """
+        
+        dir("build") {        
+            String ARTIFACT_NAME = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-macOS.tar.gz"
             sh "mv hdRpr*.tar.gz ${ARTIFACT_NAME}"
             String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
@@ -408,56 +344,27 @@ def executeBuildOSX(String osName, Map options) {
 def executeBuildUnix(String osName, Map options) {
     clearBinariesUnix()
 
-    if (options.rebuildUSD) {
-        dir ("USD") {
-            sh """
-                if [ -d "./USDgen" ]; then
-                    rm -fdr ./USDgen
-                fi
-
-                if [ -d "./USDinst" ]; then
-                    rm -fdr ./USDinst
-                fi
-
-                export OS=
-                python3 build_scripts/build_usd.py -v --build USDgen/build --src USDgen/src USDinst >> ${STAGE_NAME}_USD.log 2>&1
-            """
-        }
-    }
-
     dir("RadeonProRenderUSD") {
         GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
+        
         String installation_path
         if (env.HOUDINI_INSTALLATION_PATH) {
             installation_path = "${env.HOUDINI_INSTALLATION_PATH}"
         } else {
             installation_path = "/home/\$(eval whoami)"
         }
-        if (options.buildType == "Houdini") {
-            options.unix_tool_path = "Houdini/hfs${options.toolVersion}"
-            sh """
-                mkdir build
-                export HFS=${installation_path}/${options.unix_tool_path}
-                \$HFS/bin/hserver
-                python3 --version >> ../${STAGE_NAME}.log 2>&1
-                python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
-            """
-        } else {
-            sh """
-                mkdir build
-                python3 --version >> ../${STAGE_NAME}.log 2>&1
-                python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" --cmake_options " -Dpxr_DIR=../USD/USDinst" >> ../${STAGE_NAME}.log 2>&1
-            """
-        }
+
+        options.unix_tool_path = "Houdini/hfs${options.toolVersion}"
+        sh """
+            mkdir build
+            export HFS=${installation_path}/${options.unix_tool_path}
+            \$HFS/bin/hserver
+            python3 --version >> ../${STAGE_NAME}.log 2>&1
+            python3 pxr/imaging/plugin/hdRpr/package/generatePackage.py -i "." -o "build" >> ../${STAGE_NAME}.log 2>&1
+        """
 
         dir("build") {
-            if (options.buildType == "Houdini") {
-                options.unix_build_name = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}"
-            } else if (options.buildType == "USD") {
-                options.unix_build_name = "hdRpr-${options.pluginVersion}-USD-${osName}"
-            }
-
-            String ARTIFACT_NAME = "${options.unix_build_name}.tar.gz"
+            String ARTIFACT_NAME = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}.tar.gz"
             sh "mv hdRpr*.tar.gz ${ARTIFACT_NAME}"
             String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
@@ -479,14 +386,6 @@ def executeBuild(String osName, Map options) {
             if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX) && osName != "OSX") {
                 dir("deps/RPR") {
                     hybrid_to_blender_workflow.replaceHybrid(osName, options)
-                }
-            }
-        }
-
-        if (options.rebuildUSD) {
-            withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_USD_REPO) {
-                dir('USD') {
-                    checkoutScm(branchName: options.usdBranch, repositoryUrl: "git@github.com:PixarAnimationStudios/USD.git")
                 }
             }
         }
@@ -526,9 +425,6 @@ def executeBuild(String osName, Map options) {
         throw exception
     } finally {
         archiveArtifacts "*.log"
-        if (options.rebuildUSD) {
-            archiveArtifacts "USD/*.log"
-        }
     }
 }
 
@@ -790,13 +686,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                         dir("..\\summaryTestResults") {
                             writeJSON file: 'retry_info.json', json: JSONSerializer.toJSON(retryInfo, new JsonConfig()), pretty: 4
                         }
-                        if (options.buildType == "Houdini") {
-                            def tool = "Houdini ${testProfile}"
-
-                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(testProfile, options, utils.escapeCharsByUnicode(tool))}"
-                        } else {
-                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(testProfile, options)}"
-                        }
+                        def tool = "Houdini ${testProfile}"
+                        bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(testProfile, options, utils.escapeCharsByUnicode(tool))}"
                         bat "get_status.bat ..\\summaryTestResults"
                     }
                 }
@@ -914,11 +805,8 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
-        String usdBranch = "master",
         String testsBranch = "master",
         String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_WX9100;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
-        String buildType = "Houdini",
-        Boolean rebuildUSD = false,
         String houdiniVersions = "19.0.622,19.5.435",
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
@@ -1005,7 +893,6 @@ def call(String projectRepo = PROJECT_REPO,
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: projectRepo,
                         projectBranch: projectBranch,
-                        usdBranch: usdBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_houdini.git",
                         testsBranch: testsBranch,
                         assetsName: "usd_houdini_autotests",
@@ -1024,8 +911,6 @@ def call(String projectRepo = PROJECT_REPO,
                         TEST_TIMEOUT: 180,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:180,
-                        buildType: buildType,
-                        rebuildUSD: rebuildUSD,
                         houdiniVersions: houdiniVersions.split(",") as List,
                         gpusCount: gpusCount,
                         width: width,
