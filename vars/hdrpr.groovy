@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
-    productExtensions: ["Windows": "tar.gz"],
+    productExtensions: ["Windows": "zip"],
     artifactNameBase: "hdRpr_",
     testProfile: "engine"
 )
@@ -33,26 +33,33 @@ def executeBuildWindows(String osName, Map options) {
                     python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
                 """
             }
+
+            if (options.saveUSD) {
+                uploadFiles("../USD", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD")
+            }
         }
 
         dir ("RadeonProRenderUSD") {
             GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
 
             dir("build") {
-                
                 bat """
                     python --version >> ..\\${STAGE_NAME}.log 2>&1
                     cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DPYTHON_INCLUDE_DIR=C:\\Python37\\include -DPYTHON_EXECUTABLE=C:\\Python37\\python.exe -DPYTHON_LIBRARIES=C:\\Python37\\libs\\python37.lib .. >> ${STAGE_NAME}.log 2>&1
                     cmake --build . --config RelWithDebInfo --target install >> ${STAGE_NAME}.log 2>&1
                 """
-                
-                bat "rename hdRpr* hdRpr-${osName}.tar.gz"
 
-                String ARTIFACT_NAME = "hdRpr-${osName}.tar.gz"
+                utils.removeDir(this, "Windows", "src")
+                utils.removeDir(this, "Windows", "share")
+                utils.removeDir(this, "Windows", "build")
+
+                String ARTIFACT_NAME = "hdRpr-${osName}.zip"
+
+                bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} .")
+
                 String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-                bat "rename hdRpr* hdRpr_${osName}.tar.gz"
-                makeStash(includes: "hdRpr_${osName}.tar.gz", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+                makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
                 GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
             }
         }
@@ -68,11 +75,13 @@ def executeBuild(String osName, Map options) {
             }
         }
 
-        if (options.rebuildUSD) {
-            withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_USD_REPO) {
+        withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_USD_REPO) {
+            if (options.rebuildUSD) {
                 dir('USD') {
                     checkoutScm(branchName: options.usdBranch, repositoryUrl: "git@github.com:PixarAnimationStudios/USD.git")
                 }
+            } else {
+                downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
             }
         }
 
@@ -84,11 +93,8 @@ def executeBuild(String osName, Map options) {
                 case "Windows":
                     executeBuildWindows(osName, options)
                     break
-                case "OSX":
-                    executeBuildOSX(osName, options)
-                    break
                 default:
-                    executeBuildUnix(osName, options)
+                    println("[WARNING] ${osName} is not supported")
             }
         }
 
@@ -128,6 +134,7 @@ def call(String projectRepo = PROJECT_REPO,
         String usdBranch = "release",
         String platforms = 'Windows:AMD_RX6800XT',
         Boolean rebuildUSD = false,
+        Boolean saveUSD = false,
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
         String tests = "",
@@ -150,6 +157,7 @@ def call(String projectRepo = PROJECT_REPO,
                         usdBranch: usdBranch,
                         updateRefs: updateRefs,
                         PRJ_NAME: "HdRPR",
+                        PRJ_ROOT:"rpr-plugins",
                         testsPackage: testsPackage,
                         tests: tests.replace(',', ' '),
                         reportName: 'Test_20Report',
@@ -159,6 +167,7 @@ def call(String projectRepo = PROJECT_REPO,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:180,
                         rebuildUSD: rebuildUSD,
+                        saveUSD: saveUSD,
                         engines: enginesNamesList,
                         nodeRetry: [],
                         problemMessageManager: problemMessageManager,
