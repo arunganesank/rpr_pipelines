@@ -35,7 +35,7 @@ def executeBuildWindows(String osName, Map options) {
             }
 
             if (options.saveUSD) {
-                uploadFiles("../USD", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD")
+                uploadFiles("USD/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD")
             }
         }
 
@@ -48,20 +48,22 @@ def executeBuildWindows(String osName, Map options) {
                     cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DPYTHON_INCLUDE_DIR=C:\\Python37\\include -DPYTHON_EXECUTABLE=C:\\Python37\\python.exe -DPYTHON_LIBRARIES=C:\\Python37\\libs\\python37.lib .. >> ${STAGE_NAME}.log 2>&1
                     cmake --build . --config RelWithDebInfo --target install >> ${STAGE_NAME}.log 2>&1
                 """
-
-                utils.removeDir(this, "Windows", "src")
-                utils.removeDir(this, "Windows", "share")
-                utils.removeDir(this, "Windows", "build")
-
-                String ARTIFACT_NAME = "hdRpr-${osName}.zip"
-
-                bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} .")
-
-                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-                makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
-                GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
             }
+        }
+
+        dir ("USD/build") {
+            utils.removeDir(this, "Windows", "src")
+            utils.removeDir(this, "Windows", "share")
+            utils.removeDir(this, "Windows", "build")
+
+            String ARTIFACT_NAME = "hdRpr-${osName}.zip"
+
+            bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} .")
+
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+            GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
         }
     }
 }
@@ -76,12 +78,12 @@ def executeBuild(String osName, Map options) {
         }
 
         withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_USD_REPO) {
-            if (options.rebuildUSD) {
-                dir('USD') {
+            dir('USD') {
+                if (options.rebuildUSD) {
                     checkoutScm(branchName: options.usdBranch, repositoryUrl: "git@github.com:PixarAnimationStudios/USD.git")
+                } else {
+                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
                 }
-            } else {
-                downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
             }
         }
 
