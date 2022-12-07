@@ -129,6 +129,14 @@ def executeTests(String osName, String asicName, Map options) {
             }
 
             String REF_PATH_PROFILE="/volume1/Baselines/hdrpr_autotests/${asicName}-${osName}"
+            switch(options.engine) {
+                case 'Northstar':
+                    enginePostfix = "NorthStar"
+                    break
+                case 'HybridPro':
+                    enginePostfix = "HybridPro"
+                    break
+            }
             outputEnvironmentInfo(osName, options.stageName, options.currentTry)
 
             if (options["updateRefs"].contains("Update")) {
@@ -674,7 +682,7 @@ def call(String projectRepo = PROJECT_REPO,
         String tests = "",
         String enginesNames = "Northstar",
         Boolean splitTestsExecution = true,
-        String parallelExecutionTypeString = "TakeOneNodePerGPU",
+        String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 3
     ) {
 
