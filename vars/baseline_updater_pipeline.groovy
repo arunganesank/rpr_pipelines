@@ -18,7 +18,8 @@ import groovy.json.JsonSlurperClassic
     "maya_usd": "usd_maya_autotests",
     "anari": "rpr_anari_autotests",
     "render_studio": "render_studio_autotests",
-    "hybrid_mtlx": "hybrid_mtlx_autotests"
+    "hybrid_mtlx": "hybrid_mtlx_autotests",
+    "hdrpr": "hdrpr_autotests"
 ]
 
 @Field final Map PROJECT_MAPPING = [
@@ -32,7 +33,8 @@ import groovy.json.JsonSlurperClassic
     "maya_usd": "Maya USD",
     "anari": "Anari",
     "render_studio": "Render Studio",
-    "hybrid_mtlx": "Hybrid MTLX"
+    "hybrid_mtlx": "Hybrid MTLX",
+    "hdrpr": "HdRPR"
 ]
 
 @Field final Map ENGINE_REPORT_MAPPING = [
