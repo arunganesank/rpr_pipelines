@@ -542,7 +542,7 @@ def executeBuildWindows(Map options) {
         writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
 
         try {
-            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
+            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
                 bat """
                     cmake --version >> ${STAGE_NAME}.Build.log 2>&1
                     python--version >> ${STAGE_NAME}.Build.log 2>&1
