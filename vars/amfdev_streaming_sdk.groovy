@@ -76,11 +76,11 @@ Boolean isIdleClient(Map options) {
             }
         }
 
-        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+        if (options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
             return options["finishedBuildStages"]["Android"] || options.skipBuild.contains("Android")
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
             result = false
 
             // wait multiconnection client machine
@@ -673,7 +673,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             initAndroidDevice()
 
-                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } 
+                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } 
                                 || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
 
                                 dir("StreamingSDKAndroid") {
@@ -707,7 +707,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
             sleep(5)
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
             while (!options["mcClientInfo"]["ready"]) {
                 if (options["mcClientInfo"]["failed"]) {
                     throw new Exception("Multiconnection client was failed")
@@ -1011,7 +1011,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
-            if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+            if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
                 threads["${options.stageName}-multiconnection-client"] = { 
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
@@ -1479,7 +1479,7 @@ def executePreBuild(Map options) {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
-            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.join("").contains(it) } || options.testsPackage == "regression.json~")) {
+            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.contains(it) } || options.testsPackage == "regression.json~")) {
                 println(options.platforms)
                 options.platforms = options.platforms + ";Android"
                 println(options.platforms)
@@ -1557,7 +1557,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                         groupLost = true
                                     }
 
-                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[0].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                                         try {
                                             makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
                                         } catch (e) {
@@ -1633,7 +1633,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                             String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[0].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                                 dir(testName.replace("testResult-", "")) {
                                     try {
                                         makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
