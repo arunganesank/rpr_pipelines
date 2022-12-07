@@ -1965,7 +1965,8 @@ def call(String projectBranch = "",
                         skipBuild: skipBuild,
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
-                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                        retriesForTestStage:2
                         ]
         }
 
