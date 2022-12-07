@@ -13,8 +13,14 @@ import java.util.concurrent.ConcurrentHashMap
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "zip"],
-    artifactNameBase: "hdRpr_",
-    testProfile: "engine"
+    artifactNameBase: "hdRpr-",
+    testProfile: "engine",
+    displayingProfilesMapping: [
+        "engine": [
+            "HybridPro": "HybridPro",
+            "Northstar": "Northstar"
+        ]
+    ]
 )
 
 
@@ -24,14 +30,14 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
 
 
 def unpackUSD(String osName, Map options) {
-    dir("USD/bin") {
+    dir("USD/build") {
         getProduct(osName, options, ".")
     }
 }
 
 
 def doSanityCheck(String osName, Map options) {
-    withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
+    withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
         dir("scripts") {
             switch(osName) {
                 case "Windows":
@@ -63,7 +69,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 
 
 def executeTestCommand(String osName, String asicName, Map options) {
-    withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
+    withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
         dir("scripts") {
             def testTimeout = options.timeouts["${options.tests}"]
 
@@ -103,7 +109,7 @@ def executeTests(String osName, String asicName, Map options) {
 
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
                 String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/hdrpr_autotests_assets" : "/mnt/c/TestResources/hdrpr_autotests_assets"
-                downloadFiles("/volume1/web/Assets/hdrpr_autotests_assets/", assets_dir)
+                downloadFiles("/volume1/web/Assets/hdrpr_autotests/", assets_dir)
             }
 
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
@@ -115,9 +121,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.SANITY_CHECK) {
                 timeout(time: "5", unit: "MINUTES") {
                     doSanityCheck(osName, options)
-                    if (!fileExists(".scripts/sanity.jpg")) {
+                    if (!fileExists("./scripts/sanity.jpg")) {
                         println "[ERROR] Sanity check failed on ${env.NODE_NAME}. No output image found."
-                        throw new ExpectedExceptionWrapper("No output image after sanity check.", new Exception("No output image after sanity check."))
+                        throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE_SANITY_CHECK, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE_SANITY_CHECK))
                     }
                 }
             }
@@ -172,6 +178,8 @@ def executeTests(String osName, String asicName, Map options) {
                     utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}.log")
                     utils.renameFile(this, osName, "sanity.log", "${options.stageName}_${options.currentTry}.sanity_check.log")
                 }
+
+                archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                 if (stashResults) {
                     dir('Work') {
@@ -251,21 +259,18 @@ def executeBuildWindows(String osName, Map options) {
         dir ("RadeonProRenderUSD") {
             dir("build") {
                 bat """
-                    python --version >> ..\\${STAGE_NAME}.log 2>&1
-                    cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DPYTHON_INCLUDE_DIR=C:\\Python37\\include -DPYTHON_EXECUTABLE=C:\\Python37\\python.exe -DPYTHON_LIBRARIES=C:\\Python37\\libs\\python37.lib .. >> ${STAGE_NAME}.log 2>&1
-                    cmake --build . --config RelWithDebInfo --target install >> ${STAGE_NAME}.log 2>&1
+                    python --version >> ..\\..\\${STAGE_NAME}.log 2>&1
+                    cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DPYTHON_INCLUDE_DIR=C:\\Python37\\include -DPYTHON_EXECUTABLE=C:\\Python37\\python.exe -DPYTHON_LIBRARIES=C:\\Python37\\libs\\python37.lib .. >> ..\\..\\${STAGE_NAME}.log 2>&1
+                    cmake --build . --config RelWithDebInfo --target install >> ..\\..\\${STAGE_NAME}.log 2>&1
                 """
             }
         }
 
         dir ("USD/build") {
-            utils.removeDir(this, "Windows", "src")
-            utils.removeDir(this, "Windows", "share")
-            utils.removeDir(this, "Windows", "build")
-
             String ARTIFACT_NAME = "hdRpr-${osName}.zip"
 
-            bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} .")
+            utils.removeFile(this, "Windows", ARTIFACT_NAME)
+            bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} . -xr!src -xr!share -xr!build")
 
             String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
@@ -287,12 +292,12 @@ def executeBuild(String osName, Map options) {
             }
 
             withNotifications(title: "${osName}", options: options, configuration: NotificationConfiguration.DOWNLOAD_USD_REPO) {
-                dir('USD') {
-                    if (options.rebuildUSD) {
+                if (options.rebuildUSD) {
+                    dir('USD') {
                         checkoutScm(branchName: options.usdBranch, repositoryUrl: "git@github.com:PixarAnimationStudios/USD.git")
-                    } else {
-                        downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
                     }
+                } else {
+                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
                 }
             }
 
@@ -391,9 +396,9 @@ def executePreBuild(Map options) {
         }
 
         currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-        currentBuild.description += "<b>Version:</b> ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}<br/>"
         currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
         currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+        currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
     }
 
     def tests = []
@@ -561,8 +566,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
-                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                            "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                            "Test Report ${engineName}", "Summary Report, Compare Report" , options.storeOnNAS, \
                             ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                         options.testDataSaved = true 
@@ -629,8 +634,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             withNotifications(title: "Building test report for ${engineName}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                    "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                    "Test Report ${engineName}", "Summary Report, Compare Report" , options.storeOnNAS, \
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
