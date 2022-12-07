@@ -117,7 +117,7 @@ def executeTests(String osName, String asicName, Map options) {
                     doSanityCheck(osName, options)
                     if (!fileExists(".scripts/sanity.jpg")) {
                         println "[ERROR] Sanity check failed on ${env.NODE_NAME}. No output image found."
-                        throw new ExpectedExceptionWrapper("No output image after sanity check.", new Exception("No output image after cache building."))
+                        throw new ExpectedExceptionWrapper("No output image after sanity check.", new Exception("No output image after sanity check."))
                     }
                 }
             }
@@ -343,7 +343,7 @@ def getReportBuildArgs(String engineName, Map options) {
 
 def executePreBuild(Map options) {
     // manual job
-    if (options.forceBuild) {
+    if (!env.BRANCH_NAME) {
         options.executeBuild = true
         options.executeTests = true
     // auto job
@@ -352,17 +352,14 @@ def executePreBuild(Map options) {
             println "[INFO] Branch was detected as Pull Request"
             options.executeBuild = true
             options.executeTests = true
-            options.testsPackage = "Smoke.json"
         } else if (env.BRANCH_NAME == "master" || env.BRANCH_NAME == "develop") {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
             options.executeBuild = true
             options.executeTests = true
-            options.testsPackage = "Smoke.json"
         } else  {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
             options.executeBuild = true
             options.executeTests = true
-            options.testsPackage = "Smoke.json"
         }
     }
 

@@ -7,6 +7,8 @@ public class NotificationConfiguration {
     def static FAILED_TO_INSTALL_MATLIB = "Failed to install MatLib."
 
     def static NO_OUTPUT_IMAGE = "No output image after cache building."
+
+    def static NO_OUTPUT_IMAGE_SANITY_CHECK = "No output image after sanity check."
     
     def static ENGINES_PARAM = [
         "exceptions": [
@@ -171,6 +173,11 @@ public class NotificationConfiguration {
                 "class": "TimeoutExceeded", "problemMessage": "Sanity check failed due to timeout.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
                 "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": NO_OUTPUT_IMAGE_SANITY_CHECK, 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "getMessage": [NO_OUTPUT_IMAGE_SANITY_CHECK]
             ],
             [
                 "class": Exception, "problemMessage": "Sanity check failed.", 
@@ -539,27 +546,6 @@ public class NotificationConfiguration {
             ],
             [
                 "class": Exception, "problemMessage": "Failed to build cache.", 
-                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
-            ]
-        ]
-    ]
-
-    def static SANITY_CHECK = [
-        "begin": ["message": "Doing sanity check."],
-
-        "exceptions": [
-            [
-                "class": "TimeoutExceeded", "problemMessage": "Sanity check failed due to timeout.", 
-                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
-                "githubNotification": ["status": "timed_out"]
-            ],
-            [
-                "class": Exception, "problemMessage": NO_OUTPUT_IMAGE, 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
-                "getMessage": [NO_OUTPUT_IMAGE]
-            ],
-            [
-                "class": Exception, "problemMessage": "Sanity check failed.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
             ]
         ]
