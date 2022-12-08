@@ -67,11 +67,11 @@ def executeTests(String osName, String asicName, Map options) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
 
-                bat """
-                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.hybridLinkWin}
-                """
+                String hybridLink = "/volume1/web/" + options.hybridLinkWin.split(":5443/")[1]
 
-                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+                downloadFiles("${hybridLink}", ".")
+
+                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
 
                 bat """
                     copy /Y BaikalNext\\bin\\HybridPro.dll tool
