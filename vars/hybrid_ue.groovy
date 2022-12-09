@@ -152,6 +152,10 @@ def executeBuildWindows(String projectName, Map options) {
         // download textures
         downloadFiles("/volume1/CIS/bin-storage/HybridUE/textures/*", "textures")
 
+        dir("RPRHybrid") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
+        }
+
         if (it == "Default") {
             String rprHybridSha
             String rprHybridUESha
@@ -191,10 +195,6 @@ def executeBuildWindows(String projectName, Map options) {
             downloadFiles("/volume1/Shared/HybridUE/Scenes/${sceneFolder}", ".", "", false)
         } else {
             throw new Exception("Nor svnRepoName, nor sceneFolder are specified")
-        }
-
-        dir("RPRHybrid") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
         }
 
         bat("mkdir ${targetDir}")
@@ -253,8 +253,12 @@ def executeBuildWindows(String projectName, Map options) {
                         bat """
                             svn co svn://${NAS_URL.split("@")[1]}/${projectName}Editor .
                             svn resolve --accept working -R .
-                            svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
+                            svn delete --force .git
+                            svn delete --force .vs
+                            svn delete --force Engine\\DerivedDataCache
+                            for /R . %%1 in (*.obj) do svn delete --force %%1
+                            for /R . %%1 in (*.pdb) do svn delete --force %%1
                             svn commit --username ${USERNAME} --password ${PASSWORD} -m "Build #${currentBuild.number}"
                         """
                     }
