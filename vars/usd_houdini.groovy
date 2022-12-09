@@ -503,7 +503,7 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
 
-                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
@@ -518,7 +518,7 @@ def executePreBuild(Map options) {
                         bat """
                             git add cmake/defaults/Version.cmake
                             git commit -m "buildmaster: version update to ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-                            git push origin HEAD:develop
+                            git push origin HEAD:master
                         """
 
                         //get commit's sha which have to be build
@@ -611,8 +611,8 @@ def executePreBuild(Map options) {
         options.githubNotificator.initChecks(options, "${BUILD_URL}")
     }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "develop") {
-        // if something was merged into develop branch it could trigger build in master branch of autojob
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        // if something was merged into master branch it could trigger build in master branch of autojob
         hybrid_to_blender_workflow.clearOldBranches("RadeonProRenderUSD", PROJECT_REPO, options)
     }
 }
@@ -673,9 +673,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
                         options.branchName = options.projectBranch ?: env.BRANCH_NAME
-                        if (options.incrementVersion) {
-                            options.branchName = "develop"
-                        }
 
                         if (!options["isPreBuilt"]) {
                             options.commitMessage = options.commitMessage.replace("'", "")
