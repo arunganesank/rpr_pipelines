@@ -184,6 +184,16 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
+        // FIXME: 003 test case from Blender test group crashes only on Philadelphia
+        if (env.NODE_NAME == "PC-SR-PHILADELPHIA-RadeonVII-WIN10") {
+            if (options.tests.contains("Blender") || options.tests.contains("Render_Modes")) {
+                throw new ExpectedExceptionWrapper(
+                    "System doesn't support the current test group", 
+                    new Exception("System doesn't support the current test group")
+                )
+            }
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {                
                 cleanWS(osName)
