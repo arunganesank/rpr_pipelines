@@ -97,7 +97,7 @@ def call(String projectRepo = PROJECT_REPO,
                         testCaseRetries: testCaseRetries
                         ]
         }
-        multiplatform_pipeline(platforms, this.&hdrpr.executePreBuild, this.&hdrpr.executeBuild, this.&executeTests, this.&executeDeploy, options)
+        multiplatform_pipeline(platforms, hdrpr.&executePreBuild, hdrpr.&executeBuild, this.&executeTests, this.&executeDeploy, options)
     } catch(e) {
         currentBuild.result = "FAILURE"
         println e.toString()
