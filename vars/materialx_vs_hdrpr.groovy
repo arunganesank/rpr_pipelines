@@ -55,7 +55,7 @@ def executeTestCommandHdRPR(String osName, String asicName, Map options, String 
                 switch(osName) {
                     case "Windows":
                         bat """
-                            run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "No" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
+                            run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "Update" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
                         """
                         break
 
@@ -292,7 +292,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     if (!options.testDataSaved) {
                         try {
                             // Save test data for access it manually anyway
-                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report")
+                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report", options.storeOnNAS,
+                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
                             options.testDataSaved = true
                         } catch(e1) {
                             println """
@@ -339,7 +340,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report")
+                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report", options.storeOnNAS,
+                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
