@@ -486,6 +486,10 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         }
     }
 
+    dir("Build/Downloads/lights") {
+        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+    }
+
     if (isUnix()) {
         sh """
             export OS=
@@ -1382,7 +1386,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX6800XT;Web',
+    String platforms = 'Windows:AMD_RX6800XT',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
