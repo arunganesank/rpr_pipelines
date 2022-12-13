@@ -433,9 +433,15 @@ def executePreBuild(Map options) {
                     options.timeouts["${it}"] = (xmlTimeout > 0) ? xmlTimeout : options.TEST_TIMEOUT
                 }
 
-                options.engines.each { engine ->
+                if (options.containsKey("engines")) {
+                    options.engines.each { engine ->
+                        groupNames.each { testGroup ->
+                            tests << "${testGroup}-${engine}"
+                        }
+                    }
+                } else {
                     groupNames.each { testGroup ->
-                        tests << "${testGroup}-${engine}"
+                        tests << "${testGroup}"
                     }
                 }
 
@@ -448,9 +454,15 @@ def executePreBuild(Map options) {
                     options.timeouts["${it}"] = (xmlTimeout > 0) ? xmlTimeout : options.TEST_TIMEOUT
                 }
 
-                options.engines.each { engine ->
+                if (options.containsKey("engines")) {
+                    options.engines.each { engine ->
+                        groupNames.each { testGroup ->
+                            tests << "${testGroup}-${engine}"
+                        }
+                }
+                } else {
                     groupNames.each { testGroup ->
-                        tests << "${testGroup}-${engine}"
+                        tests << "${testGroup}"
                     }
                 }
 

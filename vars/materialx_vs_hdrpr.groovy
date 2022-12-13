@@ -51,15 +51,11 @@ def unpackMaterialX(String osName, Map options) {
 def executeTestCommandHdRPR(String osName, String asicName, Map options, String engine) {
     withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
         dir("scripts") {
-            def testTimeout = options.timeouts["${options.tests}"]
-
-            println "[INFO] Set timeout to ${testTimeout}"
-
-            timeout(time: testTimeout, unit: 'MINUTES') { 
+            timeout(time: '50', unit: 'MINUTES') { 
                 switch(osName) {
                     case "Windows":
                         bat """
-                            run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} 'No' 'C:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin\\usdview' >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
+                            run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "No" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
                         """
                         break
 
@@ -74,11 +70,7 @@ def executeTestCommandHdRPR(String osName, String asicName, Map options, String 
 
 def executeTestCommandMaterialX(String osName, String asicName, Map options) {
     dir("scripts") {
-        def testTimeout = options.timeouts["${options.tests}"]
-
-        println "[INFO] Set timeout to ${testTimeout}"
-
-        timeout(time: testTimeout, unit: 'MINUTES') { 
+        timeout(time: '50', unit: 'MINUTES') { 
             switch(osName) {
                 case "Windows":
                     bat """
@@ -118,7 +110,9 @@ def executeTests(String osName, String asicName, Map options) {
 
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
                     timeout(time: "10", unit: "MINUTES") {
-                        unpackUSD(osName, options)
+                        dir ("..") {
+                            unpackUSD(osName, options)
+                        }
                     }
                 }
 
@@ -146,7 +140,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
 
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-                    String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/hdrpr_autotests_assets" : "/mnt/c/TestResources/hdrpr_autotests_assets"
+                    String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/materialx_autotests_assets" : "/mnt/c/TestResources/materialx_autotests_assets"
                     downloadFiles("/volume1/web/Assets/materialx_autotests/", assets_dir)
                 }
 
@@ -191,11 +185,11 @@ def executeTests(String osName, String asicName, Map options) {
                     archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                     if (stashResults) {
-                        dir("Work-Northstar/Results/Blender") {
+                        dir("Work-Northstar/Results/HdRPR") {
                             makeStash(includes: "**/*", name: "${options.testResultsName}-Northstar", storeOnNAS: options.storeOnNAS)
                         }
 
-                        dir("Work-HybridPro/Results/Blender") {
+                        dir("Work-HybridPro/Results/HdRPR") {
                             makeStash(includes: "**/*", name: "${options.testResultsName}-HybridPro", storeOnNAS: options.storeOnNAS)
                         }
                     } else {
@@ -212,7 +206,7 @@ def executeTests(String osName, String asicName, Map options) {
                     archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                     if (stashResults) {
-                        dir("Work-MaterialX/Results/Blender") {
+                        dir("Work-MaterialX/Results/MaterialX") {
                             makeStash(includes: "**/*", name: "${options.testResultsName}-MaterialX", storeOnNAS: options.storeOnNAS)
                         }
                     } else {
@@ -240,7 +234,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
     try {
         if (options['executeTests'] && testResultList) {
             withNotifications(title: "Building test report", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-                checkoutScm(branchName: options.materialxTestRepo, repositoryUrl: options.materialxTestRepo)
+                checkoutScm(branchName: options.materialxTestsBranch, repositoryUrl: options.materialxTestRepo)
             }
 
             dir("summaryTestResults") {
