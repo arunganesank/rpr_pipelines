@@ -378,6 +378,15 @@ def executeBuildUnix(String osName, Map options) {
 
 def executeBuild(String osName, Map options) {
     try {
+        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.INSTALL_HOUDINI) {
+            timeout(time: "5", unit: "MINUTES") {
+                withCredentials([[$class: "UsernamePasswordMultiBinding", credentialsId: "sidefxCredentials", usernameVariable: "USERNAME", passwordVariable: "PASSWORD"]]) {
+                    println(python3("${CIS_TOOLS}/houdini_api.py --client_id \"$USERNAME\" --client_secret_key \"$PASSWORD\" --version \"${options.buildProfile}\" --skip_installation \"True\""))
+                }
+            }
+        }
+
+
         dir ("RadeonProRenderUSD") {
             withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
