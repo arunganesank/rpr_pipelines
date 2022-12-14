@@ -381,7 +381,7 @@ def executeBuild(String osName, Map options) {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.INSTALL_HOUDINI) {
             timeout(time: "5", unit: "MINUTES") {
                 withCredentials([[$class: "UsernamePasswordMultiBinding", credentialsId: "sidefxCredentials", usernameVariable: "USERNAME", passwordVariable: "PASSWORD"]]) {
-                    println(python3("${CIS_TOOLS}/houdini_api.py --client_id \"$USERNAME\" --client_secret_key \"$PASSWORD\" --version \"${options.houdiniVersion}\" --skip_installation \"True\""))
+                    println(python3("${CIS_TOOLS}/houdini_api.py --client_id \"$USERNAME\" --client_secret_key \"$PASSWORD\" --version \"${options.buildProfile}\" --skip_installation \"True\""))
                 }
             }
         }
