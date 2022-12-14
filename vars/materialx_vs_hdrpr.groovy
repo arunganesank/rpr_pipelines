@@ -56,7 +56,7 @@ def executeTestCommandHdRPR(String osName, String asicName, Map options, String 
                     case "Windows":
                         bat """
                             set TOOL_VERSION=${options.toolVersion}
-                            run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "Update" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
+                            run_comparison.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "Update" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
                         """
                         break
 
@@ -75,7 +75,7 @@ def executeTestCommandMaterialX(String osName, String asicName, Map options) {
             switch(osName) {
                 case "Windows":
                     bat """
-                        run.bat ${options.testsPackage} \"${options.tests}\" ${options.testCaseRetries} >> \"../${STAGE_NAME}_MaterialX_${options.currentTry}.log\" 2>&1
+                        run_comparison.bat ${options.testsPackage} \"${options.tests}\" ${options.testCaseRetries} >> \"../${STAGE_NAME}_MaterialX_${options.currentTry}.log\" 2>&1
                     """
                     break
 
