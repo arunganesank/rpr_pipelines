@@ -34,7 +34,7 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
 
@@ -641,7 +641,7 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if(env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
 
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
@@ -656,7 +656,7 @@ def executePreBuild(Map options)
                         bat """
                           git add version.h
                           git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                          git push origin HEAD:develop
+                          git push origin HEAD:master
                         """
 
                         //get commit's sha which have to be build
@@ -873,7 +873,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin/${engine}"
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 
@@ -1052,7 +1052,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String theshold = '0.05',
         String customBuildLinkWindows = "",
         String customBuildLinkOSX = "",
-        String enginesNames = "Northstar",
+        String enginesNames = "Northstar,HybridPro",
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",

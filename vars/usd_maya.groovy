@@ -586,7 +586,7 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if(env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if(env.BRANCH_NAME == "main" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current plugin version: ${options.pluginVersion}"
@@ -620,7 +620,7 @@ def executePreBuild(Map options) {
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
                             git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
-                            git push origin HEAD:develop
+                            git push origin HEAD:main
                         """
 
                         //get commit's sha which have to be build

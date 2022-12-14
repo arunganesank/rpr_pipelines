@@ -323,7 +323,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                                 try {
                                     Integer retries_count = options.retriesForTestStage ?: -1
-                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, osName)
+                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
                                 } catch(FlowInterruptedException e) {
                                     options.buildWasAborted = true
                                     e.getCauses().each(){
@@ -381,7 +381,7 @@ def executePlatform(String osName, String gpuNames, String buildProfile, def exe
                         def retringFunction = { nodesList, currentTry ->
                             executeBuild(osName, options)
                         }
-                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, true, "Build", options, -1, osName, true)
+                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, true, "Build", options, -1, true, osName, true)
                     }
                 }
             } catch (e1) {
@@ -481,7 +481,7 @@ def makeDeploy(Map options, String buildProfile = "", String testProfile = "") {
                 println("[INFO] Deploy stage finished without unexpected exception. Clean workspace")
                 cleanWS("Windows")
             }
-            run_with_retries(reportBuilderLabels, options.DEPLOY_TIMEOUT, retringFunction, false, "Deploy", options, 3)
+            run_with_retries(reportBuilderLabels, options.DEPLOY_TIMEOUT, retringFunction, false, "Deploy", options, 3, false)
         }
     }
 }
@@ -570,7 +570,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                                 def retringFunction = { nodesList, currentTry ->
                                     executePreBuild(options)
                                 }
-                                run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3)
+                                run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3, true)
                             }
 
                             if(!options['executeBuild']) {

@@ -762,7 +762,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             try {
                 boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
                 boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${testProfile}"
+                String[] toolVersionParts = toolVersion.split("\\.")
+                String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (useTrackedMetrics) {
@@ -914,7 +916,7 @@ def call(String projectRepo = PROJECT_REPO,
         String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_WX9100;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
         String buildType = "Houdini",
         Boolean rebuildUSD = false,
-        String houdiniVersions = "19.0.622,19.5.368",
+        String houdiniVersions = "19.0.622,19.5.435",
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
         String tests = "",

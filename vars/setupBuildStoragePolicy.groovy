@@ -33,7 +33,7 @@ def call(String project = "")
                 [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '10']]])
         }
 
-    } else  if (project in ["Blender", "Maya", "Max", "Core"]) {
+    } else if (project in ["Blender", "Maya", "Max", "Core"]) {
         println("BuildDiscarderProperty will use settings for plugins job.")
         if (isMasterBranch()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
@@ -64,6 +64,12 @@ def call(String project = "")
 
         properties([[$class: 'BuildDiscarderProperty', strategy: 
             [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '5']]])
+
+    
+    } else if (project == "HybridUE") {
+
+        properties([[$class: 'BuildDiscarderProperty', strategy: 
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '3']]])
 
     } else {
         println("BuildDiscarderProperty will use default settings.")
@@ -111,6 +117,8 @@ def getProjectName(){
         return "Core"
     } else if (env.JOB_NAME.contains("MaterialLibrary")) {
         return "MaterialLibrary"
+    } else if (env.JOB_NAME.contains("ShooterGameAuto") || env.JOB_NAME.contains("ToyShopAuto") || env.JOB_NAME.contains("VictorianTrainsAuto")) {
+        return "HybrudUE"
     } else {
         return "Default"
     }

@@ -9,15 +9,9 @@ def call(String projectName, String projectRepo) {
                 String version = this.readFile("VERSION.txt").trim()
 
                 println("Current version of submodule: " + version)
-                
-                switch(env.BRANCH_NAME) {
-                    case "master":
-                    case "main":
-                        version = version_inc(version, 2)
-                        break
-                    case "develop":
-                        version = version_inc(version, 3)
-                        break
+
+                if (env.BRANCH_NAME == "main") {
+                    version = version_inc(version, 3)
                 }
 
                 bat """
