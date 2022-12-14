@@ -55,6 +55,7 @@ def executeTestCommandHdRPR(String osName, String asicName, Map options, String 
                 switch(osName) {
                     case "Windows":
                         bat """
+                            set TOOL_VERSION=${options.toolVersion}
                             run.bat ${options.testsPackage} \"${options.tests}\" ${engine} ${options.testCaseRetries} "Update" "..\\..\\USD\\build\\bin\\usdview" >> \"../${STAGE_NAME}_${engine}_${options.currentTry}.log\" 2>&1
                         """
                         break
@@ -276,7 +277,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 dir("jobs_launcher") {
                     withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}"]) {
                         bat """
-                            build_comparison_reports.bat ..\\\\summaryTestResults
+                            build_comparison_reports.bat ..\\\\summaryTestResults ${utils.escapeCharsByUnicode("MaterialXvsHdRPR")} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\"
                         """
                     }
                 }

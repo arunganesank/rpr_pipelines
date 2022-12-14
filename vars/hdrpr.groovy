@@ -79,6 +79,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 switch(osName) {
                     case "Windows":
                         bat """
+                            set TOOL_VERSION=${options.toolVersion}
                             run.bat ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
                         break
@@ -403,7 +404,13 @@ def executePreBuild(Map options) {
             options.projectBranchName = options.projectBranch
         }
 
+        options.majorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MAJOR_VERSION "', '')
+        options.minorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_MINOR_VERSION "', '')
+        options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
+        options.toolVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+
         currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
+        currentBuild.description += "<b>Version:</b> ${options.toolVersion}<br/>"
         currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
         currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
         currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
