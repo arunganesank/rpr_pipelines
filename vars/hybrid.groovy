@@ -459,7 +459,6 @@ def executeBuildWindows(Map options) {
         cd Build
         cmake ${options['cmakeKeys']} -G "Visual Studio 15 2017 Win64" .. >> ..\\${STAGE_NAME}.log 2>&1
         cmake --build . --target PACKAGE --config ${build_type} >> ..\\${STAGE_NAME}.log 2>&1
-        if exist BaikalNext_${STAGE_NAME}.zip del /f BaikalNext_${STAGE_NAME}.zip
         rename BaikalNext.zip BaikalNext_${STAGE_NAME}.zip
     """
     dir("Build/bin/${build_type}") {
@@ -503,7 +502,6 @@ def executeBuildLinux(Map options) {
         cmake ${options['cmakeKeys']} .. >> ../${STAGE_NAME}.log 2>&1
         make -j 8 >> ../${STAGE_NAME}.log 2>&1
         make package >> ../${STAGE_NAME}.log 2>&1
-        rm -rf BaikalNext_${STAGE_NAME}.tar.xz
         mv BaikalNext.tar.xz BaikalNext_${STAGE_NAME}.tar.xz
     """
     dir("Build/bin") {
@@ -516,7 +514,7 @@ def executeBuild(String osName, Map options) {
     String error_message = ""
     String context = "[BUILD] ${osName}"
     try {
-        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: false)
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
         outputEnvironmentInfo(osName)
         
@@ -569,7 +567,7 @@ def executeBuild(String osName, Map options) {
 
 def executePreBuild(Map options) {
    
-    checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: false, disableSubmodules: true)
+    checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
 
     options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
     commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
