@@ -776,11 +776,9 @@ def executeBuild(String osName, Map options) {
             patchVersions(options)
 
             if (options.customHybridLinux && isUnix()) {
-                sh """
-                    curl --insecure --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
-                """
+                downloadFiles(options.customHybridLinux, ".")
 
-                sh "tar -xJf HybridPro.tar.xz"
+                sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
 
                 sh """
                     yes | cp -rf BaikalNext/bin/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
@@ -792,11 +790,9 @@ def executeBuild(String osName, Map options) {
                     downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
                 }
             } else if (options.customHybridWin && !isUnix()) {
-                bat """
-                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
-                """
+                downloadFiles(options.customHybridWin, ".")
 
-                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
 
                 bat """
                     copy /Y BaikalNext\\bin\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
@@ -951,11 +947,11 @@ def executePreBuild(Map options) {
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
             if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+                options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+                options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
             } else {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+                options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+                options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
             }
         }
 
