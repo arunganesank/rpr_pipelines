@@ -39,7 +39,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
         withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
                 cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: "${options.gitlabURL}/rml/ft_engine.git", credentialsId: "radeonprorender-gitlab")
+                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
         }
 
@@ -514,43 +514,6 @@ def executePreBuild(Map options) {
 }
 
 
-def executeDeploy(Map options, List platformList, List testResultList) {
-
-    try {
-        dir("rml-deploy") {
-           
-            checkoutScm(branchName: "master", repositoryUrl: "${options.gitlabURLSSH}/servants/rml-deploy.git", credentialsId: "radeonprorender-gitlab")
-             
-            bat """
-                git rm -r *
-            """ 
-
-            platformList.each() {
-                dir(it) {
-                    dir("Release"){
-                        makeUnstash(name: "deploy_${it}_Release", storeOnNAS: options.storeOnNAS)
-                    }
-                    dir("Debug"){
-                        makeUnstash(name: "deploy_${it}_Debug", storeOnNAS: options.storeOnNAS)
-                    }
-                }
-            }
-                
-            bat """
-                git add --all
-                git commit -m "buildmaster: SDK release ${env.TAG_NAME}"
-                git tag -a rml_sdk_${env.TAG_NAME} -m "rml_sdk_${env.TAG_NAME}"
-                git push --tag origin HEAD:master
-            """ 
-        }
-    } catch (e) {
-        println("[ERROR] Failed to deploy RML binaries")
-        println(e.toString())
-        println(e.getMessage())
-    }
-}
-
-
 def call(String projectBranch = "",
          String testsBranch = "master",
          String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
@@ -564,20 +527,13 @@ def call(String projectBranch = "",
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    def gitlabURL
-    withCredentials([string(credentialsId: 'gitlabURL', variable: 'GITLAB_URL'), string(credentialsId: 'gitlabURLSSH', variable: 'GITLAB_URL_SSH')]) {
-        gitlabURL = GITLAB_URL
-        gitlabURLSSH = GITLAB_URL_SSH
-    }
-
     try {
-
-        def deployStage = env.TAG_NAME ? this.&executeDeploy : null
         platforms = env.TAG_NAME ? "Windows;Ubuntu20;OSX;CentOS7" : platforms
 
         options << [platforms:platforms,
                     projectRepo:projectRepo,
                     projectBranch:projectBranch,
+                    testRepo:"git@github.com:luxteam/rml_ft.git",
                     testsBranch:testsBranch,
                     enableNotifications:enableNotifications,
                     PRJ_NAME:'RadeonML',
@@ -590,13 +546,11 @@ def call(String projectBranch = "",
                     executeTests:true,
                     executeFT:executeFT,
                     retriesForTestStage:1,
-                    gitlabURL:gitlabURL,
-                    gitlabURLSSH:gitlabURLSSH,
                     storeOnNAS:true,
                     flexibleUpdates: true
                     ]
 
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, deployStage, options)
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, null, options)
 
     } catch (e) {
         currentBuild.result = "FAILURE"
