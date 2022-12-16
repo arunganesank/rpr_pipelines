@@ -194,6 +194,15 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
+        if (env.NODE_NAME == "PC-SR-STOCKHOLM-6800XT-WIN10") {
+            if (options.tests.contains("Blender")) {
+                throw new ExpectedExceptionWrapper(
+                    "System doesn't support the current test group", 
+                    new Exception("System doesn't support the current test group")
+                )
+            }
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {                
                 cleanWS(osName)
