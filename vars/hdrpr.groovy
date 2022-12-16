@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
-    productExtensions: ["Windows": "zip"],
+    productExtensions: ["Windows": "zip", "Ubuntu20": "zip"],
     artifactNameBase: "hdRpr-",
     testProfile: "engine",
     displayingProfilesMapping: [
@@ -244,8 +244,6 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(String osName, Map options) {
     withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
-        clearBinariesWin()
-
         GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
 
         String builtUSDPath = "${WORKSPACE}\\USD\\build"
@@ -253,10 +251,10 @@ def executeBuildWindows(String osName, Map options) {
         if (options.rebuildUSD) {
             dir ("USD") {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_USD.log 2>&1
                     waitfor 1 /t 10 2>NUL || type nul>nul
-                    python --version >> ${STAGE_NAME}_USD.log 2>&1
-                    python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
+                    python --version >> ..\\${STAGE_NAME}_USD.log 2>&1
+                    python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ..\\${STAGE_NAME}_USD.log 2>&1
                 """
             }
 
@@ -290,6 +288,48 @@ def executeBuildWindows(String osName, Map options) {
 }
 
 
+def executeBuildLinux(String osName, Map options) {
+    GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
+
+    String builtUSDPath = "${WORKSPACE}/USD/build"
+
+    if (options.rebuildUSD) {
+        dir ("USD") {
+            bat """
+                python --version >> ../${STAGE_NAME}_USD.log 2>&1
+                python build_scripts/build_usd.py ${builtUSDPath} --openimageio --materialx >> ../${STAGE_NAME}_USD.log 2>&1
+            """
+        }
+
+        if (options.saveUSD) {
+            uploadFiles("USD/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/${osName}/USD")
+        }
+    }
+
+    dir ("RadeonProRenderUSD") {
+        dir("build") {
+            bat """
+                python --version >> ../../${STAGE_NAME}.log 2>&1
+                cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DOPENEXR_LOCATION=${builtUSDPath} .. >> ../../${STAGE_NAME}.log 2>&1
+                cmake --build .--target install >> ../../${STAGE_NAME}.log 2>&1
+            """
+        }
+    }
+
+    dir ("USD/build") {
+        String ARTIFACT_NAME = "hdRpr-${osName}.zip"
+
+        utils.removeFile(this, osName, ARTIFACT_NAME)
+        bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} . -xr!src -xr!share -xr!build")
+
+        String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+        makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+        GithubNotificator.updateStatus("Build", "${osName}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+    }
+}
+
+
 def executeBuild(String osName, Map options) {
     // Built USD is tied with paths. Always work with USD from the same directory
     dir("${WORKSPACE}/../HdRPR_Build") {
@@ -319,7 +359,7 @@ def executeBuild(String osName, Map options) {
                         executeBuildWindows(osName, options)
                         break
                     default:
-                        println("[WARNING] ${osName} is not supported")
+                        executeBuildLinux(osName, options)
                 }
             }
 
