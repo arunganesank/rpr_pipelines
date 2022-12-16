@@ -261,7 +261,7 @@ def executeBuildWindows(String osName, Map options) {
             }
 
             if (options.saveUSD) {
-                uploadFiles("USD/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD")
+                uploadFiles("USD/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/Windows/USD")
             }
         }
 
@@ -306,7 +306,7 @@ def executeBuild(String osName, Map options) {
                         checkoutScm(branchName: options.usdBranch, repositoryUrl: "git@github.com:PixarAnimationStudios/USD.git")
                     }
                 } else {
-                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/USD", ".")
+                    downloadFiles("/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/${osName}/USD", ".")
                 }
             }
 
