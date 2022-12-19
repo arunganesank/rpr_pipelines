@@ -251,10 +251,10 @@ def executeBuildWindows(String osName, Map options) {
         if (options.rebuildUSD) {
             dir ("USD") {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_USD.log 2>&1
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
                     waitfor 1 /t 10 2>NUL || type nul>nul
-                    python --version >> ..\\${STAGE_NAME}_USD.log 2>&1
-                    python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ..\\${STAGE_NAME}_USD.log 2>&1
+                    python --version >> ${STAGE_NAME}_USD.log 2>&1
+                    python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
                 """
             }
 
@@ -294,24 +294,25 @@ def executeBuildLinux(String osName, Map options) {
     String builtUSDPath = "${WORKSPACE}/USD/build"
 
     if (options.rebuildUSD) {
-        dir ("USD") {
-            bat """
-                python --version >> ../${STAGE_NAME}_USD.log 2>&1
-                python build_scripts/build_usd.py ${builtUSDPath} --openimageio --materialx >> ../${STAGE_NAME}_USD.log 2>&1
+        dir("USD") {
+            sh """
+                export OS=
+                python --version >> ${STAGE_NAME}_USD.log 2>&1
+                python build_scripts/build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
             """
-        }
 
-        if (options.saveUSD) {
-            uploadFiles("USD/*", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/${osName}/USD")
+            if (options.saveUSD) {
+                uploadFiles(".", "/volume1/CIS/${options.PRJ_ROOT}/${options.PRJ_NAME}/${osName}/USD/")
+            }
         }
     }
 
     dir ("RadeonProRenderUSD") {
         dir("build") {
-            bat """
+            sh """
                 python --version >> ../../${STAGE_NAME}.log 2>&1
                 cmake -Dpxr_DIR=${builtUSDPath} -DCMAKE_INSTALL_PREFIX=${builtUSDPath} -DOPENEXR_LOCATION=${builtUSDPath} .. >> ../../${STAGE_NAME}.log 2>&1
-                cmake --build .--target install >> ../../${STAGE_NAME}.log 2>&1
+                cmake --build . --target install >> ../../${STAGE_NAME}.log 2>&1
             """
         }
     }
@@ -320,7 +321,7 @@ def executeBuildLinux(String osName, Map options) {
         String ARTIFACT_NAME = "hdRpr-${osName}.zip"
 
         utils.removeFile(this, osName, ARTIFACT_NAME)
-        bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${ARTIFACT_NAME} . -xr!src -xr!share -xr!build")
+        sh("zip --symlinks -r ${ARTIFACT_NAME} . -x 'src' -x 'share' -x 'build'")
 
         String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
@@ -782,7 +783,8 @@ def call(String projectRepo = PROJECT_REPO,
                         storeOnNAS: true,
                         flexibleUpdates: true,
                         skipCallback: this.&filter,
-                        testCaseRetries: testCaseRetries
+                        testCaseRetries: testCaseRetries,
+                        BUILDER_TAG: "HdRPRBuilder"
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
