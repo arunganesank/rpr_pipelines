@@ -186,6 +186,31 @@ def executeTests(String osName, String asicName, Map options) {
                     archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                     if (stashResults) {
+                        dir("Work") {
+                            if (fileExists("Results/HdRPR/session_report.json")) {
+                                def sessionReport = readJSON file: 'Results/HdRPR/session_report.json'
+                                if (sessionReport.summary.error > 0) {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                                } else if (sessionReport.summary.failed > 0) {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                                } else {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                                }
+
+                                println "Total: ${sessionReport.summary.total}"
+                                println "Error: ${sessionReport.summary.error}"
+                                println "Skipped: ${sessionReport.summary.skipped}"
+                                if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+                                    if (sessionReport.summary.total != sessionReport.summary.skipped){
+                                        String errorMessage = (options.currentTry < options.nodeReallocateTries) ?
+                                                "All tests were marked as error. The test group will be restarted." :
+                                                "All tests were marked as error."
+                                        throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                                    }
+                                }
+                            }
+                        }
+
                         dir("Work-Northstar/Results/HdRPR") {
                             makeStash(includes: "**/*", name: "${options.testResultsName}-Northstar", storeOnNAS: options.storeOnNAS)
                         }
@@ -207,6 +232,31 @@ def executeTests(String osName, String asicName, Map options) {
                     archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                     if (stashResults) {
+                        dir("Work") {
+                            if (fileExists("Results/MaterialX/session_report.json")) {
+                                def sessionReport = readJSON file: 'Results/MaterialX/session_report.json'
+                                if (sessionReport.summary.error > 0) {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                                } else if (sessionReport.summary.failed > 0) {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                                } else {
+                                    GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                                }
+
+                                println "Total: ${sessionReport.summary.total}"
+                                println "Error: ${sessionReport.summary.error}"
+                                println "Skipped: ${sessionReport.summary.skipped}"
+                                if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+                                    if (sessionReport.summary.total != sessionReport.summary.skipped){
+                                        String errorMessage = (options.currentTry < options.nodeReallocateTries) ?
+                                                "All tests were marked as error. The test group will be restarted." :
+                                                "All tests were marked as error."
+                                        throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                                    }
+                                }
+                            }
+                        }
+
                         dir("Work-MaterialX/Results/MaterialX") {
                             makeStash(includes: "**/*", name: "${options.testResultsName}-MaterialX", storeOnNAS: options.storeOnNAS)
                         }
