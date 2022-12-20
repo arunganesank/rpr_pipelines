@@ -917,13 +917,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url
-
-        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/view/change-requests/job/PR-1035/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        } else {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        }
+        String url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
         def rawInfo = httpRequest(
             url: url,
