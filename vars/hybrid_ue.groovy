@@ -199,7 +199,11 @@ def executeBuildWindows(String projectName, Map options) {
 
         bat("mkdir ${targetDir}")
 
-        bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        String agilitySDKLocation = downloadAgilitySDK()
+
+        withEnv(["AGILITY_SDK=${agilitySDKLocation}"]) {
+            bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        }
 
         try {
             bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
