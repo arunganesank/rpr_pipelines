@@ -37,17 +37,22 @@ def unpackUSD(String osName, Map options) {
 
 
 def doSanityCheck(String osName, Map options) {
-    withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
-        dir("scripts") {
-            switch(osName) {
-                case "Windows":
+    dir("scripts") {
+        switch(osName) {
+            case "Windows":
+                withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
                     bat """
-                        do_sanity_check.bat ${options.engine} >> \"..\\${options.stageName}_${options.currentTry}.sanity_check_wrapper.log\"  2>&1
+                        do_sanity_check.bat ${options.engine} >> \"..\\${options.stageName}_${options.currentTry}.sanity_check_wrapper.log\" 2>&1
                     """
-                    break
-                default:
-                    println("[WARNING] ${osName} is not supported")    
-            }
+                }
+
+                break
+            default:
+                withEnv(["PATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib:/home/admin/JN/WS/HdRPR_Build/USD/build/bin:${PATH}", "PYTHONPATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib/python"]) {
+                    bat """
+                        ./do_sanity_check.sh ${options.engine} >> \"../${options.stageName}_${options.currentTry}.sanity_check_wrapper.log\" 2>&1
+                    """
+                }
         }
     }
 }
@@ -69,24 +74,30 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 
 
 def executeTestCommand(String osName, String asicName, Map options) {
-    withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
-        dir("scripts") {
-            def testTimeout = options.timeouts["${options.tests}"]
+    dir("scripts") {
+        def testTimeout = options.timeouts["${options.tests}"]
 
-            println "[INFO] Set timeout to ${testTimeout}"
+        println "[INFO] Set timeout to ${testTimeout}"
 
-            timeout(time: testTimeout, unit: 'MINUTES') { 
-                switch(osName) {
-                    case "Windows":
+        timeout(time: testTimeout, unit: 'MINUTES') { 
+            switch(osName) {
+                case "Windows":
+                    withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
                         bat """
                             set TOOL_VERSION=${options.toolVersion}
                             run.bat ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
-                        break
+                    }
 
-                    default:
-                        println("[WARNING] ${osName} is not supported")   
-                }
+                    break
+
+                default:
+                    withEnv(["PATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib:/home/admin/JN/WS/HdRPR_Build/USD/build/bin:${PATH}", "PYTHONPATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib/python"]) {
+                        bat """
+                            set TOOL_VERSION=${options.toolVersion}
+                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
             }
         }
     }
@@ -95,7 +106,8 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
 def executeTests(String osName, String asicName, Map options) {
     // Built USD is tied with paths. Always work with USD from the same directory
-    dir("${WORKSPACE}/../HdRPR_Build") {
+    String newWorkspace = osName == "Windows" ? "${WORKSPACE}/../HdRPR_Build" : "/home/admin/JN/WS/HdRPR_Build"
+    dir(newWorkspace) {
         // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
         Boolean stashResults = true
 
