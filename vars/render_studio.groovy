@@ -917,13 +917,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url
-
-        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/view/change-requests/job/PR-1035/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        } else {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        }
+        String url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
         def rawInfo = httpRequest(
             url: url,
@@ -946,13 +940,8 @@ def executePreBuild(Map options) {
         }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-                options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-            } else {
-                options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-            }
+            options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")

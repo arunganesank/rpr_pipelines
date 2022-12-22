@@ -154,6 +154,8 @@ def executeTests(String osName, String asicName, Map options) {
                     enginePostfix = "HybridPro"
                     break
             }
+            REF_PATH_PROFILE = enginePostfix ? "${REF_PATH_PROFILE}-${enginePostfix}" : REF_PATH_PROFILE
+
             outputEnvironmentInfo(osName, options.stageName, options.currentTry)
 
             if (options["updateRefs"].contains("Update")) {
