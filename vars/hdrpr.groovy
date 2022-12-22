@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Field final String PROJECT_REPO = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderUSD.git"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
-    supportedOS: ["Windows"],
+    supportedOS: ["Windows", "Ubuntu20"],
     productExtensions: ["Windows": "zip", "Ubuntu20": "zip"],
     artifactNameBase: "hdRpr-",
     testProfile: "engine",
@@ -49,7 +49,7 @@ def doSanityCheck(String osName, Map options) {
                 break
             default:
                 withEnv(["PATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib:/home/admin/JN/WS/HdRPR_Build/USD/build/bin:${PATH}", "PYTHONPATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib/python"]) {
-                    bat """
+                    sh """
                         ./do_sanity_check.sh ${options.engine} >> \"../${options.stageName}_${options.currentTry}.sanity_check_wrapper.log\" 2>&1
                     """
                 }
@@ -93,7 +93,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
                 default:
                     withEnv(["PATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib:/home/admin/JN/WS/HdRPR_Build/USD/build/bin:${PATH}", "PYTHONPATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib/python"]) {
-                        bat """
+                        sh """
                             set TOOL_VERSION=${options.toolVersion}
                             ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
@@ -106,7 +106,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
 def executeTests(String osName, String asicName, Map options) {
     // Built USD is tied with paths. Always work with USD from the same directory
-    String newWorkspace = osName == "Windows" ? "${WORKSPACE}/../HdRPR_Build" : "/home/admin/JN/WS/HdRPR_Build"
+    String newWorkspace = osName == "Windows" ? "${WORKSPACE}/../HdRPR_Build" : ""
     dir(newWorkspace) {
         // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
         Boolean stashResults = true
@@ -127,7 +127,11 @@ def executeTests(String osName, String asicName, Map options) {
 
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
                 timeout(time: "10", unit: "MINUTES") {
-                    unpackUSD(osName, options)
+                    // Built USD is tied with paths. Always work with USD from the same directory
+                    String newWorkspace = osName == "Windows" ? "" : "/home/admin/JN/WS/HdRPR_Build"
+                    dir(newWorkspace) {
+                        unpackUSD(osName, options)
+                    }
                 }
             }
 
