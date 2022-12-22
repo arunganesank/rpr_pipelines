@@ -25,6 +25,11 @@ import java.util.concurrent.ConcurrentHashMap
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    //skip HybridPro on Ubuntu
+    if (engine == "HybridPro" && osName == "Ubuntu20") {
+        return true
+    }
+
     return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
