@@ -50,7 +50,14 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
                 bat("bash.exe -c \"tar -xzf ${CIS_TOOLS.replace('C:\\', '/mnt/c/').replace('\\', '/')}/../PluginsBinaries/${options[identificatorKey]}.${extension} -C ${unpackDestination}\"")
             }
         } else if (extension == "zip") {
-            unzip zipFile: "${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}", dir: unpackDestination, quiet: true
+            if (isUnix()) {
+                sh """
+                    mkdir -p ${unpackDestination}
+                    unzip -q \"${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}\" -d ${unpackDestination}
+                """
+            } else {
+                unzip zipFile: "${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}", dir: unpackDestination, quiet: true
+            }
         } else {
             throw new Exception("Unexpected extension '${extension}'")
         }
