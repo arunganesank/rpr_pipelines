@@ -30,6 +30,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
 
 
 def unpackUSD(String osName, Map options) {
+    if (isUnix()) {
+        sh "rm -rf USD"
+    }
+
     dir("USD/build") {
         getProduct(osName, options, ".")
     }
@@ -128,7 +132,7 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
                 timeout(time: "10", unit: "MINUTES") {
                     // Built USD is tied with paths. Always work with USD from the same directory
-                    String newWorkspace = osName == "Windows" ? "" : "/home/admin/JN/WS/HdRPR_Build"
+                    newWorkspace = osName == "Windows" ? "" : "/home/admin/JN/WS/HdRPR_Build"
                     dir(newWorkspace) {
                         unpackUSD(osName, options)
                     }
