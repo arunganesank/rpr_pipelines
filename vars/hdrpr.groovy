@@ -129,6 +129,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
+            String enginePostfix = ""
             String REF_PATH_PROFILE="/volume1/Baselines/hdrpr_autotests/${asicName}-${osName}"
             switch(options.engine) {
                 case 'Northstar':
@@ -159,6 +160,7 @@ def executeTests(String osName, String asicName, Map options) {
             } else {
                 withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                     String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hdrpr_autotests_baselines" : "/mnt/c/TestResources/hdrpr_autotests_baselines"
+                    baselineDir = enginePostfix ? "${baselineDir}-${enginePostfix}" : baselineDir
                     println "[INFO] Downloading reference images for ${options.testsPackage}"
                     options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it}", baselineDir) }
                 }
