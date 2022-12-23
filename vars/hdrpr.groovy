@@ -275,7 +275,7 @@ def executeBuildWindows(String osName, Map options) {
     withEnv(["PATH=c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
         GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
 
-        String builtUSDPath = "${WORKSPACE}\\USD\\build"
+        String builtUSDPath = "${WORKSPACE}\\..\\HdRPR_Build\\USD\\build"
 
         if (options.rebuildUSD) {
             dir ("USD") {
@@ -320,7 +320,7 @@ def executeBuildWindows(String osName, Map options) {
 def executeBuildLinux(String osName, Map options) {
     GithubNotificator.updateStatus("Build", "${osName}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
 
-    String builtUSDPath = "${WORKSPACE}/USD/build"
+    String builtUSDPath = "${WORKSPACE}/../HdRPR_Build/USD/build"
 
     if (options.rebuildUSD) {
         dir("USD") {
