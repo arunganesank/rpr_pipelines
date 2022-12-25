@@ -68,13 +68,19 @@ def removeClosedPRs(Map options) {
  }
 
 
-def uninstallAMDRenderStudio(String osName, Map options) {
+def uninstallAMDRenderStudio(String osName, Map options, Boolean removeStorage = true) {
     def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
     // TODO: compare product code of built application and installed application
     if (installedProductCode) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+    }
+
+    if (removeStorage) {
+        dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
+            utils.removeDir(this, osName, "AMDRenderStudio")
+        }
     }
 }
 
@@ -157,7 +163,7 @@ def runApplicationTests(String osName, Map options) {
     runApplication(appLink, osName, options)
 
     // Step 5: try to uninstall app (should be unsuccessfull, issue on Render Studio side)
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 6: close app window
     try {
@@ -173,7 +179,7 @@ def runApplicationTests(String osName, Map options) {
     // }
 
     // Step 8: uninstall app
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 9: check processes after uninstalling
     Boolean processFound = utils.isProcessExists(this, "AMD RenderStudio", osName, options)
