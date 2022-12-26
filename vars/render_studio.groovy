@@ -68,19 +68,13 @@ def removeClosedPRs(Map options) {
  }
 
 
-def uninstallAMDRenderStudio(String osName, Map options, Boolean removeStorage = true) {
+def uninstallAMDRenderStudio(String osName, Map options) {
     def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
     // TODO: compare product code of built application and installed application
     if (installedProductCode) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-    }
-
-    if (removeStorage) {
-        dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
-            utils.removeDir(this, osName, "AMDRenderStudio")
-        }
     }
 }
 
@@ -163,7 +157,7 @@ def runApplicationTests(String osName, Map options) {
     runApplication(appLink, osName, options)
 
     // Step 5: try to uninstall app (should be unsuccessfull, issue on Render Studio side)
-    uninstallAMDRenderStudio(osName, options, false)
+    uninstallAMDRenderStudio(osName, options)
 
     // Step 6: close app window
     try {
@@ -179,7 +173,7 @@ def runApplicationTests(String osName, Map options) {
     // }
 
     // Step 8: uninstall app
-    uninstallAMDRenderStudio(osName, options, false)
+    uninstallAMDRenderStudio(osName, options)
 
     // Step 9: check processes after uninstalling
     Boolean processFound = utils.isProcessExists(this, "AMD RenderStudio", osName, options)
@@ -369,6 +363,10 @@ def executeTests(String osName, String asicName, Map options) {
 
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+
+                            dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
+                                utils.removeDir(this, osName, "AMDRenderStudio")
+                            }
                         } else if (sessionReport.summary.failed > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
