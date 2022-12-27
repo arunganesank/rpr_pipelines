@@ -464,6 +464,10 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         options.saveUSD = true
     }
 
+    dir("Build/Downloads/lights") {
+        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+    }
+
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
@@ -488,10 +492,6 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         dir("Build/Install/USD") {
             downloadFiles("/volume1/CIS/WebUSD/Modules/USD/${osName}/${usdPath}/", ".", , "--quiet")
         }
-    }
-
-    dir("Build/Downloads/lights") {
-        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
     }
 
     if (isUnix()) {
