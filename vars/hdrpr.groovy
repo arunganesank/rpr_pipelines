@@ -763,16 +763,16 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String testsBranch = "master",
         String usdBranch = "release",
-        String platforms = 'Windows:AMD_RX6800XT',
+        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
         Boolean rebuildUSD = false,
         Boolean saveUSD = false,
         String updateRefs = 'No',
-        String testsPackage = "Smoke.json",
+        String testsPackage = "Full.json",
         String tests = "",
         String enginesNames = "Northstar",
         Boolean splitTestsExecution = true,
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 3
+        Integer testCaseRetries = 10
     ) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
