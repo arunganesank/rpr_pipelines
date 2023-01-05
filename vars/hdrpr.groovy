@@ -490,7 +490,7 @@ def executePreBuild(Map options) {
     options.timeouts = [:]
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
-        dir("jobs_test_hdrpr") {
+        dir("jobs_test_repo") {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             dir("jobs_launcher") {
                 options["jobsLauncherBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
