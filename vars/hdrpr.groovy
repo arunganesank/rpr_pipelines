@@ -813,7 +813,8 @@ def call(String projectRepo = PROJECT_REPO,
                         flexibleUpdates: true,
                         skipCallback: this.&filter,
                         testCaseRetries: testCaseRetries,
-                        BUILDER_TAG: "HdRPRBuilder"
+                        BUILDER_TAG: "HdRPRBuilder",
+                        notificationsTitlePrefix: "HDRPR"
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
