@@ -941,7 +941,8 @@ def call(String projectRepo = PROJECT_REPO,
                         customBuildLinkOSX: customBuildLinkMacOS,
                         isPreBuilt:isPreBuilt,
                         prRepoName:prRepoName,
-                        prBranchName:prBranchName
+                        prBranchName:prBranchName,
+                        notificationsTitlePrefix: "HOUDINI"
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
