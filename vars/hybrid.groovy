@@ -825,6 +825,10 @@ def call(String projectBranch = "",
         milestone(buildNumber) 
     }
 
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-1092") {
+        platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT"
+    }
+
     Boolean isLegacyBranch = false
 
     if (testsQuality == "none") {
