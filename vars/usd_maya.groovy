@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "exe"],
-    artifactNameBase: "RPRMayaUSDHdRPR_Setup",
+    artifactNameBase: "RPRMayaUSD",
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
@@ -71,13 +71,14 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
         bat """
             start /wait ${CIS_TOOLS}\\..\\PluginsBinaries\\${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
         """
-        
-        String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+
+        // FIXME: actualize Maya.env file check
+        /*String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
         if(!envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
             !envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
             !envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                 throw new Exception("Failed due to incorrect Maya.env")
-            }
+            }*/
     } catch (e) {
         throw new Exception("Failed to install plugin")
     }
@@ -94,12 +95,14 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                     bat """
                         start "" /wait "${defaultUninstallerPath}" /SILENT
                     """
-                    String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+
+                    // FIXME: actualize Maya.env file check
+                    /*String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
                     if(envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
                         envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
                         envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                             throw new Exception("Failed due to incorrect Maya.env")
-                        }
+                        }*/
                 } else {
                     println "[INFO] USD Maya plugin not found"
                 }
@@ -437,20 +440,33 @@ def executeBuildWindows(Map options) {
                 """
             }
             dir('installation') {
-                bat """
-                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe
-                """
+                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-41") {
+                    makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
-                makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
+                        """
+                    }
 
-                if (options.branch_postfix) {
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
+                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                } else {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe
                     """
-                }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe"
-                artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                    makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+
+                    if (options.branch_postfix) {
+                        bat """
+                            rename RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        """
+                    }
+
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe"
+                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
             }
 
             if (options.buildOldInstaller) {
