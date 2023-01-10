@@ -114,12 +114,13 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
     cleanWS(osName)
     String error_message = ""
     String REF_PATH_PROFILE
+    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6")
 
-    if (options.testsQuality) {
-        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${options.RENDER_QUALITY}/${asicName}-${osName}"
-        outputEnvironmentInfo(osName, "${STAGE_NAME}.${options.RENDER_QUALITY}")
-    } else {
+    if (isRTXCard) {
         REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/${asicName}-${osName}"
+        outputEnvironmentInfo(osName, "${STAGE_NAME}")
+    } else {
+        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/AMD_RX6800XT-Windows"
         outputEnvironmentInfo(osName, "${STAGE_NAME}")
     }
     
@@ -136,7 +137,11 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
         if (options['updateRefs']) {
             println "Updating Reference Images"
             executeGenTestRefCommand(asicName, osName, options, apiValue)
-            uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
+
+            if (isRTXCard) {
+                // skip refs updating on non rtx cards
+                uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
+            }            
         } else {
             println "Execute Tests"
             downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
