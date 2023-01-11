@@ -20,7 +20,7 @@ import TestsExecutionType
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
-            "Valorant": "Valorant",
+            "PUBG": "PUBG",
             "LoL": "LoL",
             "HeavenDX9": "HeavenDX9",
             "HeavenDX11": "HeavenDX11",
@@ -30,10 +30,8 @@ import TestsExecutionType
             "ValleyOpenGL":"ValleyOpenGL", 
             "Dota2DX11": "Dota2DX11",
             "Dota2Vulkan": "Dota2Vulkan", 
-            "CSGO": "CSGO",
-            "PUBG": "PUBG",
-            "Nothing": "Nothing",
-            "Empty": "Empty"
+            "LatencyTool": "LatencyTool",
+            "Non3DTestCases": "Non3DTestCases"
         ]
     ]
 )
@@ -173,7 +171,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
                 unzip(zipFile: "${options.winTestingBuildName}.zip")
 
-                if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
                     makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
@@ -1105,7 +1103,7 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("LatencyTool")) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
