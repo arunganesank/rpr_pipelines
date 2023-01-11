@@ -42,12 +42,16 @@ Boolean shouldSkipBuild(Map options, String osName) {
 }
 
 
+String getServerLabels(Map options) {
+    return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+}
+
 String getClientLabels(Map options) {
-    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
+    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG} && !Disabled"
 }
 
 String getMulticonnectionClientLabels(Map options) {
-    return "${options.osName} && ${options.TESTER_TAG} && ${options.MULTICONNECTION_CLIENT_TAG}"
+    return "${options.osName} && ${options.TESTER_TAG} && ${options.MULTICONNECTION_CLIENT_TAG} && !Disabled"
 }
 
 
@@ -62,54 +66,81 @@ def getReportBuildArgs(String engineName, Map options) {
 
 
 Boolean isIdleClient(Map options) {
+    Boolean result = false
+
+    def suitableNodes = nodesByLabel label: getServerLabels(options), offline: false
+
+    for (node in suitableNodes) {
+        if (utils.isNodeIdle(node)) {
+            result = true
+        }
+    }
+
+    println(result)
+
     if (options["osName"] == "Windows") {
-        Boolean result = false
+        Boolean firstClientReady = false
 
         // wait client machine
-        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+        suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
 
         for (node in suitableNodes) {
             if (utils.isNodeIdle(node)) {
-                result = true
+                firstClientReady = true
             }
         }
 
+        result &= firstClientReady
+
+        println(result)
+
         if (options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-            return options["finishedBuildStages"]["Android"] || options.skipBuild.contains("Android")
+            println(options["finishedBuildStages"])
+            if (!options["finishedBuildStages"]["Android"] && !options.skipBuild.contains("Android")) {
+                result = false
+            }
         }
 
+        println(result)
+
         if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
-            result = false
+            Boolean secondClientReady = false
 
             // wait multiconnection client machine
             suitableNodes = nodesByLabel label: getMulticonnectionClientLabels(options), offline: false
 
             for (node in suitableNodes) {
                 if (utils.isNodeIdle(node)) {
-                    result = true
+                    secondClientReady = true
                 }
             }
+
+            result &= secondClientReady
         }
+
+        println(result)
 
         return result
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
-        return options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows")
+        return result && (options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows"))
     } else if (options["osName"] == "Ubuntu20") {
-        Boolean result = false
+        String firstClientReady = false
 
         // wait client machine
-        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+        suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
 
         for (node in suitableNodes) {
             if (utils.isNodeIdle(node)) {
-                result = true
+                firstClientReady = true
             }
         }
 
         if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild.contains("Windows")) {
             result = false
         }
+
+        result &= firstClientReady
 
         return result
     }
@@ -1477,18 +1508,20 @@ def executePreBuild(Map options) {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
-            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.contains(it) } || options.testsPackage == "regression.json~")) {
-                println(options.platforms)
-                options.platforms = options.platforms + ";Android"
-                println(options.platforms)
+            for (testsList in options.testsList) {
+                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
+                    options.platforms = options.platforms + ";Android"
 
-                options.androidBuildConfiguration = ["debug"]
-                options.androidTestingBuildName = "debug"
+                    options.androidBuildConfiguration = ["debug"]
+                    options.androidTestingBuildName = "debug"
 
-                println """
-                    Android build configuration was updated: ${options.androidBuildConfiguration}
-                    Android testing build name was updated: ${options.androidTestingBuildName}
-                """
+                    println """
+                        Android build configuration was updated: ${options.androidBuildConfiguration}
+                        Android testing build name was updated: ${options.androidTestingBuildName}
+                    """
+
+                    break
+                }
             }
         }
 
