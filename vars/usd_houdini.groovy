@@ -379,7 +379,7 @@ def executeBuildUnix(String osName, Map options) {
 def executeBuild(String osName, Map options) {
     try {
         if (osName != "OSX") {
-            withNotifications(title: osName, options: options, configuration: NotificationConfiguration.INSTALL_HOUDINI) {
+            withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.INSTALL_HOUDINI) {
                 timeout(time: "5", unit: "MINUTES") {
                     withCredentials([[$class: "UsernamePasswordMultiBinding", credentialsId: "sidefxCredentials", usernameVariable: "USERNAME", passwordVariable: "PASSWORD"]]) {
                         println(python3("${CIS_TOOLS}/houdini_api.py --client_id \"$USERNAME\" --client_secret_key \"$PASSWORD\" --version \"${options.buildProfile}\" --skip_installation \"True\""))
@@ -635,7 +635,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
 
     try {
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "Building test report for ${testProfile}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
             List lostStashes = []
@@ -674,7 +674,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                 String[] toolVersionParts = toolVersion.split("\\.")
                 String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
-                GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${testProfile}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")

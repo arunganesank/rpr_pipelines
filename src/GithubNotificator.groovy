@@ -256,7 +256,14 @@ public class GithubNotificator {
             if (hasDeployStage) {
                 if (options.containsKey("testProfiles")) {
                     options.testProfiles.each { profile ->
-                        String profileName = options.displayingTestProfiles[profile]
+                        String profileName
+
+                        if (options.containsKey("displayingTestProfiles")) {
+                            profileName = options.displayingTestProfiles[profile]
+                        } else {
+                            profileName = profile
+                        }
+
                         String message = "Building test report for ${profileName}"
 
                         if (titlePrefix) {
@@ -675,7 +682,4 @@ public class GithubNotificator {
             context.println(e.getMessage())
         }
     }
-
-    
-
 }
