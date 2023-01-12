@@ -440,33 +440,16 @@ def executeBuildWindows(Map options) {
                 """
             }
             dir('installation') {
-                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-41") {
-                    makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
-                    if (options.branch_postfix) {
-                        bat """
-                            rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
-                        """
-                    }
-
-                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
-                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                } else {
+                if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe
+                        rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                     """
-
-                    makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
-
-                    if (options.branch_postfix) {
-                        bat """
-                            rename RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
-                        """
-                    }
-
-                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe"
-                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
                 }
+
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
+                artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
             if (options.buildOldInstaller) {
