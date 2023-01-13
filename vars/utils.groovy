@@ -621,7 +621,7 @@ class utils {
 
     @NonCPS
     static Boolean isNodeIdle(String nodeName) {
-        return jenkins.model.Jenkins.instance.getNode(nodeName).getComputer().countIdle() > 0
+        return jenkins.model.Jenkins.instance.getNode(nodeName).getComputer().countIdle() > 0 && jenkins.model.Jenkins.instance.getNode("PC-TESTER-FLORENCE-WIN10").getComputer().isOnline()
     }
 
     static def downloadMetrics(Object self, String localDir, String remoteDir) {
