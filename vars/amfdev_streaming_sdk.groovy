@@ -125,7 +125,7 @@ Boolean isIdleClient(Map options) {
         // wait when Windows artifact will be built
         return result && (options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows"))
     } else if (options["osName"] == "Ubuntu20") {
-        String firstClientReady = false
+        Boolean firstClientReady = false
 
         // wait client machine
         suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
