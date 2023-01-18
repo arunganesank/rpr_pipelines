@@ -151,7 +151,7 @@ def getClientScreenWidth(String osName, Map options) {
     try {
         switch(osName) {
             case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Width", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
                 return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
             case "OSX":
@@ -173,7 +173,7 @@ def getClientScreenHeight(String osName, Map options) {
     try {
         switch(osName) {
             case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Height", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
                 return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
             case "OSX":
