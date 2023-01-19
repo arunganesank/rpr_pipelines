@@ -86,17 +86,10 @@ class utils {
                 reportName = "Test_Report"
             }
 
-            String path 
-
-            if (subFolder) {
-                stashName = "${stashName}-${subFolder}"
-                path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/subFolder/${stashName}/"
-            } else {
-                path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${stashName}/"
-            }
+            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${subFolder}/${stashName}/" 
 
             self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true)
-            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: options.testResultsName, allowEmpty: true, storeOnNAS: true)
+            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true)
         } else {
             self.makeStash(includes: '**/*', excludes: excludes, name: options.testResultsName, allowEmpty: true)
         }

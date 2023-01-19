@@ -294,7 +294,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
 
                 if (options.reportUpdater) {
-                    options.reportUpdater.updateReport(options.engine)
+                    options.reportUpdater.updateReport()
                 }
             } catch (e) {
                 // throw exception in finally block only if test stage was finished
@@ -496,7 +496,7 @@ def call(String projectRepo = PROJECT_REPO,
                         parallelExecutionType: parallelExecutionType,
                         parallelExecutionTypeString: parallelExecutionTypeString,
                         storeOnNAS: true,
-                        flexibleUpdates: false,
+                        flexibleUpdates: true,
                         testCaseRetries: testCaseRetries,
                         materialXWindows: materialXWindows,
                         reportType: ReportType.COMPARISON,

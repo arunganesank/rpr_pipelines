@@ -23,7 +23,7 @@ public class ReportUpdater {
     ReportUpdater(context, env, options, reportType=ReportType.DEFAULT) {
         this.context = context
         this.env = env
-        this.options = options,
+        this.options = options
         this.reportType = reportType
     }
 
@@ -42,6 +42,18 @@ public class ReportUpdater {
         String locations = ""
         String reportFiles = "summary_report.html"
         String reportFilesNames = "Overview Report"
+        String rebuiltScript
+
+        switch(reportType) {
+            case ReportType.DEFAULT:
+                rebuiltScript = context.libraryResource(resource: "update_report_template_default.sh")
+                break
+            case ReportType.COMPARISON:
+                rebuiltScript = context.libraryResource(resource: "update_report_template_comparison.sh")
+                break
+            default:
+                throw Exception("Unknown report type: ${reportType}")
+        }
 
         if (options.testProfiles) {
             options.testProfiles.each { profile ->
@@ -65,19 +77,6 @@ public class ReportUpdater {
                     context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                         reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
-                }
-
-                String rebuiltScript
-
-                switch(reportType) {
-                    case ReportType.DEFAULT:
-                        rebuiltScript = context.libraryResource(resource: "update_report_template_default.sh")
-                        break
-                    case ReportType.COMPARISON:
-                        rebuiltScript = context.libraryResource(resource: "update_report_template_comparison.sh")
-                        break
-                    default:
-                        throw Exception("Unknown report type: ${reportType}")
                 }
 
                 rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
@@ -113,7 +112,7 @@ public class ReportUpdater {
                     reportName, reportFilesNames, options.storeOnNAS, \
                     ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
 
-                String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_overview_report_template.sh")
+                rebuiltScript = context.libraryResource(resource: "update_overview_report_template.sh")
                 // take only first 4 arguments: tool name, commit sha, project branch name and commit message
                 String buildScriptArgs = (buildArgsFunc("", options ).split() as List).subList(0, 4).join(" ")
 
@@ -138,8 +137,6 @@ public class ReportUpdater {
             context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                 reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
                 ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
-
-            String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_report_template.sh")
 
             rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                 .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(options)) \

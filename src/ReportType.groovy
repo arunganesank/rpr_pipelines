@@ -1,5 +1,5 @@
 public class ReportType {
-    public static enum ReportType {
+    public static enum ReportTypeValues {
 
         DEFAULT,
         COMPARISON
@@ -9,14 +9,14 @@ public class ReportType {
     def static valueOf(String name) {
         switch(name) {
             case "DEFAULT":
-                return ReportType.DEFAULT
+                return ReportTypeValues.DEFAULT
             case "COMPARISON":
-                return ReportType.COMPARISON
+                return ReportTypeValues.COMPARISON
             default:
                 return null
         }
     }
 
-    def static DEFAULT = ReportType.DEFAULT
-    def static COMPARISON = ReportType.COMPARISON
+    def static DEFAULT = ReportTypeValues.DEFAULT
+    def static COMPARISON = ReportTypeValues.COMPARISON
 }
