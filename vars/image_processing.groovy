@@ -397,7 +397,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 }
 
 def call(String projectBranch = "",
-         String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;CentOS7;Ubuntu20-Clang;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;Ubuntu20-Clang;MacOS_ARM:AppleM1',
          Boolean updateRefs = false,
          Boolean enableNotifications = true,
          String cmakeKeys = '',
@@ -407,7 +407,7 @@ def call(String projectBranch = "",
     println "TAG_NAME: ${env.TAG_NAME}"
 
     def deployStage = env.TAG_NAME || testPerformance ? this.&executeDeploy : null
-    platforms = env.TAG_NAME ? "Windows;Ubuntu18-Clang;Ubuntu20-Clang;Ubuntu20;OSX;CentOS7;MacOS_ARM;" : platforms
+    platforms = env.TAG_NAME ? "Windows;Ubuntu20-Clang;Ubuntu20;OSX;MacOS_ARM;" : platforms
 
     def nodeRetry = []
 
