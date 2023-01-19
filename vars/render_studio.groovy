@@ -1049,7 +1049,7 @@ def executePreBuild(Map options) {
 
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
