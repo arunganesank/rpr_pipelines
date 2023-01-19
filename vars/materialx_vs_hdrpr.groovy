@@ -240,11 +240,11 @@ def executeTests(String osName, String asicName, Map options) {
                         }
 
                         dir("Work-Northstar/Results/HdRPR") {
-                            makeStash(includes: "**/*", name: "${options.testResultsName}-Northstar", storeOnNAS: options.storeOnNAS)
+                            utils.stashTestData(this, options, options.storeOnNAS, "", "Northstar")
                         }
 
                         dir("Work-HybridPro/Results/HdRPR") {
-                            makeStash(includes: "**/*", name: "${options.testResultsName}-HybridPro", storeOnNAS: options.storeOnNAS)
+                            utils.stashTestData(this, options, options.storeOnNAS, "", "HybridPro")
                         }
                     } else {
                         println "[INFO] Task ${options.tests} on ${options.nodeLabels} labels will be retried."
@@ -286,11 +286,15 @@ def executeTests(String osName, String asicName, Map options) {
                         }
 
                         dir("Work-MaterialX/Results/MaterialX") {
-                            makeStash(includes: "**/*", name: "${options.testResultsName}-MaterialX", storeOnNAS: options.storeOnNAS)
+                            utils.stashTestData(this, options, options.storeOnNAS, "", "MaterialX")
                         }
                     } else {
                         println "[INFO] Task ${options.tests} on ${options.nodeLabels} labels will be retried."
                     }
+                }
+
+                if (options.reportUpdater) {
+                    options.reportUpdater.updateReport(options.engine)
                 }
             } catch (e) {
                 // throw exception in finally block only if test stage was finished
@@ -306,6 +310,11 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
     }
+}
+
+
+def getReportBuildArgs(Map options) {
+    return """${utils.escapeCharsByUnicode("HdRPR")} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\""""
 }
 
 
@@ -355,7 +364,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 dir("jobs_launcher") {
                     withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}"]) {
                         bat """
-                            build_comparison_reports.bat ..\\\\summaryTestResults ${utils.escapeCharsByUnicode("MaterialXvsHdRPR")} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\"
+                            build_comparison_reports.bat ..\\\\summaryTestResults ${options.buildArgsFunc(options)}
                         """
                     }
                 }
@@ -372,7 +381,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                         try {
                             // Save test data for access it manually anyway
                             utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report", options.storeOnNAS,
-                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
                             options.testDataSaved = true
                         } catch(e1) {
                             println """
@@ -420,7 +429,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html", "Test Report", "Summary Report", options.storeOnNAS,
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
@@ -489,7 +498,9 @@ def call(String projectRepo = PROJECT_REPO,
                         storeOnNAS: true,
                         flexibleUpdates: false,
                         testCaseRetries: testCaseRetries,
-                        materialXWindows: materialXWindows
+                        materialXWindows: materialXWindows,
+                        reportType: ReportType.COMPARISON,
+                        buildArgsFunc: this.&getReportBuildArgs
                         ]
         }
         multiplatform_pipeline(platforms, hdrpr.&executePreBuild, hdrpr.&executeBuild, this.&executeTests, this.&executeDeploy, options)

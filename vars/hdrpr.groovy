@@ -558,8 +558,8 @@ def executePreBuild(Map options) {
     multiplatform_pipeline.initProfiles(options)
 
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
+        options.reportUpdater = new ReportUpdater(this, env, options, options.reportType)
+        options.reportUpdater.init(options.buildArgsFunc)
     }
 
     if (env.BRANCH_NAME && options.githubNotificator) {
@@ -640,7 +640,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                             writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
                         }
                         try {
-                            bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(engineName, options)}"
+                            bat "build_reports.bat ..\\summaryTestResults ${options.buildArgsFunc(engineName, options)}"
                         } catch (e) {
                             String errorMessage = utils.getReportFailReason(e.getMessage())
                             GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${BUILD_URL}")
@@ -753,7 +753,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
         throw e
     } finally {
         if (!options.storeOnNAS) {
-            utils.generateOverviewReport(this, this.&getReportBuildArgs, options)
+            utils.generateOverviewReport(this, options.buildArgsFunc, options)
         }
     }
 }
@@ -814,7 +814,9 @@ def call(String projectRepo = PROJECT_REPO,
                         skipCallback: this.&filter,
                         testCaseRetries: testCaseRetries,
                         BUILDER_TAG: "HdRPRBuilder",
-                        notificationsTitlePrefix: "HDRPR"
+                        notificationsTitlePrefix: "HDRPR",
+                        reportType: ReportType.DEFAULT,
+                        buildArgsFunc: this.&getReportBuildArgs
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)

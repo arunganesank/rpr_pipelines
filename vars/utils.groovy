@@ -64,7 +64,7 @@ class utils {
         }
     }
 
-    static def stashTestData(Object self, Map options, Boolean publishOnNAS = false, String excludes = "") {
+    static def stashTestData(Object self, Map options, Boolean publishOnNAS = false, String excludes = "", String subFolder = "") {
         if (publishOnNAS) {
             String profile = ""
             String stashName = ""
@@ -86,7 +86,15 @@ class utils {
                 reportName = "Test_Report"
             }
 
-            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${stashName}/"
+            String path 
+
+            if (subFolder) {
+                stashName = "${stashName}-${subFolder}"
+                path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/subFolder/${stashName}/"
+            } else {
+                path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${stashName}/"
+            }
+
             self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true)
             self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: options.testResultsName, allowEmpty: true, storeOnNAS: true)
         } else {

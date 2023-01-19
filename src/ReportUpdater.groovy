@@ -8,6 +8,7 @@ public class ReportUpdater {
     def context
     def env
     def options
+    def reportType
 
     // locks for each report (to prevent updating of report by two parallel branches of build)
     Map locks = [:]
@@ -19,10 +20,11 @@ public class ReportUpdater {
      * @param env env variable of the current pipeline
      * @param options map with options
      */
-    ReportUpdater(context, env, options) {
+    ReportUpdater(context, env, options, reportType=ReportType.DEFAULT) {
         this.context = context
         this.env = env
-        this.options = options
+        this.options = options,
+        this.reportType = reportType
     }
 
     /**
@@ -65,7 +67,18 @@ public class ReportUpdater {
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
                 }
 
-                String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_report_template.sh")
+                String rebuiltScript
+
+                switch(reportType) {
+                    case ReportType.DEFAULT:
+                        rebuiltScript = context.libraryResource(resource: "update_report_template_default.sh")
+                        break
+                    case ReportType.COMPARISON:
+                        rebuiltScript = context.libraryResource(resource: "update_report_template_comparison.sh")
+                        break
+                    default:
+                        throw Exception("Unknown report type: ${reportType}")
+                }
 
                 rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                     .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(profileName, options)) \
