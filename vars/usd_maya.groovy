@@ -197,15 +197,6 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
-        if (env.NODE_NAME == "PC-SR-STOCKHOLM-6800XT-WIN10") {
-            if (options.tests.contains("Blender")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support the current test group", 
-                    new Exception("System doesn't support the current test group")
-                )
-            }
-        }
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {                
                 cleanWS(osName)
@@ -214,9 +205,15 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-            String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_maya_autotests" : "/mnt/c/TestResources/usd_maya_autotests"
-            downloadFiles("/volume1/web/Assets/usd_maya_autotests/", assets_dir)
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_maya_autotests" : "/mnt/c/TestResources/usd_maya_autotests"
+            downloadFiles("/volume1/web/Assets/usd_maya_autotests/", assetsDir)
+
+            if (options.tests.contains("Online_Material_Library")) {
+                String materialsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_assets" : "/mnt/c/TestResources/hybrid_mtlx_autotests_assets"
+                downloadFiles("/volume1/web/Assets/materials/", materialsDir)
+            }
         }
+
         try {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
@@ -551,15 +548,15 @@ def executePreBuild(Map options) {
             println "[INFO] Branch was detected as Pull Request"
             options['executeBuild'] = true
             options['executeTests'] = true
-            options['testsPackage'] = "Full.json"
+            options['testsPackage'] = "Auto.json"
         } else if (env.BRANCH_NAME == "main" || env.BRANCH_NAME == "develop") {
            println "[INFO] ${env.BRANCH_NAME} branch was detected"
            options['executeBuild'] = true
            options['executeTests'] = true
-           options['testsPackage'] = "Full.json"
+           options['testsPackage'] = "Auto.json"
         } else {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
-            options['testsPackage'] = "Full.json"
+            options['testsPackage'] = "Auto.json"
         }
     }
 
