@@ -14,7 +14,7 @@ import groovy.json.JsonSlurperClassic
     "blender_usd_hydra": "usd_blender_autotests",
     "inventor": "usd_inventor_autotests",
     "usd_viewer": "usd_rprviewer_autotests",
-    "usd": "rpr_usdplugin_autotests",
+    "usd": "usd_houdini_autotests",
     "maya_usd": "usd_maya_autotests",
     "anari": "rpr_anari_autotests",
     "render_studio": "render_studio_autotests",
@@ -120,7 +120,14 @@ def call(String jobName,
                     }
 
                     String groupName
-                    String reportName = engine ? "Test_Report_${ENGINE_REPORT_MAPPING[engine.toLowerCase()]}" : "Test_Report"
+                    String reportName
+
+                    if (engine) {
+                        reportName = ENGINE_REPORT_MAPPING.containsKey(engine.toLowerCase()) ? "Test_Report_${ENGINE_REPORT_MAPPING[engine.toLowerCase()]}" : "Test_Report_${engine}"
+                    } else {
+                        reportName = "Test_Report"
+                    }
+
                     String baselinesPath = "/Baselines/${baselineDirName}"
                     String reportComparePath
 
@@ -135,9 +142,17 @@ def call(String jobName,
                         String platform = resultPathParts[0] + "-" + resultPathParts[1]
 
                         if (allPlatforms){
-                            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? ENGINE_REPORT_MAPPING[engine.toLowerCase()] : ''})<br/>"
+                            if (engine) {
+                                currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${ENGINE_REPORT_MAPPING.containsKey(engine.toLowerCase()) ? ENGINE_REPORT_MAPPING[engine.toLowerCase()] : engine})<br/>"
+                            } else {
+                                currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]}<br/>"
+                            }
                         } else {
-                            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? platform + '-' + ENGINE_REPORT_MAPPING[engine.toLowerCase()] : platform})<br/>"
+                            if (engine) {
+                                currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${ENGINE_REPORT_MAPPING.containsKey(engine.toLowerCase()) ? platform + '-' + ENGINE_REPORT_MAPPING[engine.toLowerCase()] : platform + '-' + engine})<br/>"
+                            } else {
+                                currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${platform})<br/>"
+                            }
                         }
                     } else {
                         currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${engine ? ENGINE_REPORT_MAPPING[engine.toLowerCase()] : ''})<br/>"
@@ -212,7 +227,7 @@ def call(String jobName,
                                 String machineConfiguration
 
                                 if (engine) {
-                                    String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
+                                    String engineBaselineName = ENGINE_BASELINES_MAPPING.containsKey(engine) ? ENGINE_BASELINES_MAPPING[engine.toLowerCase()] : engine
                                     machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
                                 } else {
                                     machineConfiguration = "${gpuName}-${osName}"
@@ -255,7 +270,7 @@ def call(String jobName,
                             String machineConfiguration
 
                             if (engine) {
-                                String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
+                                String engineBaselineName = ENGINE_BASELINES_MAPPING.containsKey(engine) ? ENGINE_BASELINES_MAPPING[engine.toLowerCase()] : engine
                                 machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
                             } else {
                                 machineConfiguration = "${gpuName}-${osName}"
@@ -304,7 +319,7 @@ def call(String jobName,
                                         String osName = resultPathParts[1]
 
                                         if (engine) {
-                                            String engineBaselineName = ENGINE_BASELINES_MAPPING[engine.toLowerCase()]
+                                            String engineBaselineName = ENGINE_BASELINES_MAPPING.containsKey(engine) ? ENGINE_BASELINES_MAPPING[engine.toLowerCase()] : engine
                                             machineConfiguration = engineBaselineName ? "${gpuName}-${osName}-${engineBaselineName}" : "${gpuName}-${osName}"
                                         } else {
                                             machineConfiguration = "${gpuName}-${osName}"
