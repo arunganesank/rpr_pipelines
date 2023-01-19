@@ -278,6 +278,12 @@ def executeTests(String osName, String asicName, Map options) {
                 timeout(time: "10", unit: "MINUTES") {
                     uninstallAMDRenderStudio(osName, options)
                     installAMDRenderStudio(osName, options)
+
+                    // open application once to generate Storage files
+                    String appLink = getDesktopLink(osName, options)
+                    runApplication(appLink, osName, options)
+                    sleep(10)
+                    utils.closeProcess(this, "AMD RenderStudio", osName, options)
                 }
             }
 
