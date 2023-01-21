@@ -79,14 +79,16 @@ public class ReportUpdater {
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
                 }
 
-                rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
+                String rebuildScriptCopy = rebuiltScript
+
+                rebuildScriptCopy = rebuildScriptCopy.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                     .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(profileName, options)) \
                     .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL)
 
                 // replace DOS EOF by Unix EOF
-                rebuiltScript = rebuiltScript.replaceAll("\r\n", "\n")
+                rebuildScriptCopy = rebuildScriptCopy.replaceAll("\r\n", "\n")
 
-                context.writeFile(file: "update_report_${profile}.sh", text: rebuiltScript)
+                context.writeFile(file: "update_report_${profile}.sh", text: rebuildScriptCopy)
 
                 context.uploadFiles("update_report_${profile}.sh", "${remotePath}/jobs_test_repo/jobs_launcher")
 
