@@ -218,7 +218,7 @@ def executeTests(String osName, String asicName, Map options) {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
                 timeout(time: "15", unit: "MINUTES") {
-                    getProduct(osName, options)
+                    getProduct(osName, options, "", false)
                 }
             }
 
