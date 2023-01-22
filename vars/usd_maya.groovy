@@ -89,6 +89,7 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
     switch(osName) {
         case "Windows":
             String defaultUninstallerPath = "C:\\Program Files\\RPRMayaUSD\\unins000.exe"
+            String updatedUninstallerPath = "C:\\Program Files\\RPRMayaUSD_2023\\unins000.exe"
 
             try {
                 if (fileExists(defaultUninstallerPath)) {
@@ -103,6 +104,10 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                         envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                             throw new Exception("Failed due to incorrect Maya.env")
                         }*/
+                } else if (fileExists(updatedUninstallerPath)) {
+                    bat """
+                        start "" /wait "${updatedUninstallerPath}" /SILENT
+                    """
                 } else {
                     println "[INFO] USD Maya plugin not found"
                 }
