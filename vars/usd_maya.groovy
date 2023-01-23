@@ -69,7 +69,7 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
         println "[INFO] Install RPR Maya USD Plugin"
 
         bat """
-            start /wait ${CIS_TOOLS}\\..\\PluginsBinaries\\${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
+            start /wait ${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
         """
 
         // FIXME: actualize Maya.env file check
