@@ -34,9 +34,15 @@ public class ReportUpdater {
      */
     def init(def buildArgsFunc) {
         String remotePath = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/".replace(" ", "_")
+        String matLibUrl
 
-        context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"), context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+        context.withCredentials([
+            context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"),
+            context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT"),
+            context.string(credentialsId: "matLibUrl", variable: "MATLIB_URL")
+        ]) {
             context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${options.testRepo} ${options.testsBranch} ")
+            matLibUrl = context.MATLIB_URL
         }
 
         String locations = ""
@@ -83,7 +89,8 @@ public class ReportUpdater {
 
                 rebuildScriptCopy = rebuildScriptCopy.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                     .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(profileName, options)) \
-                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL)
+                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                    .replace("<matlib_url>", matLibUrl)
 
                 // replace DOS EOF by Unix EOF
                 rebuildScriptCopy = rebuildScriptCopy.replaceAll("\r\n", "\n")
@@ -142,7 +149,8 @@ public class ReportUpdater {
 
             rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                 .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(options)) \
-                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL)
+                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                .replace("<matlib_url>", matLibUrl)
 
             // replace DOS EOF by Unix EOF
             rebuiltScript = rebuiltScript.replaceAll("\r\n", "\n")
