@@ -501,6 +501,8 @@ def executeBuild(String osName, Map options) {
     try {
         dir("RPRMayaUSD") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                cleanWS()
+
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
         }
