@@ -91,7 +91,7 @@ def saveBaselines(String refPathProfile, String resultsDirectory = "results") {
 def call(String jobName,
     String buildID,
     String resultPath,
-    String caseName,
+    String casesNames,
     String engine,
     String toolName,
     String updateType,
@@ -160,7 +160,12 @@ def call(String jobName,
 
                     switch(updateType) {
                         case "Case":
-                            currentBuild.description += "<b>Group:</b> ${groupName} / <b>Case:</b> ${caseName}<br/>"
+                            if (casesNames.contains(",")) {
+                                currentBuild.description += "<b>Group:</b> ${groupName} / <b>Multiple cases</b><br/>"
+                            } else {
+                                currentBuild.description += "<b>Group:</b> ${groupName} / <b>Case:</b> ${casesNames}<br/>"
+                            }
+                            
                             break
 
                         case "Group":
@@ -240,21 +245,23 @@ def call(String jobName,
                                 String refPathProfile = "/volume1/${baselinesPath}/${machineConfiguration}" 
 
                                 if (updateType == "Case") {
-                                    downloadFiles(remoteResultPath + "/report_compare.json", "results/${groupName}")
-                                    downloadFiles(remoteResultPath + "/Color/*${caseName}*", "results/${groupName}/Color")
-                                    downloadFiles(remoteResultPath + "/*${caseName}*.json", "results/${groupName}")
+                                    for (caseName in casesNames.split(",")) {
+                                        downloadFiles(remoteResultPath + "/report_compare.json", "results/${groupName}")
+                                        downloadFiles(remoteResultPath + "/Color/*${caseName}*", "results/${groupName}/Color")
+                                        downloadFiles(remoteResultPath + "/*${caseName}*.json", "results/${groupName}")
 
-                                    def testCases = readJSON(file: reportComparePath)
+                                        def testCases = readJSON(file: reportComparePath)
 
-                                    for (testCase in testCases) {
-                                        if (testCase["test_case"] == caseName) {
-                                            JSON serializedJson = JSONSerializer.toJSON([testCase], new JsonConfig());
-                                            writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
-                                            break
+                                        for (testCase in testCases) {
+                                            if (testCase["test_case"] == caseName) {
+                                                JSON serializedJson = JSONSerializer.toJSON([testCase], new JsonConfig());
+                                                writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
+                                                break
+                                            }
                                         }
-                                    }
 
-                                    saveBaselines(refPathProfile)
+                                        saveBaselines(refPathProfile)
+                                    }
                                 } else {
                                     downloadFiles(remoteResultPath, "results")
                                     saveBaselines(refPathProfile)
