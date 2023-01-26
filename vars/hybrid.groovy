@@ -399,8 +399,23 @@ def executePerfTests(String osName, String asicName, Map options) {
 }
 
 
+def changeWinDevMode(Boolean turnOn) {
+    String value = turnOn ? "1" : "0"
+
+    powershell """
+        reg add "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "${value}"
+    """
+
+    utils.reboot(this, "Windows")
+}
+
+
 def executeTests(String osName, String asicName, Map options) {
     GithubNotificator.updateStatus("Test", "${asicName}-${osName}", "in_progress", options, "In progress...")
+
+    if (osName == "Windows") {
+        changeWinDevMode(true)
+    }
 
     Boolean someStageFail = false 
     if (options.testsQuality) {
@@ -448,6 +463,10 @@ def executeTests(String osName, String asicName, Map options) {
                 println(e.getMessage())
             }
         }
+    }
+
+    if (osName == "Windows") {
+        changeWinDevMode(false)
     }
 
     if (someStageFail) {
