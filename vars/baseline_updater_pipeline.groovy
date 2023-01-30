@@ -240,13 +240,14 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
 
     String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
 
-    if (updateType == "Case") {
+    if (updateType == "Cases") {
+        downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}")
+
         String reportComparePath = "results/${targetGroup}/report_compare.json"
         def testCases = readJSON(file: reportComparePath)
         def targetCases = []
 
         for (targetCase in casesNames.split(",")) {
-            downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}")
             downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color")
             downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}")
 
