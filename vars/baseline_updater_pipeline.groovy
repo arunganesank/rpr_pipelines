@@ -134,20 +134,21 @@ def generateDescription(UpdateInfo updateInfo, String profile) {
     String casesNames = updateInfo.casesNames
     String toolName = updateInfo.toolName
     String updateType = updateInfo.updateType
+    Boolean allPlatforms = updateInfo.allPlatforms
 
     if (allPlatforms){
         if (profile) {
-            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} "
+            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName.toLowerCase()]} "
             currentBuild.description += "(${PROFILE_REPORT_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_REPORT_MAPPING[profile.toLowerCase()] : profile})<br/>"
         } else {
-            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]}<br/>"
+            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName.toLowerCase()]}<br/>"
         }
     } else {
         if (profile) {
-            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} "
+            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName.toLowerCase()]} "
             currentBuild.description += "(${PROFILE_REPORT_MAPPING.containsKey(profile.toLowerCase()) ? platform + '-' + PROFILE_REPORT_MAPPING[profile.toLowerCase()] : platform + '-' + profile})<br/>"
         } else {
-            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName]} (${platform})<br/>"
+            currentBuild.description = "<b>Configuration:</b> ${PROJECT_MAPPING[toolName.toLowerCase()]} (${platform})<br/>"
         }
     }
 
@@ -167,7 +168,10 @@ def generateDescription(UpdateInfo updateInfo, String profile) {
 }
 
 
-boolean isSuitableDir(String directory, String targetGroup, String platform, String remoteResultPath) {
+boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGroup, String remoteResultPath) {
+    String platform = updateInfo.platform
+    Boolean allPlatforms = updateInfo.allPlatforms
+
     if (!directory.endsWith("/")) {
         // not a directory
         return false
@@ -228,13 +232,13 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String osName = directory.split("-")[1]
 
     if (profile) {
-        String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile
+        String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile
         machineConfiguration = profileBaselineName ? "${gpuName}-${osName}-${profileBaselineName}" : "${gpuName}-${osName}"
     } else {
         machineConfiguration = "${gpuName}-${osName}"
     }
 
-    String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName]}/${machineConfiguration}"
+    String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
 
     if (updateType == "Case") {
         String reportComparePath = "results/${targetGroup}/report_compare.json"
@@ -242,9 +246,9 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         def targetCases = []
 
         for (targetCase in casesNames.split(",")) {
-            downloadFiles(remoteResultPath + "/report_compare.json", "results/${targetGroup}")
-            downloadFiles(remoteResultPath + "/Color/*${targetCase}*", "results/${targetGroup}/Color")
-            downloadFiles(remoteResultPath + "/*${targetCase}*.json", "results/${targetGroup}")
+            downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}")
+            downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color")
+            downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}")
 
             for (testCase in testCases) {
                 if (testCase["test_case"] == targetCase) {
@@ -258,7 +262,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         saveBaselines(baselinesPathProfile)
     } else {
-        downloadFiles(remoteResultPath, "results")
+        downloadFiles("${remoteResultPath}/${targetGroup}", "results")
         saveBaselines(baselinesPathProfile)
     }
 }
@@ -337,8 +341,8 @@ def call(String jobName,
 
                     for (targetGroup in groupsNames.split(",")) {
                         directories.each() { directory ->
-                            String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName]}"
-                            if (!isSuitableDir(directory, targetGroup, platform, remoteResultPath)) {
+                            String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                            if (!isSuitableDir(updateInfo, directory, targetGroup, remoteResultPath)) {
                                 return
                             }
 
