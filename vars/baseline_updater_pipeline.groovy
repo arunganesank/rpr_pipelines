@@ -186,12 +186,14 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
     String osName = directory.split("-")[1]
     List groups = directory.split("-")[2].replace("/", "").split() as List
 
-    String targetGpuName = platform.split("-")[0]
-    String targetOsName = platform.split("-")[1]
+    if (!allPlatforms) {
+        String targetGpuName = platform.split("-")[0]
+        String targetOsName = platform.split("-")[1]
 
-    if (!allPlatforms && (gpuName != targetGpuName || osName != targetOsName)) {
-        println("[INFO] Directory ${directory} doesn't apply to the required platform. Skip it")
-        return false
+        if (gpuName != targetGpuName || osName != targetOsName) {
+            println("[INFO] Directory ${directory} doesn't apply to the required platform. Skip it")
+            return false
+        }
     }
 
     if (directory.contains(".json~")) {
