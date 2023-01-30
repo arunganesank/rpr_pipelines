@@ -198,13 +198,17 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
 
     if (directory.contains(".json~")) {
         // non-splittable package detected
-        List nonSplittablePackageDirs = bat(returnStdout: true, script: '%CIS_TOOLS%\\' 
-            + "listFiles.bat \"${remoteResultPath}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
+        List nonSplittablePackageDirs
+
+        withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+            nonSplittablePackageDirs = bat(returnStdout: true, script: '%CIS_TOOLS%\\' 
+                + "listFiles.bat \"${remoteResultPath}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
+        }
 
         Boolean dirFound = false
 
         for (nonSplittablePackageDir in nonSplittablePackageDirs) {
-            if (nonSplittablePackageDir == targetGroup) {
+            if (nonSplittablePackageDir.replace("/", "") == targetGroup) {
                 dirFound = true
                 break
             }
