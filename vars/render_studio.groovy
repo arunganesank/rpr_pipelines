@@ -884,31 +884,31 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio verion:</b> ${options.version}<br/>"
+    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
 
     dir("WebUsdFrontendServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Frontend verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Frontend version:</b> ${version}<br/>"
     }
 
     dir("WebUsdStreamServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Streamer verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Streamer version:</b> ${version}<br/>"
     }
 
     dir("WebUsdLiveServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Live server verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Live server version:</b> ${version}<br/>"
     }
 
     dir("WebUsdRouteServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Router verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Router version:</b> ${version}<br/>"
     }
 
     dir("WebUsdStorageServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Storage verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Storage version:</b> ${version}<br/>"
     }
 }
 
