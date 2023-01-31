@@ -719,6 +719,8 @@ class utils {
     // Function that compare current and neweset AMD gpu driver on Windows.
     static def compareDriverVersion(Object self, String logFilePath, String osName)
     {
+        // FIXME: rework driver check implementation
+        return
         switch(osName) {
             case 'Windows':
                 try{
