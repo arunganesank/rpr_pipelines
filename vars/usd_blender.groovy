@@ -380,7 +380,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                         if exist ..\\libs rmdir /Q /S ..\\libs
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -all -clean -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
@@ -391,7 +391,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                 } else {
                     bat """
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -libs -mx-classes -addon -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
