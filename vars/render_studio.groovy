@@ -482,7 +482,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
             """
         } else {
             bat """
-                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                 python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
             """
         }
@@ -507,7 +507,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         """
     } else {
         bat """
-            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
             python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
         """
     }

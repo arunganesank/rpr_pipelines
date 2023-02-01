@@ -10,7 +10,7 @@ import groovy.transform.Field
 
 def executeBuildWindows(Map options) {
     String buildName = "${options.buildConfiguration}_${options.buildPlatform.replace(' ', '')}_${options.pluginVersion}"
-    String msBuildPath = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe"
+    String msBuildPath = bat(script: "echo %VS2019_MSBUILD_PATH%",returnStdout: true).split('\r\n')[2].trim()
 
     try {
         dir ("RadeonProRenderInventorPlugin") {

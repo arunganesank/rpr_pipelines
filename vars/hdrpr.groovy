@@ -280,7 +280,7 @@ def executeBuildWindows(String osName, Map options) {
         if (options.rebuildUSD) {
             dir ("USD") {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
+                    call "%VS2019_VSVARSALL_PATH%" amd64 >> ${STAGE_NAME}_USD.log 2>&1
                     waitfor 1 /t 10 2>NUL || type nul>nul
                     python --version >> ${STAGE_NAME}_USD.log 2>&1
                     python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
