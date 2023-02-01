@@ -36,6 +36,10 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
         return true
     }
 
+    if ((engine == "HdRprPlugin" || engine == "HdStormRendererPlugin") && asicName == "AMD_680M") {
+        return true
+    }
+
     return false
 }
 

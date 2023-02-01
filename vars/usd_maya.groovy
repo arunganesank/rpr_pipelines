@@ -24,6 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
     return false
 }
 

@@ -34,6 +34,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
     return false
 }
 
