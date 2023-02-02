@@ -38,6 +38,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
+    if (engine == "HYBRIDPRO" && (osName == "OSX" || osName == "MacOS_ARM")) {
+        return true
+    }
+
     return false
 }
 
