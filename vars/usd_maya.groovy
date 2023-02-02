@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
