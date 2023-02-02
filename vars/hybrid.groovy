@@ -114,7 +114,7 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
     cleanWS(osName)
     String error_message = ""
     String REF_PATH_PROFILE
-    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6")
+    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")
 
     if (isRTXCard) {
         REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/${asicName}-${osName}"
@@ -827,7 +827,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 def call(String projectBranch = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String testsQuality = "none",
          String scenarios = "all",
          Boolean updateRefs = false,
@@ -847,10 +847,6 @@ def call(String projectBranch = "",
             milestone(buildNumber - 1)
         }
         milestone(buildNumber) 
-    }
-
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-1092") {
-        platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT"
     }
 
     Boolean isLegacyBranch = false
