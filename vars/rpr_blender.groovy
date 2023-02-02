@@ -598,7 +598,7 @@ def executePreBuild(Map options)
             options['executeBuild'] = true
             options['executeTests'] = true
             options['testsPackage'] = "regression.json"
-        } else if (env.BRANCH_NAME == "master" || env.BRANCH_NAME == "develop") {
+        } else if (env.BRANCH_NAME == "master") {
            println "[INFO] ${env.BRANCH_NAME} branch was detected"
            options['executeBuild'] = true
            options['executeTests'] = true
@@ -613,9 +613,9 @@ def executePreBuild(Map options)
     options["branch_postfix"] = ""
     if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
         options["branch_postfix"] = "release"
-    } else if (env.BRANCH_NAME && env.BRANCH_NAME != "master" && env.BRANCH_NAME != "develop") {
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
         options["branch_postfix"] = env.BRANCH_NAME.replace('/', '-')
-    } else if(options.projectBranch && options.projectBranch != "master" && options.projectBranch != "develop") {
+    } else if(options.projectBranch && options.projectBranch != "master") {
         options["branch_postfix"] = options.projectBranch.replace('/', '-')
     }
 
@@ -660,7 +660,7 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
 
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
@@ -676,7 +676,7 @@ def executePreBuild(Map options)
                         bat """
                             git add src/rprblender/__init__.py
                             git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:develop
+                            git push origin HEAD:master
                         """
 
                         //get commit's sha which have to be build

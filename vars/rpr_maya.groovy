@@ -421,7 +421,7 @@ def executeTests(String osName, String asicName, Map options)
                         // retry on Maya crash
                         if (sessionReport.summary.error > 0) {
                             for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup].renderResults) {
+                                for (caseResults in sessionReport.results[testGroup]["render_results"]) {
                                     for (message in caseResults.message) {
                                         if (message.contains("Error windows {'maya'}")) {
                                             String errorMessage

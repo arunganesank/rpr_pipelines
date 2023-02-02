@@ -561,21 +561,19 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
             try {
                 if (executePreBuild) {
                     try {
-                        timeout(time: "${options.PREBUILD_TIMEOUT}", unit: 'MINUTES') {
-                            options["stage"] = "PreBuild"
+                        options["stage"] = "PreBuild"
 
-                            stage("PreBuild") {
-                                def preBuildLabels = "Windows && PreBuild"
-                                def retringFunction = { nodesList, currentTry ->
-                                    executePreBuild(options)
-                                }
-                                run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3, true)
+                        stage("PreBuild") {
+                            def preBuildLabels = "Windows && PreBuild"
+                            def retringFunction = { nodesList, currentTry ->
+                                executePreBuild(options)
                             }
+                            run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3, true)
+                        }
 
-                            if(!options['executeBuild']) {
-                                options.CBR = 'SKIPPED'
-                                echo "Build SKIPPED"
-                            }
+                        if(!options['executeBuild']) {
+                            options.CBR = 'SKIPPED'
+                            echo "Build SKIPPED"
                         }
                     } catch (e) {
                         println("[ERROR] Failed during prebuild stage")
