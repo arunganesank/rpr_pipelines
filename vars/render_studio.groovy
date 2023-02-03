@@ -75,6 +75,8 @@ def uninstallAMDRenderStudio(String osName, Map options) {
     if (installedProductCode) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\WebUsdStorageServer")
     }
 }
 
