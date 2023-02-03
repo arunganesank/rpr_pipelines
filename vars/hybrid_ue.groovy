@@ -173,7 +173,7 @@ def executeBuildWindows(String projectName, Map options) {
 
         if (svnRepoName) {
             dir(svnRepoName) {
-                withCredentials([string(credentialsId: "nasURL", variable: 'NAS_URL')]) {
+                withCredentials([string(credentialsId: "nasURL_NEW", variable: 'NAS_URL')]) {
                     String paragonGameURL = "svn://" + NAS_URL.split("@")[1] + "/${svnRepoName}"
                     checkoutScm(checkoutClass: "SubversionSCM", repositoryUrl: paragonGameURL, credentialsId: "artNasUser")
                 }
