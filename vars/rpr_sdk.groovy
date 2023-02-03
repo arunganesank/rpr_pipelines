@@ -36,6 +36,10 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
         return true
     }
 
+    if (engine == "Northstar64" && asicName == "AMD_680M") {
+        return true
+    }
+
     return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
 }
 
@@ -648,7 +652,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX6700XT',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX6700XT',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String renderDevice = "gpu",

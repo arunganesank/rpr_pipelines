@@ -29,6 +29,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
+    if (engine == "HybridPro" && osName == "Ubuntu20") {
+        return true
+    }
+
     return false
 }
 
@@ -762,7 +766,7 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String testsBranch = "cf16e051f893aabd810bfe66429054c0086102c1",
         String usdBranch = "release",
-        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
+        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_680M',
         Boolean rebuildUSD = false,
         Boolean saveUSD = false,
         String updateRefs = 'No',
