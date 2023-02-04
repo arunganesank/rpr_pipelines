@@ -1174,20 +1174,16 @@ def executeBuildWindows(Map options) {
             """
         }
 
-        String archiveUrl = ""
-
         dir("StreamingSDK\\amf\\bin\\${winArtifactsDir}") {
             String BUILD_NAME = "StreamingSDK_Windows_${winBuildName}.zip"
 
-            zip archive: true, zipFile: BUILD_NAME
+            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \".\"")
+            makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
 
             if (options.winTestingBuildName == winBuildName) {
                 utils.moveFiles(this, "Windows", BUILD_NAME, "${options.winTestingBuildName}.zip")
                 makeStash(includes: "${options.winTestingBuildName}.zip", name: "ToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
             }
-
-            archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-            rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
         }
 
     }
@@ -1214,20 +1210,16 @@ def executeBuildAndroid(Map options) {
                     gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
 
-                String archiveUrl = ""
-
                 dir("app/build/outputs/apk/arm/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \"app-arm-${androidBuildConf}.apk\"")
+                    makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
 
                     if (options.androidTestingBuildName == androidBuildConf) {
                         utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
                         makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
-
-                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
             }
 
@@ -1262,8 +1254,6 @@ def executeBuildUbuntu(Map options) {
             chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
             make >> ../../../../../../${logName} 2>&1
         """
-
-        String archiveUrl = ""
     }
 
     dir("StreamingSDK/amf/bin/dbg_64") {
@@ -1271,12 +1261,10 @@ def executeBuildUbuntu(Map options) {
         
         sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
-        zip archive: true, zipFile: BUILD_NAME
+        sh(script: "zip --symlinks -r ${BUILD_NAME}")
+        makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
 
         makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
-
-        archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-        rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
     }
 
     GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
@@ -1769,7 +1757,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                 // Save test data for access it manually anyway
                                 // FIXME: save reports on NAS
                                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                                    "Test Report ${game}", "Summary Report, Compare Report", false, \
+                                    "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
                                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
                                 options.testDataSaved = true 
                             } catch (e1) {
@@ -1842,7 +1830,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                 withNotifications(title: "Building test report for ${game}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                     // FIXME: save reports on NAS
                     utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                        "Test Report ${game}", "Summary Report, Compare Report", false, \
+                        "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
                         ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
                     if (summaryTestResults) {
