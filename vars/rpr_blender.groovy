@@ -1185,7 +1185,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testsPackage:testsPackage,
                         testsPackageOriginal:testsPackage,
                         tests:tests,
-                        PRJ_NAME:"RadeonProRenderBlenderPlugin",
+                        PRJ_NAME:"RPRBlenderPlugin",
                         PRJ_ROOT:"rpr-plugins",
                         BUILDER_TAG:'BuilderBlender',
                         toolVersion:toolVersion,
