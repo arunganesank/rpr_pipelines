@@ -375,7 +375,7 @@ def executeTests(String osName, String asicName, Map options) {
                             dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
                                 utils.removeDir(this, osName, "AMDRenderStudio")
                             }
-                        } else if (sessionReport.summary.failed > 0) {
+                        } else if (sessionReport.summary.failed > 0 || sessionReport.summary.observed > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
