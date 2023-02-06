@@ -36,8 +36,11 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
         return true
     }
 
-    // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
+    if ((engine == "HdRprPlugin" || engine == "HdStormRendererPlugin") && asicName == "AMD_680M") {
+        return true
+    }
+
+    return false
 }
 
 
@@ -1061,7 +1064,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',

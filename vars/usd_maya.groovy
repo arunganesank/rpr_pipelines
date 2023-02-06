@@ -24,7 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
+    return false
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
@@ -1041,7 +1045,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,

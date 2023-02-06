@@ -413,7 +413,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 
 def call(String testsBranch = "master",
-         String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI',
+         String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX7900XT',
          String updateRefs = 'No',
          String tests = "",
          String parallelExecutionTypeString = "TakeAllNodes",

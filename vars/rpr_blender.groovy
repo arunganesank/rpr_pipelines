@@ -34,7 +34,15 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
+    if (engine == "FULL2" && asicName == "AMD_680M") {
+        return true
+    }
+
+    if (engine == "HYBRIDPRO" && (osName == "OSX" || osName == "MacOS_ARM")) {
+        return true
+    }
+
+    return false
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
@@ -1050,7 +1058,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
+    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
     String updateRefs = 'No',
     Boolean enableNotifications = true,
     Boolean incrementVersion = true,
