@@ -114,7 +114,7 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
     cleanWS(osName)
     String error_message = ""
     String REF_PATH_PROFILE
-    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6")
+    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")
 
     if (isRTXCard) {
         REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/${asicName}-${osName}"

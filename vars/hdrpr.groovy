@@ -764,10 +764,17 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
+<<<<<<< HEAD
         String testsBranch = "cf16e051f893aabd810bfe66429054c0086102c1",
         String usdBranch = "release",
         String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_680M',
         Boolean rebuildUSD = false,
+=======
+        String testsBranch = "master",
+        String usdBranch = "0c7b9a95f155c221ff7df9270a39a52e3b23af8b",
+        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
+        Boolean rebuildUSD = true,
+>>>>>>> origin/master
         Boolean saveUSD = false,
         String updateRefs = 'No',
         String testsPackage = "Full.json",
