@@ -103,6 +103,7 @@ class UpdateInfo {
     String profile
     String toolName
     String updateType
+    Boolean onlyFails
     Boolean allPlatforms
 
     UpdateInfo(String jobName,
@@ -113,6 +114,7 @@ class UpdateInfo {
         String profile,
         String toolName,
         String updateType,
+        Boolean onlyFails,
         Boolean allPlatforms) {
 
         this.jobName = jobName
@@ -123,6 +125,7 @@ class UpdateInfo {
         this.profile = profile
         this.toolName = toolName
         this.updateType = updateType
+        this.onlyFails = onlyFails
         this.allPlatforms = allPlatforms
     }
 }
@@ -231,6 +234,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String casesNames = updateInfo.casesNames
     String toolName = updateInfo.toolName
     String updateType = updateInfo.updateType
+    Boolean onlyFails = updateInfo.onlyFails
 
     String machineConfiguration
 
@@ -259,8 +263,10 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
 
             for (testCase in testCases) {
                 if (testCase["test_case"] == targetCase) {
-                    targetCases.add(testCase)
-                    break
+                    if (!onlyFails || testCase["test_status"] == "failed") {
+                        targetCases.add(testCase)
+                        break
+                    }
                 }
             }
         }
@@ -270,6 +276,22 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         saveBaselines(baselinesPathProfile)
     } else {
         downloadFiles("${remoteResultPath}/${targetGroup}", "results")
+
+        if (onlyFails) {
+            String reportComparePath = "results/${targetGroup}/report_compare.json"
+            def testCases = readJSON(file: reportComparePath)
+            def targetCases = []
+
+            for (testCase in testCases) {
+                if (testCase["test_status"] == "failed") {
+                    targetCases.add(testCase)
+                    break
+                }
+            }
+        }
+
+        JSON serializedJson = JSONSerializer.toJSON(targetCases, new JsonConfig());
+        writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         saveBaselines(baselinesPathProfile)
     }
 }
@@ -294,6 +316,7 @@ def call(String jobName,
     String profile,
     String toolName,
     String updateType,
+    Boolean onlyFails,
     Boolean allPlatforms) {
 
     def updateInfo = new UpdateInfo(jobName,
@@ -304,6 +327,7 @@ def call(String jobName,
         profile,
         toolName,
         updateType,
+        onlyFails,
         allPlatforms)
 
     stage("UpdateBaselines") {
