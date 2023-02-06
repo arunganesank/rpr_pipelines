@@ -24,7 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
+    return false
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
@@ -435,11 +439,19 @@ def executeBuildWindows(Map options) {
             String artifactURL
 
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                    build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                """
+                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                    """
+                } else {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                    """
+                }
             }
             dir('installation') {
                 makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
@@ -466,11 +478,19 @@ def executeBuildWindows(Map options) {
 
                     writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
 
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
+                        bat """
+                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                        build.bat > ..\\${STAGE_NAME}.log 2>&1
-                    """
+                            build.bat > ..\\${STAGE_NAME}.log 2>&1
+                        """
+                    } else {
+                        bat """
+                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                            build.bat > ..\\${STAGE_NAME}.log 2>&1
+                        """
+                    }
                 }
                 dir('installation') {
                     bat """
@@ -1025,7 +1045,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,

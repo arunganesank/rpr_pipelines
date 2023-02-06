@@ -697,7 +697,15 @@ class utils {
                             break
                         }
 
-                        locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                        if (options.storeOnNAS) {
+                            self.withCredentials([self.string(credentialsId: "nasURLFrontend_NEW", variable: "REMOTE_URL")]) {
+                                locations = locations ?
+                                    "${locations}::http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
+                                    "http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
+                            }
+                        } else {
+                            locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                        }
                     }
 
                     if (allReportsExists) {
@@ -709,7 +717,7 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", false)
+                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", options.storeOnNAS)
                     }
                 }
             }
@@ -719,6 +727,8 @@ class utils {
     // Function that compare current and neweset AMD gpu driver on Windows.
     static def compareDriverVersion(Object self, String logFilePath, String osName)
     {
+        // FIXME: rework driver check implementation
+        return
         switch(osName) {
             case 'Windows':
                 try{

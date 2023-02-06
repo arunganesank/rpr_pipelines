@@ -392,7 +392,7 @@ def executeBuildWindows(Map options) {
                         break;
                     case '2019':
                         options.visualStudio = "Visual Studio 16 2019"
-                        options.msBuildPath = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe"
+                        options.msBuildPath = bat(script: "echo %VS2019_MSBUILD_PATH%",returnStdout: true).split('\r\n')[2].trim()
                 }
 
                 dir("amf\\public\\proj\\OpenAMF_Autotests") {

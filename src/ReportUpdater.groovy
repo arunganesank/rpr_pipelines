@@ -41,7 +41,8 @@ public class ReportUpdater {
             context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT"),
             context.string(credentialsId: "matLibUrl", variable: "MATLIB_URL")
         ]) {
-            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${options.testRepo} ${options.testsBranch} ")
+            String testRepo = options.testRepo.contains("git@github.com:") ? options.testRepo.replace("git@github.com:", "https://github.com/") : options.testRepo
+            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${testRepo} ${options.testsBranch} ")
             matLibUrl = context.MATLIB_URL
         }
 

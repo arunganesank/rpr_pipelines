@@ -75,6 +75,8 @@ def uninstallAMDRenderStudio(String osName, Map options) {
     if (installedProductCode) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\WebUsdStorageServer")
     }
 }
 
@@ -373,7 +375,7 @@ def executeTests(String osName, String asicName, Map options) {
                             dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
                                 utils.removeDir(this, osName, "AMDRenderStudio")
                             }
-                        } else if (sessionReport.summary.failed > 0) {
+                        } else if (sessionReport.summary.failed > 0 || sessionReport.summary.observed > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
@@ -482,7 +484,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
             """
         } else {
             bat """
-                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                 python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
             """
         }
@@ -507,7 +509,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         """
     } else {
         bat """
-            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
             python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
         """
     }
@@ -884,31 +886,31 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio verion:</b> ${options.version}<br/>"
+    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
 
     dir("WebUsdFrontendServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Frontend verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Frontend version:</b> ${version}<br/>"
     }
 
     dir("WebUsdStreamServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Streamer verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Streamer version:</b> ${version}<br/>"
     }
 
     dir("WebUsdLiveServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Live server verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Live server version:</b> ${version}<br/>"
     }
 
     dir("WebUsdRouteServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Router verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Router version:</b> ${version}<br/>"
     }
 
     dir("WebUsdStorageServer") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Storage verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Storage version:</b> ${version}<br/>"
     }
 }
 
@@ -1387,7 +1389,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX6800XT',
+    String platforms = 'Windows:AMD_RX6800XT,AMD_RX7900XT',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,

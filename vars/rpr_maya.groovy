@@ -34,7 +34,15 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
+    if (engine == "HybridPro" && osName == "OSX") {
+        return true
+    }
+
+    return false
 }
 
 
@@ -413,7 +421,7 @@ def executeTests(String osName, String asicName, Map options)
                         // retry on Maya crash
                         if (sessionReport.summary.error > 0) {
                             for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup].renderResults) {
+                                for (caseResults in sessionReport.results[testGroup]["render_results"]) {
                                     for (message in caseResults.message) {
                                         if (message.contains("Error windows {'maya'}")) {
                                             String errorMessage
@@ -1035,7 +1043,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;OSX:AMD_RX5700XT',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,

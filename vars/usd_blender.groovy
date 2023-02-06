@@ -36,8 +36,11 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
         return true
     }
 
-    // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    if ((engine == "HdRprPlugin" || engine == "HdStormRendererPlugin") && asicName == "AMD_680M") {
+        return true
+    }
+
+    return false
 }
 
 
@@ -380,7 +383,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                         if exist ..\\libs rmdir /Q /S ..\\libs
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -all -clean -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
@@ -391,7 +394,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                 } else {
                     bat """
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -libs -mx-classes -addon -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
@@ -1061,7 +1064,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',

@@ -25,12 +25,15 @@ import java.util.concurrent.ConcurrentHashMap
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    //skip HybridPro on Ubuntu
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
     if (engine == "HybridPro" && osName == "Ubuntu20") {
         return true
     }
 
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    return false
 }
 
 
@@ -280,7 +283,7 @@ def executeBuildWindows(String osName, Map options) {
         if (options.rebuildUSD) {
             dir ("USD") {
                 bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ${STAGE_NAME}_USD.log 2>&1
+                    call "%VS2019_VSVARSALL_PATH%" amd64 >> ${STAGE_NAME}_USD.log 2>&1
                     waitfor 1 /t 10 2>NUL || type nul>nul
                     python --version >> ${STAGE_NAME}_USD.log 2>&1
                     python build_scripts\\build_usd.py ${builtUSDPath} --openimageio --materialx >> ${STAGE_NAME}_USD.log 2>&1
@@ -761,10 +764,17 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
+<<<<<<< HEAD
         String testsBranch = "cf16e051f893aabd810bfe66429054c0086102c1",
         String usdBranch = "release",
-        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
+        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_680M',
         Boolean rebuildUSD = false,
+=======
+        String testsBranch = "master",
+        String usdBranch = "0c7b9a95f155c221ff7df9270a39a52e3b23af8b",
+        String platforms = 'Windows:AMD_WX9100,AMD_RadeonVII,AMD_RX5700XT,AMD_RX6800XT,NVIDIA_RTX3080TI',
+        Boolean rebuildUSD = true,
+>>>>>>> origin/master
         Boolean saveUSD = false,
         String updateRefs = 'No',
         String testsPackage = "Full.json",
