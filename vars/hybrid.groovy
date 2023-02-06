@@ -827,7 +827,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 def call(String projectBranch = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String testsQuality = "none",
          String scenarios = "all",
          Boolean updateRefs = false,
@@ -847,10 +847,6 @@ def call(String projectBranch = "",
             milestone(buildNumber - 1)
         }
         milestone(buildNumber) 
-    }
-
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-1092") {
-        platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT"
     }
 
     Boolean isLegacyBranch = false
