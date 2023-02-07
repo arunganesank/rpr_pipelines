@@ -288,10 +288,11 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
                     break
                 }
             }
+
+            JSON serializedJson = JSONSerializer.toJSON(targetCases, new JsonConfig());
+            writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         }
 
-        JSON serializedJson = JSONSerializer.toJSON(targetCases, new JsonConfig());
-        writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         saveBaselines(baselinesPathProfile)
     }
 }
