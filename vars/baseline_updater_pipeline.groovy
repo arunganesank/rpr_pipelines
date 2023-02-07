@@ -285,7 +285,6 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
             for (testCase in testCases) {
                 if (testCase["test_status"] == "failed") {
                     targetCases.add(testCase)
-                    break
                 }
             }
 
