@@ -93,6 +93,8 @@ def call(Map params) {
             int retries = 0
             int status = 0
 
+            boolean stashUploaded = false
+
             while (retries++ < times) {
                 try {
                     print("Try to make stash №${retries}")
@@ -119,8 +121,9 @@ def call(Map params) {
                     } else if (status == 24) {
                         print("[ERROR] Partial transfer due to vanished source files")
                     } else if (status != 0) {
-                        println("[ERROR] Download script returned non-zero code: ${status}")
+                        println("[ERROR] Uploading script returned non-zero code: ${status}")
                     } else {
+                        stashUploaded = true
                         break
                     }
                 } catch (FlowInterruptedException e1) {
@@ -131,6 +134,10 @@ def call(Map params) {
                     println(e1.getMessage())
                     println(e1.getStackTrace())
                 }
+            }
+
+            if (!stashUploaded) {
+                raise Exception("Failed to create stash. All attempts has been exceeded")
             }
             
             if (preZip) {
