@@ -459,6 +459,22 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static INSTALL_ALLURE = [
+        "begin": ["message": "Installing Allure."],
+
+        "exceptions": [
+            [
+                "class": "TimeoutExceeded", "problemMessage": "Failed to install Allure due to timeout.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
+                "githubNotification": ["status": "timed_out"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Failed to install Allure.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER
+            ]
+        ]
+    ]
+
     def static RUN_APPLICATION_TESTS = [
         "begin": ["message": "Running application tests."],
 
