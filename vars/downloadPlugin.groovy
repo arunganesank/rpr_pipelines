@@ -1,4 +1,4 @@
-def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=90) {
+def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=120) {
     Integer currentTry = 0
     while (currentTry++ < tries) {
         println("[INFO] Try to download plugin through curl (try #${currentTry})")
@@ -25,7 +25,7 @@ def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=90) {
 }
 
 
-def call(String osName, Map options, String credentialsId = '', Integer oneTryTimeout = 90) {
+def call(String osName, Map options, String credentialsId = '', Integer oneTryTimeout = 120) {
     String customBuildLink = ""
     String extension = options["configuration"]["productExtensions"][osName]
     // the name of the artifact without OS name / version. It must be same for any OS / version
