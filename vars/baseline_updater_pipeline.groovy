@@ -257,6 +257,11 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         def testCases = readJSON(file: reportComparePath)
         def targetCases = []
 
+        if (!fileExists(reportComparePath)) {
+            println("[WARNING] report_compare.json file doesn't exist in ${remoteResultPath}/${targetGroup} directory")
+            return
+        }
+
         for (targetCase in casesNames.split(",")) {
             downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color")
             downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}")
@@ -277,8 +282,14 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     } else {
         downloadFiles("${remoteResultPath}/${targetGroup}", "results")
 
+        String reportComparePath = "results/${targetGroup}/report_compare.json"
+
+        if (!fileExists(reportComparePath)) {
+            println("[WARNING] report_compare.json file doesn't exist in ${remoteResultPath}/${targetGroup} directory")
+            return
+        }
+
         if (onlyFails) {
-            String reportComparePath = "results/${targetGroup}/report_compare.json"
             def testCases = readJSON(file: reportComparePath)
             def targetCases = []
 
