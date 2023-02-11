@@ -36,11 +36,8 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
         return true
     }
 
-    if ((engine == "HdRprPlugin" || engine == "HdStormRendererPlugin") && asicName == "AMD_680M") {
-        return true
-    }
-
-    return false
+    // run HybridPro only on RTX cards
+    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
 }
 
 
