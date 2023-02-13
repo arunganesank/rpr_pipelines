@@ -118,7 +118,7 @@ def executeTests(String osName, String asicName, Map options) {
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         try {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
             junit "*gtest.xml"
         } catch (e) {
             println("[WARNING] Failed to save unit tests results")
@@ -136,7 +136,7 @@ def executeTests(String osName, String asicName, Map options) {
             println(e.toString())
             println(e.getMessage())
         } finally {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
         }
     }
 }
