@@ -28,25 +28,26 @@ def executeUnitTestsCommand(String osName, Map options) {
 }
 
 def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
-
-    String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
-    withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-        downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
-    }
-
     ws("WS/${options.PRJ_NAME}-FT") {
-
-        withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
-                cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
-            }
-        }
-
         try {
+            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
+
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+                downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
+            }
+
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+                timeout(time: "5", unit: "MINUTES") {
+                    cleanWS(osName)
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+                }
+            }
+
             dir("rml_release") {
                 makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
             }
+
             withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 switch (osName) {
                     case 'Windows':
@@ -56,7 +57,6 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
-                                python run_tests.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 python execute_cases.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
                                 python process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 rename ft.log ${STAGE_NAME}.execution.ft.log
@@ -103,10 +103,8 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
-
-    cleanWS(osName)
-
     try {
+        cleanWS(osName)
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, BUILD_URL)
         outputEnvironmentInfo(osName, "${STAGE_NAME}.UnitTests")
         makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
@@ -123,7 +121,7 @@ def executeTests(String osName, String asicName, Map options) {
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         try {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
             junit "*gtest.xml"
         } catch (e) {
             println("[WARNING] Failed to save unit tests results")
@@ -136,14 +134,12 @@ def executeTests(String osName, String asicName, Map options) {
 
     if (options.executeFT) {
         try {
-            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
             executeFunctionalTestsCommand(osName, asicName, options)
         } catch (e) {
             println(e.toString())
             println(e.getMessage())
-
         } finally {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
         }
     }
 }
