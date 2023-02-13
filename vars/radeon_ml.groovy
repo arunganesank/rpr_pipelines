@@ -28,25 +28,22 @@ def executeUnitTestsCommand(String osName, Map options) {
 }
 
 def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
-
-    String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
-    withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-        downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
-    }
-
     ws("WS/${options.PRJ_NAME}-FT") {
-
-        withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
-                cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
-            }
-        }
-
         try {
-            dir("rml_release") {
-                makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
+            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
+
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+                downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
             }
+
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+                timeout(time: "5", unit: "MINUTES") {
+                    cleanWS(osName)
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+                }
+            }
+
             withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 switch (osName) {
                     case 'Windows':
@@ -103,10 +100,8 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
-
-    cleanWS(osName)
-
     try {
+        cleanWS(osName)
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, BUILD_URL)
         outputEnvironmentInfo(osName, "${STAGE_NAME}.UnitTests")
         makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
@@ -136,12 +131,10 @@ def executeTests(String osName, String asicName, Map options) {
 
     if (options.executeFT) {
         try {
-            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
             executeFunctionalTestsCommand(osName, asicName, options)
         } catch (e) {
             println(e.toString())
             println(e.getMessage())
-
         } finally {
             archiveArtifacts "*.log"
         }
