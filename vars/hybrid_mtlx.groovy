@@ -67,7 +67,7 @@ def executeTests(String osName, String asicName, Map options) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
 
-                String hybridLink = "/volume1/web/" + options.hybridLinkWin.split(":5443/")[1]
+                String hybridLink = "/volume1/web/" + options.hybridLinkWin.split(".com/")[1]
 
                 downloadFiles("${hybridLink}", ".")
 
