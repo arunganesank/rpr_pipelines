@@ -545,7 +545,7 @@ def call(String projectBranch = "",
                     executeBuild:true,
                     executeTests:true,
                     executeFT:executeFT,
-                    retriesForTestStage:1,
+                    retriesForTestStage:2,
                     storeOnNAS:true,
                     flexibleUpdates: true
                     ]
