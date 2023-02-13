@@ -698,7 +698,7 @@ class utils {
                         }
 
                         if (options.storeOnNAS) {
-                            self.withCredentials([self.string(credentialsId: "nasURLFrontend_NEW", variable: "REMOTE_URL")]) {
+                            self.withCredentials([self.string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
                                 locations = locations ?
                                     "${locations}::http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
                                     "http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
