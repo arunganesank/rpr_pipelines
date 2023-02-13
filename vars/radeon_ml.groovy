@@ -44,6 +44,10 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                 }
             }
 
+            dir("rml_release") {
+                makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
+            }
+
             withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 switch (osName) {
                     case 'Windows':
@@ -53,7 +57,6 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
-                                python run_tests.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 python execute_cases.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
                                 python process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 rename ft.log ${STAGE_NAME}.execution.ft.log
