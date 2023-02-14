@@ -137,7 +137,7 @@ def call(Map params) {
             }
 
             if (!stashUploaded) {
-                raise Exception("Failed to create stash. All attempts has been exceeded")
+                throw new Exception("Failed to create stash. All attempts has been exceeded")
             }
             
             if (preZip) {
