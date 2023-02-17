@@ -895,7 +895,7 @@ def fillDescription(Map options) {
 
     dir("Engine") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Streamer version:</b> ${version}<br/>"
+        currentBuild.description += "<b>Engine version:</b> ${version}<br/>"
     }
 
     dir("Live") {
