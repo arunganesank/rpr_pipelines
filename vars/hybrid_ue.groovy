@@ -239,6 +239,12 @@ def executeBuildWindows(String projectName, Map options) {
             executeVideoRecording(svnRepoName, options)
         } else if (it == "Default") {
             dir("${targetDir}\\WindowsNoEditor") {
+                if (projects == "VictorianTrains") {
+                    dir("VictorianTrains26_ML\\Binaries\\Win64") {
+                        downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
+                    }
+                }
+
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)

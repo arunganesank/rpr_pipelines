@@ -494,17 +494,29 @@ def executeBuildWindows(Map options) {
     String agilitySDKLocation = downloadAgilitySDK()
 
     withEnv(["AGILITY_SDK=${agilitySDKLocation}"]) {
-        String build_type = options['cmakeKeys'].contains("-DCMAKE_BUILD_TYPE=Debug") ? "Debug" : "Release"
+        String buildType = options['cmakeKeys'].contains("-DCMAKE_BUILD_TYPE=Debug") ? "Debug" : "Release"
         bat """
             echo %AGILITY_SDK%
             mkdir Build
             cd Build
             cmake ${options['cmakeKeys']} -G "Visual Studio 15 2017 Win64" .. >> ..\\${STAGE_NAME}.log 2>&1
-            cmake --build . --target PACKAGE --config ${build_type} >> ..\\${STAGE_NAME}.log 2>&1
+            cmake --build . --target PACKAGE --config ${buildType} >> ..\\${STAGE_NAME}.log 2>&1
             rename BaikalNext.zip BaikalNext_${STAGE_NAME}.zip
         """
-        dir("Build/bin/${build_type}") {
+        dir("Build/bin/${buildType}") {
             makeStash(includes: "RprPerfTest.exe", name: "perfWindows", allowEmpty: true, preZip: false, storeOnNAS: options.storeOnNAS)
+
+            downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
+        }
+
+        dir("Build") {
+            dir("BaikalNext/bin") {
+                bat """
+                    xcopy /s/y/i ..\\..\\bin\\Release\\dxcompiler.dll .
+                """
+            }
+
+            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " BaikalNext_${STAGE_NAME}.zip BaikalNext\\bin\\dxcompiler.dll")
         }
 
         if (env.BRANCH_NAME == "material_x") {
