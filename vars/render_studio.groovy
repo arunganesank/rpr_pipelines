@@ -76,7 +76,7 @@ def uninstallAMDRenderStudio(String osName, Map options) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
 
-        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\WebUsdStorageServer")
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
     }
 }
 
@@ -431,23 +431,23 @@ String patchSubmodule() {
 
 
 def patchVersions(Map options) {
-    dir("WebUsdLiveServer") {
+    dir("Live") {
         patchSubmodule()
     }
 
-    dir("WebUsdRouteServer") {
+    dir("Route") {
         patchSubmodule()
     }
 
-    dir("WebUsdStorageServer") {
+    dir("Storage") {
         patchSubmodule()
     }
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         patchSubmodule()
     }
 
-    dir("WebUsdStreamServer") {
+    dir("Engine") {
         patchSubmodule()
     }
 
@@ -530,23 +530,23 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
         if (options.projectBranchName.contains("demo/november")) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-            bat "move WebUsdFrontendServer\\env.demo.desktop.template WebUsdFrontendServer\\.env.production"
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+            bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
         } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-            bat "move WebUsdFrontendServer\\env.desktop.template WebUsdFrontendServer\\.env.production"
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+            bat "move Frontend\\env.desktop.template Frontend\\.env.production"
         }
 
         String frontendVersion
         String renderStudioVersion
 
-        dir("WebUsdFrontendServer") {
+        dir("Frontend") {
             frontendVersion = readFile("VERSION.txt").trim()
         }
 
         renderStudioVersion = readFile("VERSION.txt").trim()
 
-        String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        String envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
         withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
@@ -555,7 +555,7 @@ def executeBuildWindows(Map options) {
             envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
         }
 
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
         try {
             withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
@@ -580,7 +580,7 @@ def executeBuildWindows(Map options) {
 
                 println("[INFO] Saving exe files to NAS")
 
-                dir("WebUsdFrontendServer\\dist_electron") {
+                dir("Frontend\\dist_electron") {
                     def exeFile = findFiles(glob: '*.msi')
                     println("Found MSI files: ${exeFile}")
                     for (file in exeFile) {
@@ -637,10 +637,10 @@ def executeBuildLinux(Map options) {
     String envProductionContent
 
     if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/env.web.template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.template", "./Frontend", "--quiet")
+        sh "mv ./Frontend/env.web.template ./Frontend/.env.production"
 
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
 
         if (options.deployEnvironment == "prod") {
             envProductionContent = envProductionContent.replace("<domain_name>.", "")
@@ -648,34 +648,34 @@ def executeBuildLinux(Map options) {
             envProductionContent = envProductionContent.replace("<domain_name>", options.deployEnvironment)
         }
 
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     } else {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.customdomain.template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/env.web.customdomain.template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.customdomain.template", "./Frontend", "--quiet")
+        sh "mv ./Frontend/env.web.customdomain.template ./Frontend/.env.production"
 
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     }
 
     if (options.disableSsl) {
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     }
 
     String frontendVersion
     String renderStudioVersion
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         frontendVersion = readFile("VERSION.txt").trim()
     }
 
     renderStudioVersion = readFile("VERSION.txt").trim()
 
-    envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+    envProductionContent = readFile("./Frontend/.env.production")
     envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
-    writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+    writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
     options["stage"] = "Build"
 
@@ -793,12 +793,12 @@ def executeBuild(String osName, Map options) {
                 sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
 
                 sh """
-                    yes | cp -rf BaikalNext/bin/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
-                    yes | cp -rf BaikalNext/inc/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                    yes | cp -rf BaikalNext/inc/Rpr/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                    yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
+                    yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                    yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
                 """
 
-                dir ("WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
                     downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
                 }
             } else if (options.customHybridWin && !isUnix()) {
@@ -807,13 +807,13 @@ def executeBuild(String osName, Map options) {
                 unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
 
                 bat """
-                    copy /Y BaikalNext\\bin\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
-                    copy /Y BaikalNext\\inc\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\inc\\Rpr\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\lib\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
+                    copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
+                    copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
                 """
 
-                dir ("WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
                     downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
                 }
             }
@@ -888,27 +888,27 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
         currentBuild.description += "<b>Frontend version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdStreamServer") {
+    dir("Engine") {
         String version = readFile("VERSION.txt").trim()
         currentBuild.description += "<b>Streamer version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdLiveServer") {
+    dir("Live") {
         String version = readFile("VERSION.txt").trim()
         currentBuild.description += "<b>Live server version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdRouteServer") {
+    dir("Route") {
         String version = readFile("VERSION.txt").trim()
         currentBuild.description += "<b>Router version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdStorageServer") {
+    dir("Storage") {
         String version = readFile("VERSION.txt").trim()
         currentBuild.description += "<b>Storage version:</b> ${version}<br/>"
     }
