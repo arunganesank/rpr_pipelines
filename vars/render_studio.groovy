@@ -970,7 +970,7 @@ def executePreBuild(Map options) {
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
     } else if (env.BRANCH_NAME && env.BRANCH_NAME == "main") {
-        removeClosedPRs(options)
+        //removeClosedPRs(options)
     }
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
