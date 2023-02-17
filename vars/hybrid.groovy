@@ -509,13 +509,15 @@ def executeBuildWindows(Map options) {
             downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
         }
 
-        dir("BaikalNext/bin") {
-            bat """
-                xcopy ..\\..\\Build\\bin/${buildType}\\dxcompiler.dll ${buildType}
-            """
-        }
+        dir("Build") {
+            dir("BaikalNext/bin") {
+                bat """
+                    xcopy /s/y/i ..\\..\\bin\\Release\\dxcompiler.dll .
+                """
+            }
 
-        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " BaikalNext_${STAGE_NAME}.zip BaikalNext\\bin\\dxcompiler.dll")
+            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " BaikalNext_${STAGE_NAME}.zip BaikalNext\\bin\\dxcompiler.dll")
+        }
 
         if (env.BRANCH_NAME == "material_x") {
             withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
