@@ -136,7 +136,14 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
 
         if (options['updateRefs']) {
             println "Updating Reference Images"
-            executeGenTestRefCommand(asicName, osName, options, apiValue)
+            try {
+                executeGenTestRefCommand(asicName, osName, options, apiValue)
+            } catch (e) {
+                // ignore exceptions in case of baselines updating on d3d12
+                if (!options['updateRefs'] || apiValue != "d3d12") {
+                    throw e
+                }
+            }
 
             if (isRTXCard) {
                 // skip refs updating on non rtx cards
