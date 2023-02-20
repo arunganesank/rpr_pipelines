@@ -543,7 +543,8 @@ def call(String projectBranch = "",
                     executeFT:executeFT,
                     retriesForTestStage:2,
                     storeOnNAS:true,
-                    flexibleUpdates: true
+                    flexibleUpdates: true,
+                    TESTER_TAG:"RML"
                     ]
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, null, options)
