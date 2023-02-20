@@ -112,12 +112,26 @@ def executeTests(String osName, String asicName, Map options) {
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "success", options, NotificationConfiguration.UNIT_TESTS_PASSED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } catch (FlowInterruptedException error) {
         println("[INFO] Job was aborted during executing tests.")
+
+        if (isUnix()) {
+            sh "echo \"Failed to execute unit tests due to timeout\" >> ${STAGE_NAME}.UnitTests.log"
+        } else {
+            bat "echo \"Failed to execute unit tests due to timeout\" >> ${STAGE_NAME}.UnitTests.log"
+        }
+
         throw error
     } catch (e) {
         println(e.toString())
         println(e.getMessage())
         currentBuild.result = "UNSTABLE"
         options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_UNIT_TESTS)
+
+        if (isUnix()) {
+            sh "echo \"Failed to execute unit tests\" >> ${STAGE_NAME}.UnitTests.log"
+        } else {
+            bat "echo \"Failed to execute unit tests\" >> ${STAGE_NAME}.UnitTests.log"
+        }
+
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         try {
