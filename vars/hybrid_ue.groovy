@@ -300,7 +300,9 @@ def executeBuild(String osName, Map options) {
                 withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
                     switch(osName) {
                         case "Windows":
-                            executeBuildWindows(projectName, options)
+                            ws(projectName) {
+                               executeBuildWindows(projectName, options) 
+                            }
                             break
                         default:
                             println("${osName} is not supported")
