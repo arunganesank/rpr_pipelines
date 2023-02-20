@@ -781,6 +781,10 @@ def call(String projectRepo = PROJECT_REPO,
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
 
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-639") {
+        usdBranch = "release"
+    }
+
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             def enginesNamesList = enginesNames.split(",") as List
