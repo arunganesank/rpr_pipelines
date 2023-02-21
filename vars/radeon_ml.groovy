@@ -30,8 +30,6 @@ def executeUnitTestsCommand(String osName, Map options) {
 def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
     ws("WS/${options.PRJ_NAME}-FT") {
         try {
-            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
-
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
             withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
                 downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
