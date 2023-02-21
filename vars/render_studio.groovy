@@ -941,14 +941,14 @@ def executePreBuild(Map options) {
 
 
         Integer hybridBuildNumber
-        String hybridBuildUrl
+        //String hybridBuildUrl
 
         if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
-            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+            hybridBuildNumber = 868
+            //hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
         } else {
-            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
-            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
+            hybridBuildNumber = 868
+            //hybridBuildUrl = parsedInfo.lastUnstableBuild.url
         }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
@@ -956,7 +956,7 @@ def executePreBuild(Map options) {
             options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+        //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
         // branch postfix
         options["branchPostfix"] = ""
