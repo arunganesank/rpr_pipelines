@@ -6,7 +6,7 @@ import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
 
-@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
+@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RenderStudio.git"
 @Field final String TEST_REPO = "git@github.com:luxteam/jobs_test_web_viewer.git"
 
 @Field final Integer MAX_TEST_INSTANCE_NUMBER = 9
