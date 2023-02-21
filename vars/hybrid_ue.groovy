@@ -291,30 +291,30 @@ def executeBuild(String osName, Map options) {
             continue
         }
 
-        timeout(time: options["PROJECT_BUILD_TIMEOUT"], unit: "MINUTES") {
-            try {
-                utils.reboot(this, osName)
+        ws(projectName) {
+            timeout(time: options["PROJECT_BUILD_TIMEOUT"], unit: "MINUTES") {
+                try {
+                    utils.reboot(this, osName)
 
-                outputEnvironmentInfo(osName)
-                
-                withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                    switch(osName) {
-                        case "Windows":
-                            ws(projectName) {
-                               executeBuildWindows(projectName, options) 
-                            }
-                            break
-                        default:
-                            println("${osName} is not supported")
+                    outputEnvironmentInfo(osName)
+                    
+                    withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                        switch(osName) {
+                            case "Windows":
+                                executeBuildWindows(projectName, options) 
+                                break
+                            default:
+                                println("${osName} is not supported")
+                        }
                     }
-                }
 
-                finishedProjects.add(projectName)
-            } catch (e) {
-                println(e.getMessage())
-                throw e
-            } finally {
-                archiveArtifacts "*.log"
+                    finishedProjects.add(projectName)
+                } catch (e) {
+                    println(e.getMessage())
+                    throw e
+                } finally {
+                    archiveArtifacts "*.log"
+                }
             }
         }
     }
