@@ -944,16 +944,16 @@ def executePreBuild(Map options) {
         //String hybridBuildUrl
 
         if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            hybridBuildNumber = 868
+            hybridBuildNumber = 992
             //hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
         } else {
-            hybridBuildNumber = 868
+            hybridBuildNumber = 992
             //hybridBuildUrl = parsedInfo.lastUnstableBuild.url
         }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            options.customHybridWin = "/volume1/web/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
         //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
