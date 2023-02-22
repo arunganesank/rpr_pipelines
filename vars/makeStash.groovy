@@ -94,6 +94,7 @@ def call(Map params) {
             int status = 0
 
             boolean stashUploaded = false
+            boolean cantUpload = false
 
             while (retries++ < times) {
                 try {
@@ -122,6 +123,10 @@ def call(Map params) {
                         print("[ERROR] Partial transfer due to vanished source files")
                     } else if (status != 0) {
                         println("[ERROR] Uploading script returned non-zero code: ${status}")
+
+                        if (status == 255) {
+                            cantUpload = true
+                        }
                     } else {
                         stashUploaded = true
                         break
@@ -137,9 +142,39 @@ def call(Map params) {
             }
 
             if (!stashUploaded) {
-                throw new Exception("Failed to create stash. All attempts has been exceeded")
+                // reboot and retry in case of failed uploading
+                if (cantUpload) {
+                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
+                        try {
+                            if (isUnix) {
+                                sh """
+                                    ping -c 10 ${REMOTE_HOST}
+                                    tracepath ${REMOTE_HOST}
+                                """
+                            } else {
+                                bat """
+                                    ping -n 10 ${REMOTE_HOST}
+                                    tracert ${REMOTE_HOST}
+                                """
+                            }
+                        } catch(e) {
+                            println("Failed to collect traces")
+                            println(e.toString())
+                            println(e.getMessage())
+                            println(e.getStackTrace())
+                        }
+                    }
+
+                    utils.reboot(this, isUnix() ? "Unix" : "Windows")
+
+                    exception = new ExpectedExceptionWrapper("Failed to create stash. All attempts has been exceeded")
+                    exception.retry = true
+                    throw exception
+                } else {
+                    throw new Exception("Failed to create stash. All attempts has been exceeded")
+                }
             }
-            
+
             if (preZip) {
                 if (postUnzip) {
                     withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
