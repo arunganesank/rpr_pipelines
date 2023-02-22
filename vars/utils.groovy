@@ -602,7 +602,8 @@ class utils {
                         nodesList = self.nodesByLabel(label: nodeName, offline: false)
                     }
 
-                    self.println("[INFO] Node is available")
+                    self.println("[INFO] Node is available. Wait additional 15 seconds for agent initialization")
+                    self.sleep(15)
 
                     break
                 } catch (FlowInterruptedException e) {
