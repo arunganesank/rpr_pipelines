@@ -813,7 +813,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_WX9100,AMD_RX7900XT;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
+        String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_RX7900XT;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
         String houdiniVersions = "19.0.622,19.5.435",
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
