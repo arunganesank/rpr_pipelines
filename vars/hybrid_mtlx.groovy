@@ -241,7 +241,7 @@ def executePreBuild(Map options) {
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -306,12 +306,14 @@ def executePreBuild(Map options) {
         }
     }
 
+    options.testsList = options.tests
+    println("Tests: ${options.testsList}")
+
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
         options.reportUpdater = new ReportUpdater(this, env, options)
         options.reportUpdater.init(this.&getReportBuildArgs)
     }
 
-    println("Tests: ${options.testsList}")
 }
 
 

@@ -114,7 +114,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                     withEnv(["PATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib;c:\\JN\\WS\\HdRPR_Build\\USD\\build\\bin;${PATH}", "PYTHONPATH=c:\\JN\\WS\\HdRPR_Build\\USD\\build\\lib\\python"]) {
                         bat """
                             set TOOL_VERSION=${options.toolVersion}
-                            run.bat ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                            run.bat ${testsPackageName} \"${testsNames}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
                     }
 
@@ -124,7 +124,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                     withEnv(["PATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib:/home/admin/JN/WS/HdRPR_Build/USD/build/bin:${PATH}", "PYTHONPATH=/home/admin/JN/WS/HdRPR_Build/USD/build/lib/python"]) {
                         sh """
                             set TOOL_VERSION=${options.toolVersion}
-                            ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                            ./run.sh ${testsPackageName} \"${testsNames}\" ${options.engine} ${options.testCaseRetries} ${options.updateRefs} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                         """
                     }
             }
