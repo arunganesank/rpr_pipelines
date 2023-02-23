@@ -88,8 +88,25 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 def executeTestCommand(String osName, String asicName, Map options) {
     dir("scripts") {
         def testTimeout = options.timeouts["${options.tests}"]
+        String testsNames
+        String testsPackageName
 
-        println "[INFO] Set timeout to ${testTimeout}"
+        if (options.testsPackage != "none" && !options.isPackageSplitted) {
+            if (options.tests.contains(".json")) {
+                // if tests package isn't splitted and it's execution of this package - replace test package by test group and test group by empty string
+                testsPackageName = options.tests
+                testsNames = ""
+            } else {
+                // if tests package isn't splitted and it isn't execution of this package - replace tests package by empty string
+                testsPackageName = "none"
+                testsNames = options.tests
+            }
+        } else {
+            testsPackageName = "none"
+            testsNames = options.tests
+        }
+
+        println "Set timeout to ${testTimeout}"
 
         timeout(time: testTimeout, unit: 'MINUTES') { 
             switch(osName) {

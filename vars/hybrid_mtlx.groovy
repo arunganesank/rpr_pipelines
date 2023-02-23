@@ -32,16 +32,9 @@ def executeTestCommand(String osName, String asicName, Map options) {
     String testsNames
     String testsPackageName
 
-    if (options.testsPackage != "none" && !options.isPackageSplitted) {
-        if (options.tests.contains(".json")) {
-            // if tests package isn't splitted and it's execution of this package - replace test package by test group and test group by empty string
-            testsPackageName = options.tests
-            testsNames = ""
-        } else {
-            // if tests package isn't splitted and it isn't execution of this package - replace tests package by empty string
-            testsPackageName = "none"
-            testsNames = options.tests
-        }
+    if (options.tests.contains(".json")) {
+        testsPackageName = options.tests
+        testsNames = ""
     } else {
         testsPackageName = "none"
         testsNames = options.tests
