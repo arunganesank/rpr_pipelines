@@ -223,6 +223,8 @@ def executePreBuild(Map options) {
         }
     }
 
+    def tests = []
+
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
         dir('jobs_test_hybrid_mtlx') {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
@@ -245,18 +247,15 @@ def executePreBuild(Map options) {
             }
 
             if (options.testsPackage != "none") {
-                def tempTests = []
-
                 if (options.isPackageSplitted) {
-                    println("[INFO] Tests package '${options.testsPackage}' can be splitted")
+                    println "[INFO] Tests package '${options.testsPackage}' can be splitted"
                 } else {
                     // save tests which user wants to run with non-splitted tests package
                     if (options.tests) {
-                        tempTests = options.tests.split(" ") as List
+                        tests = options.tests.split(" ") as List
                     }
-                    println("[INFO] Tests package '${options.testsPackage}' can't be splitted")
+                    println "[INFO] Tests package '${options.testsPackage}' can't be splitted"
                 }
-
                 // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
                 String modifiedPackageName = "${options.testsPackage}~"
 
@@ -272,25 +271,17 @@ def executePreBuild(Map options) {
                     }
                 }
 
-                groupsFromPackage.each() {
+                groupsFromPackage.each {
                     if (options.isPackageSplitted) {
-                        tempTests << it
+                        tests << it
                     } else {
-                        if (tempTests.contains(it)) {
+                        if (tests.contains(it)) {
                             // add duplicated group name in name of package group name for exclude it
                             modifiedPackageName = "${modifiedPackageName},${it}"
                         }
                     }
                 }
-
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
-
-                options.engines.each { engine ->
-                    options.tests.each() {
-                        tests << "${it}-${engine}"
-                    }
-                }
-
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", tests)
                 modifiedPackageName = modifiedPackageName.replace('~,', '~')
 
                 if (options.isPackageSplitted) {
@@ -299,33 +290,20 @@ def executePreBuild(Map options) {
                     options.testsPackage = modifiedPackageName
                     // check that package is splitted to parts or not
                     if (packageInfo["groups"] instanceof Map) {
-                        options.engines.each { engine ->
-                            tests << "${modifiedPackageName}-${engine}"
-                        } 
+                        tests << "${modifiedPackageName}"
                     } else {
                         // add group stub for each part of package
-                        options.engines.each { engine ->
-                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
-                                tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
-                            }
+                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            tests << "${modifiedPackageName}".replace(".json", ".${i}.json")
                         }
                     }
-                }
-            } else if (options.tests) {
-                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
-
-                options.engines.each { engine ->
-                    options.tests.each() {
-                        tests << "${it}-${engine}"
-                    }
+                    
+                    options.tests = tests
                 }
             } else {
-                options.executeTests = false
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
             }
-            options.tests = tests
         }
-        
-        options.testsList = options.tests
     }
 
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
