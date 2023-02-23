@@ -157,12 +157,12 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
-        // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
-        if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
-            if (options.tests.contains("Smoke") || options.tests.contains("regression.2")) {
+        // FIXME: Check Cloud on Goto
+        if (env.NODE_NAME == "PC-TESTER-GOTO-OSX") {
+            if (options.tests.contains("Cloud") || options.tests.contains("regression.0")) {
                 throw new ExpectedExceptionWrapper(
-                    "System doesn't support Smoke group", 
-                    new Exception("System doesn't support Smoke group")
+                    "System doesn't support Cloud group", 
+                    new Exception("System doesn't support Cloud group")
                 )
             }
         }
