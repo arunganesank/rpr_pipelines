@@ -146,7 +146,7 @@ def call(Map params) {
                 if (cantUpload) {
                     withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
                         try {
-                            if (isUnix) {
+                            if (isUnix()) {
                                 sh """
                                     ping -c 10 ${REMOTE_HOST}
                                     tracepath ${REMOTE_HOST}
