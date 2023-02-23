@@ -37,19 +37,19 @@ def executeGenTestRefCommand(String asicName, String osName, Map options, String
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
@@ -89,19 +89,19 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
             switch(osName) {
                 case 'Windows':
                     bat """
-                        ..\\bin\\RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
+                        ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 case 'OSX':
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
                     break
                 default:
                     sh """
                         export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                        ../bin/RprTest ${options.enableRTX} --videoapi=${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                        ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                     """
             }
         }
@@ -114,12 +114,13 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
     cleanWS(osName)
     String error_message = ""
     String REF_PATH_PROFILE
+    Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")
 
-    if (options.testsQuality) {
-        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${options.RENDER_QUALITY}/${asicName}-${osName}"
-        outputEnvironmentInfo(osName, "${STAGE_NAME}.${options.RENDER_QUALITY}")
-    } else {
+    if (isRTXCard) {
         REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/${asicName}-${osName}"
+        outputEnvironmentInfo(osName, "${STAGE_NAME}")
+    } else {
+        REF_PATH_PROFILE="/volume1/Baselines/rpr_hybrid_autotests/${apiValue}/AMD_RX6800XT-Windows"
         outputEnvironmentInfo(osName, "${STAGE_NAME}")
     }
     
@@ -135,8 +136,19 @@ def executeTestsCustomQuality(String osName, String asicName, Map options, Strin
 
         if (options['updateRefs']) {
             println "Updating Reference Images"
-            executeGenTestRefCommand(asicName, osName, options, apiValue)
-            uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
+            try {
+                executeGenTestRefCommand(asicName, osName, options, apiValue)
+            } catch (e) {
+                // ignore exceptions in case of baselines updating on d3d12
+                if (!options['updateRefs'] || apiValue != "d3d12") {
+                    throw e
+                }
+            }
+
+            if (isRTXCard) {
+                // skip refs updating on non rtx cards
+                uploadFiles("./BaikalNext/RprTest/ReferenceImages/", REF_PATH_PROFILE)
+            }            
         } else {
             println "Execute Tests"
             downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
@@ -394,8 +406,23 @@ def executePerfTests(String osName, String asicName, Map options) {
 }
 
 
+def changeWinDevMode(Boolean turnOn) {
+    String value = turnOn ? "1" : "0"
+
+    powershell """
+        reg add "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "${value}"
+    """
+
+    utils.reboot(this, "Windows")
+}
+
+
 def executeTests(String osName, String asicName, Map options) {
     GithubNotificator.updateStatus("Test", "${asicName}-${osName}", "in_progress", options, "In progress...")
+
+    if (osName == "Windows") {
+        changeWinDevMode(true)
+    }
 
     Boolean someStageFail = false 
     if (options.testsQuality) {
@@ -445,6 +472,10 @@ def executeTests(String osName, String asicName, Map options) {
         }
     }
 
+    if (osName == "Windows") {
+        changeWinDevMode(false)
+    }
+
     if (someStageFail) {
         // send error signal for mark stage as failed
         error "Error during tests execution"
@@ -452,31 +483,62 @@ def executeTests(String osName, String asicName, Map options) {
 }
 
 
-def executeBuildWindows(Map options) {
-    String build_type = options['cmakeKeys'].contains("-DCMAKE_BUILD_TYPE=Debug") ? "Debug" : "Release"
+def downloadAgilitySDK() {
+    String agilitySDKLink = "https://www.nuget.org/api/v2/package/Microsoft.Direct3D.D3D12/1.706.4-preview"
+    String archiveName = "AgilitySDK.zip"
+
     bat """
-        mkdir Build
-        cd Build
-        cmake ${options['cmakeKeys']} -G "Visual Studio 15 2017 Win64" .. >> ..\\${STAGE_NAME}.log 2>&1
-        cmake --build . --target PACKAGE --config ${build_type} >> ..\\${STAGE_NAME}.log 2>&1
-        rename BaikalNext.zip BaikalNext_${STAGE_NAME}.zip
+        curl --retry 5 -L -J -o "${archiveName}" "${agilitySDKLink}"
     """
-    dir("Build/bin/${build_type}") {
-        makeStash(includes: "RprPerfTest.exe", name: "perfWindows", allowEmpty: true, preZip: false, storeOnNAS: options.storeOnNAS)
-    }
 
-    if (env.BRANCH_NAME == "material_x") {
-        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
+    unzip dir: "AgilitySDK", glob: "", zipFile: archiveName
 
-            hybrid_vs_northstar.updateBinaries(
-                newBinaryFile: "Build\\_CPack_Packages\\win64\\ZIP\\BaikalNext\\bin\\HybridPro.dll", 
-                targetFileName: "HybridPro.dll", osName: "Windows", compareChecksum: true
-            )
+    return "${pwd()}\\AgilitySDK\\build\\native"
+}
+
+
+def executeBuildWindows(Map options) {
+    String agilitySDKLocation = downloadAgilitySDK()
+
+    withEnv(["AGILITY_SDK=${agilitySDKLocation}"]) {
+        String buildType = options['cmakeKeys'].contains("-DCMAKE_BUILD_TYPE=Debug") ? "Debug" : "Release"
+        bat """
+            echo %AGILITY_SDK%
+            mkdir Build
+            cd Build
+            cmake ${options['cmakeKeys']} -G "Visual Studio 15 2017 Win64" .. >> ..\\${STAGE_NAME}.log 2>&1
+            cmake --build . --target PACKAGE --config ${buildType} >> ..\\${STAGE_NAME}.log 2>&1
+            rename BaikalNext.zip BaikalNext_${STAGE_NAME}.zip
+        """
+        dir("Build/bin/${buildType}") {
+            makeStash(includes: "RprPerfTest.exe", name: "perfWindows", allowEmpty: true, preZip: false, storeOnNAS: options.storeOnNAS)
+
+            downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
         }
-    }
 
-    // Hybrid vs NS auto is disabled
-    //hybrid_vs_northstar.createHybridBranch(options)
+        dir("Build") {
+            dir("BaikalNext/bin") {
+                bat """
+                    xcopy /s/y/i ..\\..\\bin\\Release\\dxcompiler.dll .
+                """
+            }
+
+            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " BaikalNext_${STAGE_NAME}.zip BaikalNext\\bin\\dxcompiler.dll")
+        }
+
+        if (env.BRANCH_NAME == "material_x") {
+            withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
+
+                hybrid_vs_northstar.updateBinaries(
+                    newBinaryFile: "Build\\_CPack_Packages\\win64\\ZIP\\BaikalNext\\bin\\HybridPro.dll", 
+                    targetFileName: "HybridPro.dll", osName: "Windows", compareChecksum: true
+                )
+            }
+        }
+
+        // Hybrid vs NS auto is disabled
+        //hybrid_vs_northstar.createHybridBranch(options)
+    }
 }
 
 
@@ -784,14 +846,14 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 def call(String projectBranch = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String testsQuality = "none",
          String scenarios = "all",
          Boolean updateRefs = false,
          Boolean updateRefsPerf = false,
          Boolean enableNotifications = true,
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON",
-         String apiValues = "vulkan,d3d12") {
+         String apiValues = "vulkan") {
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {

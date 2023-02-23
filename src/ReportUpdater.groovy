@@ -8,6 +8,7 @@ public class ReportUpdater {
     def context
     def env
     def options
+    def reportType
 
     // locks for each report (to prevent updating of report by two parallel branches of build)
     Map locks = [:]
@@ -19,10 +20,11 @@ public class ReportUpdater {
      * @param env env variable of the current pipeline
      * @param options map with options
      */
-    ReportUpdater(context, env, options) {
+    ReportUpdater(context, env, options, reportType=ReportType.DEFAULT) {
         this.context = context
         this.env = env
         this.options = options
+        this.reportType = reportType
     }
 
     /**
@@ -32,14 +34,33 @@ public class ReportUpdater {
      */
     def init(def buildArgsFunc) {
         String remotePath = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/".replace(" ", "_")
+        String matLibUrl
 
-        context.withCredentials([context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"), context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
-            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${options.testRepo} ${options.testsBranch} ")
+        context.withCredentials([
+            context.string(credentialsId: "nasURL", variable: "REMOTE_HOST"),
+            context.string(credentialsId: "nasSSHPort", variable: "SSH_PORT"),
+            context.string(credentialsId: "matLibUrl", variable: "MATLIB_URL")
+        ]) {
+            String testRepo = options.testRepo.contains("git@github.com:") ? options.testRepo.replace("git@github.com:", "https://github.com/") : options.testRepo
+            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${testRepo} ${options.testsBranch} ")
+            matLibUrl = context.MATLIB_URL
         }
 
         String locations = ""
         String reportFiles = "summary_report.html"
         String reportFilesNames = "Overview Report"
+        String rebuiltScript
+
+        switch(reportType) {
+            case ReportType.DEFAULT:
+                rebuiltScript = context.libraryResource(resource: "update_report_template_default.sh")
+                break
+            case ReportType.COMPARISON:
+                rebuiltScript = context.libraryResource(resource: "update_report_template_comparison.sh")
+                break
+            default:
+                throw Exception("Unknown report type: ${reportType}")
+        }
 
         if (options.testProfiles) {
             options.testProfiles.each { profile ->
@@ -65,16 +86,17 @@ public class ReportUpdater {
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
                 }
 
-                String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_report_template.sh")
+                String rebuildScriptCopy = rebuiltScript
 
-                rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
+                rebuildScriptCopy = rebuildScriptCopy.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                     .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(profileName, options)) \
-                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL)
+                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                    .replace("<matlib_url>", matLibUrl)
 
                 // replace DOS EOF by Unix EOF
-                rebuiltScript = rebuiltScript.replaceAll("\r\n", "\n")
+                rebuildScriptCopy = rebuildScriptCopy.replaceAll("\r\n", "\n")
 
-                context.writeFile(file: "update_report_${profile}.sh", text: rebuiltScript)
+                context.writeFile(file: "update_report_${profile}.sh", text: rebuildScriptCopy)
 
                 context.uploadFiles("update_report_${profile}.sh", "${remotePath}/jobs_test_repo/jobs_launcher")
 
@@ -100,7 +122,7 @@ public class ReportUpdater {
                     reportName, reportFilesNames, options.storeOnNAS, \
                     ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
 
-                String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_overview_report_template.sh")
+                rebuiltScript = context.libraryResource(resource: "update_overview_report_template.sh")
                 // take only first 4 arguments: tool name, commit sha, project branch name and commit message
                 String buildScriptArgs = (buildArgsFunc("", options ).split() as List).subList(0, 4).join(" ")
 
@@ -126,11 +148,10 @@ public class ReportUpdater {
                 reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
                 ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
 
-            String rebuiltScript = context.readFile("..\\..\\cis_tools\\update_report_template.sh")
-
             rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
                 .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(options)) \
-                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL)
+                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                .replace("<matlib_url>", matLibUrl)
 
             // replace DOS EOF by Unix EOF
             rebuiltScript = rebuiltScript.replaceAll("\r\n", "\n")

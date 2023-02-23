@@ -168,7 +168,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 
 def call(String projectRepo='git@github.com:BenjaminCoquelle/MIOpen.git',
          String projectBranch = "master",
-         String platforms = 'Windows;Ubuntu20;CentOS7',
+         String platforms = 'Windows;Ubuntu20',
          Boolean updateBinaries = false
         )
 {

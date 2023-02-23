@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
     supportedOS: ["Windows"],
     productExtensions: ["Windows": "exe"],
-    artifactNameBase: "RPRMayaUSDHdRPR_Setup",
+    artifactNameBase: "RPRMayaUSD",
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
@@ -24,7 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String engine) {
-    return (engine == "HybridPro" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    if (engine == "Northstar" && asicName == "AMD_680M") {
+        return true
+    }
+
+    return false
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
@@ -69,15 +73,16 @@ def installRPRMayaUSDPlugin(String osName, Map options) {
         println "[INFO] Install RPR Maya USD Plugin"
 
         bat """
-            start /wait ${CIS_TOOLS}\\..\\PluginsBinaries\\${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
+            start /wait ${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
         """
-        
-        String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+
+        // FIXME: actualize Maya.env file check
+        /*String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
         if(!envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
             !envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
             !envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                 throw new Exception("Failed due to incorrect Maya.env")
-            }
+            }*/
     } catch (e) {
         throw new Exception("Failed to install plugin")
     }
@@ -88,18 +93,25 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
     switch(osName) {
         case "Windows":
             String defaultUninstallerPath = "C:\\Program Files\\RPRMayaUSD\\unins000.exe"
+            String updatedUninstallerPath = "C:\\Program Files\\RPRMayaUSD_2023\\unins000.exe"
 
             try {
                 if (fileExists(defaultUninstallerPath)) {
                     bat """
                         start "" /wait "${defaultUninstallerPath}" /SILENT
                     """
-                    String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
+
+                    // FIXME: actualize Maya.env file check
+                    /*String envContents = readFile('C:\\Users\\user\\Documents\\maya\\2023\\maya.env')
                     if(envContents.contains("PXR_PLUGINPATH_NAME=%PXR_PLUGINPATH_NAME%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\plugin") ||
                         envContents.contains("PATH=%PATH%;C:\\Program Files\\RPRMayaUSDHdRPR\\hdRPR\\lib") ||
                         envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                             throw new Exception("Failed due to incorrect Maya.env")
-                        }
+                        }*/
+                } else if (fileExists(updatedUninstallerPath)) {
+                    bat """
+                        start "" /wait "${updatedUninstallerPath}" /SILENT
+                    """
                 } else {
                     println "[INFO] USD Maya plugin not found"
                 }
@@ -184,6 +196,16 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
+        // FIXME: 003 test case from Blender test group crashes only on Philadelphia
+        if (env.NODE_NAME == "PC-SR-PHILADELPHIA-RadeonVII-WIN10") {
+            if (options.tests.contains("Blender") || options.tests.contains("Render_Modes")) {
+                throw new ExpectedExceptionWrapper(
+                    "System doesn't support the current test group", 
+                    new Exception("System doesn't support the current test group")
+                )
+            }
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {                
                 cleanWS(osName)
@@ -192,14 +214,20 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-            String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_maya_autotests" : "/mnt/c/TestResources/usd_maya_autotests"
-            downloadFiles("/volume1/web/Assets/usd_maya_autotests/", assets_dir)
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_maya_autotests" : "/mnt/c/TestResources/usd_maya_autotests"
+            downloadFiles("/volume1/web/Assets/usd_maya_autotests/", assetsDir)
+
+            if (options.tests.contains("Online_Material_Library")) {
+                String materialsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_assets" : "/mnt/c/TestResources/hybrid_mtlx_autotests_assets"
+                downloadFiles("/volume1/web/Assets/materials/", materialsDir)
+            }
         }
+
         try {
             Boolean newPluginInstalled = false
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
                 timeout(time: "15", unit: "MINUTES") {
-                    getProduct(osName, options)
+                    getProduct(osName, options, "", false)
                 }
             }
 
@@ -411,26 +439,30 @@ def executeBuildWindows(Map options) {
             String artifactURL
 
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                    build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                """
+                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                    """
+                } else {
+                    bat """
+                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                    """
+                }
             }
             dir('installation') {
-                bat """
-                    rename RPRMayaUSDHdRPR_Setup* RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe
-                """
-
-                makeStash(includes: "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
                 if (options.branch_postfix) {
                     bat """
-                        rename RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe
+                        rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                     """
                 }
 
-                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}_(${options.branch_postfix}).exe" : "RPRMayaUSDHdRPR_Setup_${options.pluginVersion}.exe"
+                String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
                 artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
@@ -446,11 +478,19 @@ def executeBuildWindows(Map options) {
 
                     writeFile(file: "USD/build_scripts/build_usd.py", text: buildScriptContent)
 
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
+                        bat """
+                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                        build.bat > ..\\${STAGE_NAME}.log 2>&1
-                    """
+                            build.bat > ..\\${STAGE_NAME}.log 2>&1
+                        """
+                    } else {
+                        bat """
+                            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+
+                            build.bat > ..\\${STAGE_NAME}.log 2>&1
+                        """
+                    }
                 }
                 dir('installation') {
                     bat """
@@ -481,6 +521,8 @@ def executeBuild(String osName, Map options) {
     try {
         dir("RPRMayaUSD") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+                cleanWS()
+
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
             }
         }
@@ -533,15 +575,15 @@ def executePreBuild(Map options) {
             println "[INFO] Branch was detected as Pull Request"
             options['executeBuild'] = true
             options['executeTests'] = true
-            options['testsPackage'] = "Full.json"
+            options['testsPackage'] = "Auto.json"
         } else if (env.BRANCH_NAME == "main" || env.BRANCH_NAME == "develop") {
            println "[INFO] ${env.BRANCH_NAME} branch was detected"
            options['executeBuild'] = true
            options['executeTests'] = true
-           options['testsPackage'] = "Full.json"
+           options['testsPackage'] = "Auto.json"
         } else {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
-            options['testsPackage'] = "Full.json"
+            options['testsPackage'] = "Auto.json"
         }
     }
 
@@ -843,7 +885,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
-                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
+                String matLibUrl
+
+                withCredentials([string(credentialsId: "matLibUrl", variable: "MATLIB_URL")]) {
+                    matLibUrl = MATLIB_URL
+                }
+
+                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "MATLIB_URL=${matLibUrl}"]) {
                     dir("jobs_launcher") {
                         List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                         retryInfoList.each{ gpu ->
@@ -997,7 +1045,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M',
         String updateRefs = 'No',
         Boolean enableNotifications = true,
         Boolean incrementVersion = true,
@@ -1017,7 +1065,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 3,
+        Integer testCaseRetries = 5,
         Boolean buildOldInstaller = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
