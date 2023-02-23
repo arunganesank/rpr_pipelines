@@ -480,11 +480,8 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
         if (stashResults) {
             dir("Work") {
-                def sessionReport
-
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
-
-                    sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
+                    def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
 
                     if (executionType == "client" || executionType == "android") {
                         String stashPostfix = executionType == "client" ? "_client" : ""
@@ -510,17 +507,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
-                }
 
-                // number of errors > 50% -> do retry
-                if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
-                    String errorMessage
-                    if (options.currentTry < options.nodeReallocateTries) {
-                        errorMessage = "Many tests were marked as error. The test group will be restarted."
-                    } else {
-                        errorMessage = "Many tests were marked as error."
+                    // number of errors > 50% -> do retry
+                    if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
+                        String errorMessage
+                        if (options.currentTry < options.nodeReallocateTries) {
+                            errorMessage = "Many tests were marked as error. The test group will be restarted."
+                        } else {
+                            errorMessage = "Many tests were marked as error."
+                        }
+                        throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                     }
-                    throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                 }
             }
         }
