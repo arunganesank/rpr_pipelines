@@ -29,7 +29,6 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 
 
 def executeTestCommand(String osName, String asicName, Map options) {
-    def testTimeout = options.timeouts["${options.tests}"]
     String testsNames
     String testsPackageName
 
@@ -48,9 +47,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
         testsNames = options.tests
     }
 
-    println "Set timeout to ${testTimeout}"
-
-    timeout(time: testTimeout, unit: "MINUTES") {
+    timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
         switch (osName) {
             case "Windows":
                 dir("scripts") {
@@ -233,8 +230,6 @@ def executePreBuild(Map options) {
         }
     }
 
-    options.timeouts = [:]
-
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
         dir('jobs_test_hybrid_mtlx') {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
@@ -296,10 +291,7 @@ def executePreBuild(Map options) {
                 }
 
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
-                options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
-                }
+
                 options.engines.each { engine ->
                     options.tests.each() {
                         tests << "${it}-${engine}"
@@ -317,7 +309,6 @@ def executePreBuild(Map options) {
                         options.engines.each { engine ->
                             tests << "${modifiedPackageName}-${engine}"
                         } 
-                        options.timeouts[options.testsPackage] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
                     } else {
                         // add group stub for each part of package
                         options.engines.each { engine ->
@@ -325,18 +316,11 @@ def executePreBuild(Map options) {
                                 tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
                             }
                         }
-
-                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
-                            options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
-                        }
                     }
                 }
             } else if (options.tests) {
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
-                options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
-                }
+
                 options.engines.each { engine ->
                     options.tests.each() {
                         tests << "${it}-${engine}"
@@ -349,8 +333,6 @@ def executePreBuild(Map options) {
         }
         
         options.testsList = options.tests
-
-        println "timeouts: ${options.timeouts}"
     }
 
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
@@ -545,9 +527,7 @@ def call(String testsBranch = "master",
                         executeTests: true,
                         splitTestsExecution: true,
                         TEST_TIMEOUT: 90,
-                        ADDITIONAL_XML_TIMEOUT: 15,
                         DEPLOY_TIMEOUT: 20,
-                        NON_SPLITTED_PACKAGE_TIMEOUT: 20,
                         testsPackage: testsPackage,
                         tests: tests,
                         nodeRetry: [],
