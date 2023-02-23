@@ -253,13 +253,13 @@ def executeTests(String osName, String asicName, Map options) {
                                 options.reportUpdater.updateReport(options.engine)
                             }
 
-                            // number of errors > 80% -> do retry
-                            if (sessionReport.summary.total * 0.8 < sessionReport.summary.error) {
+                            // number of errors > 0 -> do retry
+                            if (sessionReport.summary.error > 0) {
                                 String errorMessage
                                 if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "Many tests were marked as error. The test group will be restarted."
+                                    errorMessage = "Found tests marked as error. The test group will be restarted."
                                 } else {
-                                    errorMessage = "Many tests were marked as error."
+                                    errorMessage = "Found tests marked as error."
                                 }
                                 throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                             }
