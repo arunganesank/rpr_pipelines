@@ -30,7 +30,23 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 
 def executeTestCommand(String osName, String asicName, Map options) {
     def testTimeout = options.timeouts["${options.tests}"]
-    String testsNames = options.tests
+    String testsNames
+    String testsPackageName
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        if (options.tests.contains(".json")) {
+            // if tests package isn't splitted and it's execution of this package - replace test package by test group and test group by empty string
+            testsPackageName = options.tests
+            testsNames = ""
+        } else {
+            // if tests package isn't splitted and it isn't execution of this package - replace tests package by empty string
+            testsPackageName = "none"
+            testsNames = options.tests
+        }
+    } else {
+        testsPackageName = "none"
+        testsNames = options.tests
+    }
 
     println "Set timeout to ${testTimeout}"
 
@@ -39,7 +55,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
             case "Windows":
                 dir("scripts") {
                     bat """
-                        run.bat \"none\" \"${testsNames}\" 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
                 break
@@ -220,30 +236,120 @@ def executePreBuild(Map options) {
     options.timeouts = [:]
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
-        dir('jobs_test_usdviewer') {
+        dir('jobs_test_hybrid_mtlx') {
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
-            options['testsBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-            dir('jobs_launcher') {
-                options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
+
+            options['testsBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            dir ('jobs_launcher') {
+                options['jobsLauncherBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
             }
             println "[INFO] Test branch hash: ${options['testsBranch']}"
 
             def packageInfo
 
-            if (env.BRANCH_NAME || env.JOB_NAME.contains("Weekly")) {
-                options.tests = readJSON(file: "jobs/Full.json")["groups"].keySet() as List
+            if (options.testsPackage != "none") {
+                packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                options.isPackageSplitted = packageInfo["split"]
+                // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
+                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                    options.testsPackage = "none"
+                }
+            }
+
+            if (options.testsPackage != "none") {
+                def tempTests = []
+
+                if (options.isPackageSplitted) {
+                    println("[INFO] Tests package '${options.testsPackage}' can be splitted")
+                } else {
+                    // save tests which user wants to run with non-splitted tests package
+                    if (options.tests) {
+                        tempTests = options.tests.split(" ") as List
+                    }
+                    println("[INFO] Tests package '${options.testsPackage}' can't be splitted")
+                }
+
+                // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
+                String modifiedPackageName = "${options.testsPackage}~"
+
+                // receive list of group names from package
+                List groupsFromPackage = []
+
+                if (packageInfo["groups"] instanceof Map) {
+                    groupsFromPackage = packageInfo["groups"].keySet() as List
+                } else {
+                    // iterate through all parts of package
+                    packageInfo["groups"].each() {
+                        groupsFromPackage.addAll(it.keySet() as List)
+                    }
+                }
+
+                groupsFromPackage.each() {
+                    if (options.isPackageSplitted) {
+                        tempTests << it
+                    } else {
+                        if (tempTests.contains(it)) {
+                            // add duplicated group name in name of package group name for exclude it
+                            modifiedPackageName = "${modifiedPackageName},${it}"
+                        }
+                    }
+                }
+
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
+                options.tests.each() {
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
+                }
+                options.engines.each { engine ->
+                    options.tests.each() {
+                        tests << "${it}-${engine}"
+                    }
+                }
+
+                modifiedPackageName = modifiedPackageName.replace('~,', '~')
+
+                if (options.isPackageSplitted) {
+                    options.testsPackage = "none"
+                } else {
+                    options.testsPackage = modifiedPackageName
+                    // check that package is splitted to parts or not
+                    if (packageInfo["groups"] instanceof Map) {
+                        options.engines.each { engine ->
+                            tests << "${modifiedPackageName}-${engine}"
+                        } 
+                        options.timeouts[options.testsPackage] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                    } else {
+                        // add group stub for each part of package
+                        options.engines.each { engine ->
+                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                                tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
+                            }
+                        }
+
+                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                        }
+                    }
+                }
+            } else if (options.tests) {
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
+                options.tests.each() {
+                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
+                }
+                options.engines.each { engine ->
+                    options.tests.each() {
+                        tests << "${it}-${engine}"
+                    }
+                }
             } else {
-                options.tests = options.tests.split(" ") as List
+                options.executeTests = false
             }
-
-            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests, 200)
-            options.tests.each {
-                def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
-            }
+            options.tests = tests
         }
-
+        
         options.testsList = options.tests
+
         println "timeouts: ${options.timeouts}"
     }
 
@@ -415,6 +521,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 def call(String testsBranch = "master",
          String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX7900XT',
          String updateRefs = 'No',
+         String testsPackage = "regression.json",
          String tests = "",
          String parallelExecutionTypeString = "TakeAllNodes",
          String hybridLinkWin = "") {
@@ -424,11 +531,9 @@ def call(String testsBranch = "master",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            println """
-                Platforms: ${platforms}
-                Tests: ${tests}
-                Tests execution type: ${parallelExecutionTypeString}
-            """
+            println "Platforms: ${platforms}"
+            println "Tests: ${tests}"
+            println "Tests package: ${testsPackage}"
 
             options << [testRepo:"git@github.com:luxteam/jobs_test_hybrid_mtlx.git",
                         testsBranch: testsBranch,
@@ -442,6 +547,7 @@ def call(String testsBranch = "master",
                         TEST_TIMEOUT: 90,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         DEPLOY_TIMEOUT: 20,
+                        testsPackage: testsPackage,
                         tests: tests,
                         nodeRetry: [],
                         problemMessageManager: problemMessageManager,
