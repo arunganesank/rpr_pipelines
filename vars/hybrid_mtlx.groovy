@@ -332,6 +332,8 @@ def executePreBuild(Map options) {
         options.reportUpdater = new ReportUpdater(this, env, options)
         options.reportUpdater.init(this.&getReportBuildArgs)
     }
+
+    println("Tests: ${options.testsList}")
 }
 
 
