@@ -448,6 +448,8 @@ def executePreBuild(Map options) {
             options.executeBuild = true
             options.executeTests = true
         }
+
+        options['testsPackage'] = "regression.json"
     }
 
     dir('RadeonProRenderUSD') {
@@ -501,60 +503,112 @@ def executePreBuild(Map options) {
             options["testsBranch"] = utils.getBatOutput(this, "git log --format=%%H -1 ")
             println "[INFO] Test branch hash: ${options['testsBranch']}"
 
+            def packageInfo
+
             if (options.testsPackage != "none") {
+                packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                options.isPackageSplitted = packageInfo["split"]
+                // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
+                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                    options.testsPackage = "none"
+                }
+            }
 
-                def groupNames = readJSON(file: "jobs/${options.testsPackage}")["groups"].collect { it.key }
-                // json means custom test suite. Split doesn't supported
-                options.testsPackage = "none"
+            if (options.testsPackage != "none") {
+                def tempTests = []
 
-                groupNames = utils.uniteSuites(this, "jobs/weights.json", groupNames)
-                groupNames.each() {
-                    def xmlTimeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                    options.timeouts["${it}"] = (xmlTimeout > 0) ? xmlTimeout : options.TEST_TIMEOUT
+                if (options.isPackageSplitted) {
+                    println("[INFO] Tests package '${options.testsPackage}' can be splitted")
+                } else {
+                    // save tests which user wants to run with non-splitted tests package
+                    if (options.tests) {
+                        tempTests = options.tests.split(" ") as List
+                    }
+                    println("[INFO] Tests package '${options.testsPackage}' can't be splitted")
                 }
 
-                if (options.containsKey("engines")) {
-                    options.engines.each { engine ->
-                        groupNames.each { testGroup ->
-                            tests << "${testGroup}-${engine}"
+                // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
+                String modifiedPackageName = "${options.testsPackage}~"
+
+                // receive list of group names from package
+                List groupsFromPackage = []
+
+                if (packageInfo["groups"] instanceof Map) {
+                    groupsFromPackage = packageInfo["groups"].keySet() as List
+                } else {
+                    // iterate through all parts of package
+                    packageInfo["groups"].each() {
+                        groupsFromPackage.addAll(it.keySet() as List)
+                    }
+                }
+
+                groupsFromPackage.each() {
+                    if (options.isPackageSplitted) {
+                        tempTests << it
+                    } else {
+                        if (tempTests.contains(it)) {
+                            // add duplicated group name in name of package group name for exclude it
+                            modifiedPackageName = "${modifiedPackageName},${it}"
                         }
                     }
-                } else {
-                    groupNames.each { testGroup ->
-                        tests << "${testGroup}"
+                }
+
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
+                options.tests.each() {
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
+                }
+                options.engines.each { engine ->
+                    options.tests.each() {
+                        tests << "${it}-${engine}"
                     }
                 }
 
+                modifiedPackageName = modifiedPackageName.replace('~,', '~')
+
+                if (options.isPackageSplitted) {
+                    options.testsPackage = "none"
+                } else {
+                    options.testsPackage = modifiedPackageName
+                    // check that package is splitted to parts or not
+                    if (packageInfo["groups"] instanceof Map) {
+                        options.engines.each { engine ->
+                            tests << "${modifiedPackageName}-${engine}"
+                        } 
+                        options.timeouts[options.testsPackage] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                    } else {
+                        // add group stub for each part of package
+                        options.engines.each { engine ->
+                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                                tests << "${modifiedPackageName}-${engine}".replace(".json", ".${i}.json")
+                            }
+                        }
+
+                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
+                        }
+                    }
+                }
             } else if (options.tests) {
-                def groupNames = options.tests.split() as List
-
-                groupNames = utils.uniteSuites(this, "jobs/weights.json", groupNames)
-                groupNames.each() {
-                    def xmlTimeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                    options.timeouts["${it}"] = (xmlTimeout > 0) ? xmlTimeout : options.TEST_TIMEOUT
+                options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
+                options.tests.each() {
+                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
-
-                if (options.containsKey("engines")) {
-                    options.engines.each { engine ->
-                        groupNames.each { testGroup ->
-                            tests << "${testGroup}-${engine}"
-                        }
-                }
-                } else {
-                    groupNames.each { testGroup ->
-                        tests << "${testGroup}"
+                options.engines.each { engine ->
+                    options.tests.each() {
+                        tests << "${it}-${engine}"
                     }
                 }
-
             } else {
                 options.executeTests = false
             }
+            options.tests = tests
         }
+        
+        options.testsList = options.tests
 
-        println("[INFO] Tests: ${tests}")
-        println("[INFO] Timeouts: ${options.timeouts}")
-
-        options.testsList = tests
+        println "timeouts: ${options.timeouts}"
     }
 
     // make lists of raw profiles and lists of beautified profiles (displaying profiles)
@@ -770,7 +824,7 @@ def call(String projectRepo = PROJECT_REPO,
         Boolean rebuildUSD = true,
         Boolean saveUSD = false,
         String updateRefs = 'No',
-        String testsPackage = "Full.json",
+        String testsPackage = "",
         String tests = "",
         String enginesNames = "Northstar,HybridPro",
         Boolean splitTestsExecution = true,
