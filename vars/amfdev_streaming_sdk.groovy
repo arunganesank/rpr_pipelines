@@ -196,27 +196,27 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Windows":
             utils.clearCurrentDir(this, osName)
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
-                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
-                unzip(zipFile: "FullSamples.zip")
+                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
+                unzip(zipFile: "StreamingSDK_Windows.zip")
             } else {
-                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "${options.winTestingBuildName}.zip")
+                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
+                unzip(zipFile: "StreamingSDK_Windows.zip")
 
                 if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
-                    makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                    downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
             }
 
             break
         case "Android":
-            makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
+            downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Android.zip", ".")
+            unzip(zipFile: "StreamingSDK_Android.zip")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
             utils.clearCurrentDir(this, osName)
-            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
+            downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Ubuntu20.zip", ".")
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             sh("chmod u+x RemoteGameServer")
             break
@@ -1086,6 +1086,10 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     options.winBuildConfiguration.each() { winBuildConf ->
 
         println "Current build configuration: ${winBuildConf}."
@@ -1095,7 +1099,7 @@ def executeBuildWindows(Map options) {
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
-        String buildSln = "StreamingSDK_vs2019.sln"
+        String buildSln = "StreamingSDK_All_vs2019.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
@@ -1131,7 +1135,7 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        if (options.winTestingBuildName == winBuildName && options.engines.contains("LatencyTool")) {
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
@@ -1139,10 +1143,10 @@ def executeBuildWindows(Map options) {
 
                 GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
 
-                dir("amf\\protected\\samples") {
+                dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
@@ -1160,27 +1164,50 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        dir("StreamingSDK\\amf\\protected\\samples") {
+        dir("StreamingSDK\\drivers\\amf\\stable\\build\\solution") {
             GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
-            bat """
-                set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
-                set STREAMING_SDK=${WORKSPACE}\\StreamingSDK
-                set msbuild="${msBuildPath}"
-                %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\${logName} 2>&1
-            """
+            try {
+                bat """
+                    set msbuild="${msBuildPath}"
+                    %msbuild% ${buildSln} /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                """
+            } catch (e) {
+                String buildLog = readFile("..\\..\\..\\..\\..\\..\\${logName}")
+                // if true - there is some errors
+                if (!buildLog.contains("0 Error(s)")) {
+                    // if number of errors is bigger than 1 or the error isn't connected with amfrt64.lib - it's unexpected error
+                    if (!buildLog.contains("1 Error(s)") || !buildLog.contains("'amfrt64.lib'")) {
+                        throw e
+                    }
+                }
+            }
         }
 
-        dir("StreamingSDK\\amf\\bin\\${winArtifactsDir}") {
+        String archiveUrl = ""
+
+        dir("StreamingSDK\\drivers\\amf\\stable\\bin\\${winArtifactsDir}") {
+            if (!fileExists("RemoteGameClient.exe")) {
+                String errorMessage = "RemoteGameClient.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            } else if (!fileExists("RemoteGameServer.exe")) {
+                String errorMessage = "RemoteGameServer.exe not found after build"
+                options.problemMessageManager.saveSpecificFailReason(errorMessage, options["stageName"], osName)
+                throw new ExpectedExceptionWrapper(errorMessage)
+            }
+
             String BUILD_NAME = "StreamingSDK_Windows_${winBuildName}.zip"
 
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \".\"")
-            makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+            zip archive: true, zipFile: BUILD_NAME
 
             if (options.winTestingBuildName == winBuildName) {
                 utils.moveFiles(this, "Windows", BUILD_NAME, "${options.winTestingBuildName}.zip")
                 makeStash(includes: "${options.winTestingBuildName}.zip", name: "ToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
             }
+
+            archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+            rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
         }
 
     }
@@ -1190,6 +1217,10 @@ def executeBuildWindows(Map options) {
 
 
 def executeBuildAndroid(Map options) {
+    dir("StreamingSDK\\drivers\\amf") {
+        bat "git submodule update --recursive --init ."
+    }
+
     withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
@@ -1200,23 +1231,27 @@ def executeBuildAndroid(Map options) {
 
             String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
-            dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameClientAndroid") {
+            dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameClientAndroid") {
                 GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
                 bat """
-                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\${logName} 2>&1
+                    gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
+
+                String archiveUrl = ""
 
                 dir("app/build/outputs/apk/arm/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \"app-arm-${androidBuildConf}.apk\"")
-                    makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
 
                     if (options.androidTestingBuildName == androidBuildConf) {
                         utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
                         makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
+
+                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
             }
 
@@ -1228,29 +1263,35 @@ def executeBuildAndroid(Map options) {
 
 
 def executeBuildUbuntu(Map options) {
+    dir("StreamingSDK/drivers/amf") {
+        sh "git submodule update --recursive --init ."
+    }
+
     String logName = "${STAGE_NAME}.log"
 
-    dir("StreamingSDK/amf/public/src/components/ComponentsFFMPEG") {
+    dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
         GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
 
         sh """
-            make >> ../../../../../../${logName} 2>&1
+            make >> ../../../../../../../${logName} 2>&1
         """
     }
 
-    dir("StreamingSDK/amf/protected/samples/CPPSamples/RemoteGameServer") {
+    dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameServer") {
         // TODO: temporary ducktape. Waiting for fix from side of developers
-        if (!fileExists("../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
+        if (!fileExists("../../../../../../Thirdparty/VulkanSDK/1.2.189.2")) {
             sh """
-                mkdir -p ../../../../../Thirdparty/VulkanSDK/1.2.189.2
-                cp -r \$VK_SDK_PATH ../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
+                mkdir -p ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2
+                cp -r \$VK_SDK_PATH ../../../../../../../Thirdparty/VulkanSDK/1.2.189.2/x86_64
             """
         }
 
         sh """
-            chmod u+x ../../../../../Thirdparty/file_to_header/Linux64/file_to_header
-            make >> ../../../../../../${logName} 2>&1
+            chmod u+x ../../../../../../../Thirdparty/file_to_header/Linux64/file_to_header
+            make >> ../../../../../../../../${logName} 2>&1
         """
+
+        String archiveUrl = ""
     }
 
     dir("StreamingSDK/amf/bin/dbg_64") {
@@ -1258,10 +1299,12 @@ def executeBuildUbuntu(Map options) {
         
         sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
-        sh(script: "zip --symlinks -r ${BUILD_NAME}")
-        makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+        zip archive: true, zipFile: BUILD_NAME
 
         makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
+
+        archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+        rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
     }
 
     GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
@@ -1322,6 +1365,10 @@ def executePreBuild(Map options) {
             println "[INFO] ${env.BRANCH_NAME} branch was detected"
         }
     }
+
+    options["finishedBuildStages"]["Windows"] = true
+    options["finishedBuildStages"]["Android"] = true
+    options["finishedBuildStages"]["Ubuntu20"] = true
 
 
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
@@ -1879,7 +1926,8 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = true
+            // temporary take built Streaming SDK from NAS
+            Boolean executeBuild = false
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
