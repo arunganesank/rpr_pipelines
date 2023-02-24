@@ -383,6 +383,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         try {
+            utils.removeInventorEnv(this)
+
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
                 utils.moveFiles(this, osName, "../scripts/*.log", ".")

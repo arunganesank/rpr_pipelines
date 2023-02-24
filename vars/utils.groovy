@@ -788,7 +788,7 @@ class utils {
     def isProcessExists(Object self, String procName, String osName, Map options) {
         switch(osName) {
             case 'Windows':
-                try{
+                try {
                     self.powershell """
                         Get-Process "${procName}" -ErrorAction Stop
                     """
@@ -801,5 +801,17 @@ class utils {
         }
 
         return true
+    }
+
+    def removeInventorEnv(Object self) {
+        try {
+            self.bat """
+                REG delete \"HKCU\\Environment\" /F /V HDRPR_CACHE_PATH_OVERRIDE
+            """
+        } catch (e) {
+            self.println("\n[WARNING] Unable to remove Inventor plugin environment variable\n")
+            self.println(e.toString())
+            self.println(e.getMessage())
+        }
     }
 }
