@@ -391,6 +391,8 @@ def executeTests(String osName, String asicName, Map options) {
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     } finally {
+        utils.removeInventorEnv(this)
+
         try {
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
