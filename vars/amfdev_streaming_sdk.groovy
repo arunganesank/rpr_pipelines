@@ -1201,13 +1201,15 @@ def executeBuildWindows(Map options) {
 
             String BUILD_NAME = "StreamingSDK_Windows_${winBuildName}.zip"
 
-            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \".\"")
-            makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+            zip archive: true, zipFile: BUILD_NAME
 
             if (options.winTestingBuildName == winBuildName) {
                 utils.moveFiles(this, "Windows", BUILD_NAME, "${options.winTestingBuildName}.zip")
                 makeStash(includes: "${options.winTestingBuildName}.zip", name: "ToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
             }
+
+            archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+            rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
         }
 
     }
@@ -1238,16 +1240,20 @@ def executeBuildAndroid(Map options) {
                     gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
                 """
 
+                String archiveUrl = ""
+
                 dir("app/build/outputs/apk/arm/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${BUILD_NAME}\" \"app-arm-${androidBuildConf}.apk\"")
-                    makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
 
                     if (options.androidTestingBuildName == androidBuildConf) {
                         utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
                         makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
+
+                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
             }
 
@@ -1286,6 +1292,8 @@ def executeBuildUbuntu(Map options) {
             chmod u+x ../../../../../../../Thirdparty/file_to_header/Linux64/file_to_header
             make >> ../../../../../../../../${logName} 2>&1
         """
+
+        String archiveUrl = ""
     }
 
     dir("StreamingSDK/amf/bin/dbg_64") {
@@ -1293,10 +1301,12 @@ def executeBuildUbuntu(Map options) {
         
         sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
-        sh(script: "zip --symlinks -r ${BUILD_NAME}")
-        makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS)
+        zip archive: true, zipFile: BUILD_NAME
 
         makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
+
+        archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+        rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
     }
 
     GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
