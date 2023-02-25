@@ -586,9 +586,16 @@ def executePreBuild(Map options) {
                     def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
-                options.engines.each { engine ->
+
+                if (options.containsKey("engines")) {
+                    options.engines.each { engine ->
+                        options.tests.each() {
+                            tests << "${it}-${engine}"
+                        }
+                    }
+                } else {
                     options.tests.each() {
-                        tests << "${it}-${engine}"
+                        tests << "${it}"
                     }
                 }
 
