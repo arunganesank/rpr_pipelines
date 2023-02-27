@@ -183,8 +183,19 @@ def call(String projectBranch = "",
 
     currentBuild.description = ""
 
-    multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, null, null,
-                           [platforms:platforms,
+    def processedPlatforms = []
+
+    platforms.split(';').each() { platform ->
+        List tokens = platform.tokenize(':')
+        String platformName = tokens.get(0)
+        processedPlatforms.add(platformName)
+    }
+
+    processedPlatforms = processedPlatforms.join(";")
+
+    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, null,
+                           [platforms:processedPlatforms,
+                            originalPlatforms:platforms,
                             projectBranch:projectBranch,
                             updateRefs:updateRefs,
                             PRJ_NAME:"HybridPro",
