@@ -32,6 +32,10 @@ def executeBuildWindows(Map options) {
             rename BaikalNext.zip BaikalNext_${STAGE_NAME}.zip
         """
 
+        dir("Build/bin/${buildType}") {
+            downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
+        }
+
         dir("Build") {
             dir("BaikalNext/bin") {
                 bat """
