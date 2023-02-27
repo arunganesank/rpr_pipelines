@@ -822,7 +822,7 @@ class utils {
             """
         } else {
             self.bat """
-                ${self.CIS_TOOLS}\\7-Zip\\7z.exe x "{zipName}" -aoa"
+                ${self.CIS_TOOLS}\\7-Zip\\7z.exe x "${zipName}" -aoa"
             """
         }
     }
