@@ -161,8 +161,10 @@ def executeTests(String osName, String asicName, Map options)
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
-                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
-                utils.unzip(this, "hipbin_3.01.00.zip")
+                dir("rprSdk") {
+                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+                    utils.unzip(this, "hipbin_3.01.00.zip")
+                }
             }
         }
 
