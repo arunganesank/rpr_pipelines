@@ -814,4 +814,16 @@ class utils {
             self.println(e.getMessage())
         }
     }
+
+    def unzip(Object self, String zipName) {
+        if (self.isUnix()) {
+            self.sh """
+                unzip -o -u "${zipName}"
+            """
+        } else {
+            self.bat """
+                ${self.CIS_TOOLS}\\7-Zip\\7z.exe x "${zipName}" -aoa"
+            """
+        }
+    }
 }
