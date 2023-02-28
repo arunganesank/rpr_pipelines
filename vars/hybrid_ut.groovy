@@ -79,7 +79,7 @@ def executeTestsWithApi(String osName, String asicName, Map options, String apiV
 
     try {
         String binaryName = hybrid.getArtifactName(osName)
-        String binaryPath = "/volume1/${options.originalBuildLink.split('/job/', 1)[1].replace('/job/', '/')}/Artifacts/${binaryName}"
+        String binaryPath = "/volume1/${options.originalBuildLink.split('/job/', 2)[1].replace('/job/', '/')}/Artifacts/${binaryName}"
         downloadFiles(binaryPath, ".")
 
         switch(osName) {
