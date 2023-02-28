@@ -1,7 +1,21 @@
+import groovy.transform.Field
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import java.util.concurrent.ConcurrentHashMap
+
+
+@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RPRHybrid.git"
+
+
+def getArtifactName(String osName) {
+    switch (osName) {
+        case "Windows": 
+            return "BaikalNext_${STAGE_NAME}.zip"
+        default: 
+            return "BaikalNext_${STAGE_NAME}.tar.xz"
+    }
+}
 
 
 def downloadAgilitySDK() {
@@ -101,15 +115,7 @@ def executeBuild(String osName, Map options) {
     } finally {
         archiveArtifacts "*.log"
 
-        String artifactName
-
-        switch (osName) {
-            case "Windows": 
-                artifactName = "BaikalNext_${STAGE_NAME}.zip"
-                break
-            default: 
-                artifactName = "BaikalNext_${STAGE_NAME}.tar.xz"
-        }
+        String artifactName = getArtifactName(osName)
 
         dir("Build") {
             makeArchiveArtifacts(name: artifactName, storeOnNAS: options.storeOnNAS)
@@ -162,6 +168,24 @@ def executePreBuild(Map options) {
     }
 }
 
+
+def executeDeploy(Map options, List platformList, List testResultList) {
+    // set error statuses for PR, except if current build has been superseded by new execution
+    if (env.CHANGE_ID && !currentBuild.nextBuild) {
+        // if jobs was aborted or crushed remove pending status for unfinished stages
+        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
+        String status = currentBuild.result ?: "success"
+        status = status.toLowerCase()
+        String commentMessage = ""
+        if (status == "success") {
+            commentMessage = "\\n Autotests will be launched soon"
+        }
+        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
+        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Jenkins build for ${commitUrl} finished as ${status} ${commentMessage}", options)
+    }
+}
+
+
 def call(String projectBranch = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan",
@@ -204,10 +228,10 @@ def call(String projectBranch = "",
                             updateRefs:updateRefs,
                             PRJ_NAME:"HybridPro",
                             PRJ_ROOT:"rpr-core",
-                            projectRepo:"git@github.com:Radeon-Pro/RPRHybrid.git",
+                            projectRepo:PROJECT_REPO,
                             BUILDER_TAG:"HybridBuilder",
                             executeBuild:true,
-                            executeTests:true,
+                            executeTests:false,
                             cmakeKeys:cmakeKeys,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
