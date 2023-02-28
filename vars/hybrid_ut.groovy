@@ -84,7 +84,7 @@ def executeTestsWithApi(String osName, String asicName, Map options, String apiV
 
         switch(osName) {
             case "Windows":
-                bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " ${binaryName} .")
+                bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
                 break
             default:
                 sh "tar -xJf ${binaryName}"
