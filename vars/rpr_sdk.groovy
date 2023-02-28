@@ -679,7 +679,7 @@ def call(String projectBranch = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
-         String enginesNames = "Northstar64,HybridPro,Hybrid",
+         String enginesNames = "Northstar64,HybridPro",
          Boolean collectTrackedMetrics = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
