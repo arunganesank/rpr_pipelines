@@ -11,9 +11,9 @@ import java.util.concurrent.ConcurrentHashMap
 def getArtifactName(String osName) {
     switch (osName) {
         case "Windows": 
-            return "BaikalNext_${STAGE_NAME}.zip"
+            return "BaikalNext_Build-${osName}.zip"
         default: 
-            return "BaikalNext_${STAGE_NAME}.tar.xz"
+            return "BaikalNext_Build-${osName}.tar.xz"
     }
 }
 
