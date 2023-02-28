@@ -145,6 +145,9 @@ def cloneTestsRepository(Map options) {
             } else {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
+
+            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            utils.unzip(this, "hipbin_3.01.00.zip")
         }
     }
 }
