@@ -171,7 +171,7 @@ def executeTests(String osName, String asicName, Map options)
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "15", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
                 cloneTestsRepository(options)
             }
