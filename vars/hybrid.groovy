@@ -853,7 +853,7 @@ def call(String projectBranch = "",
          Boolean updateRefsPerf = false,
          Boolean enableNotifications = true,
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON",
-         String apiValues = "vulkan") {
+         String apiValues = "vulkan,d3d12") {
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
