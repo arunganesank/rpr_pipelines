@@ -145,6 +145,9 @@ def cloneTestsRepository(Map options) {
             } else {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
+
+            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            utils.unzip(this, "hipbin_3.01.00.zip")
         }
     }
 }
@@ -168,7 +171,7 @@ def executeTests(String osName, String asicName, Map options)
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "15", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
                 cloneTestsRepository(options)
             }

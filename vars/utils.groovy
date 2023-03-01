@@ -773,7 +773,7 @@ class utils {
         }
     }
 
-    def closeProcess(Object self, String procName, String osName, Map options){
+    static def closeProcess(Object self, String procName, String osName, Map options){
         switch(osName) {
             case "Windows":
                 self.powershell"""
@@ -785,7 +785,7 @@ class utils {
     }
 
 
-    def isProcessExists(Object self, String procName, String osName, Map options) {
+    static def isProcessExists(Object self, String procName, String osName, Map options) {
         switch(osName) {
             case 'Windows':
                 try {
@@ -803,7 +803,7 @@ class utils {
         return true
     }
 
-    def removeInventorEnv(Object self) {
+    static def removeInventorEnv(Object self) {
         try {
             self.bat """
                 REG delete \"HKCU\\Environment\" /F /V HDRPR_CACHE_PATH_OVERRIDE
@@ -815,7 +815,7 @@ class utils {
         }
     }
 
-    def unzip(Object self, String zipName) {
+    static def unzip(Object self, String zipName) {
         if (self.isUnix()) {
             self.sh """
                 unzip -o -u "${zipName}"
