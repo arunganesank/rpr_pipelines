@@ -114,7 +114,11 @@ def executeTestsWithApi(String osName, String asicName, Map options, String apiV
         println("Exception during tests execution")
         println(e.getMessage())
         error_message = e.getMessage()
-        options.successfulTests = false
+
+        String additionalDescription = ""
+        if (options.currentTry + 1 >= options.nodeReallocateTries) {
+            options.successfulTests = false
+        }
 
         try {
             if (options['updateRefs']) {
@@ -203,11 +207,10 @@ def executeTests(String osName, String asicName, Map options) {
 def executePreBuild(Map options) {
     // set pending status for all
     if (env.CHANGE_ID) {
-        withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
-            GithubNotificator githubNotificator = new GithubNotificator(this, options)
-            githubNotificator.init(options)
-            options["githubNotificator"] = githubNotificator
-        }
+        GithubNotificator githubNotificator = new GithubNotificator(this, options)
+        githubNotificator.init(options)
+        options["githubNotificator"] = githubNotificator
+
         options['platforms'].split(';').each() { platform ->
             List tokens = platform.tokenize(':')
             String osName = tokens.get(0)
@@ -263,7 +266,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             if (options.failedConfigurations.size() != 0) {
                 utils.publishReport(this, "${BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
-                    "HTML Failures", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
+                    "HTML Failures UT", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
             }
         } catch(e) {
@@ -279,7 +282,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         status = status.toLowerCase()
         String commentMessage = ""
         if (!options.successfulTests) {
-            commentMessage = "\\n Unit tests failures - ${env.BUILD_URL}/HTML_20Failures/"
+            commentMessage = "\\n Unit tests failures - ${env.BUILD_URL}/HTML_20Failures_20UT/"
         }
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
         GithubNotificator.sendPullRequestComment("[UNIT TESTS] Jenkins build for ${commitUrl} finished as ${status} ${commentMessage}", options)
@@ -299,7 +302,7 @@ def call(String commitSHA = "",
 
     currentBuild.description = ""
 
-    multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, null,
+    multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [platforms:platforms,
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
@@ -307,7 +310,6 @@ def call(String commitSHA = "",
                             PRJ_NAME:"HybridPro",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
-                            BUILDER_TAG:"HybridBuilder",
                             executeBuild:false,
                             executeTests:true,
                             storeOnNAS: true,

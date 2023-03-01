@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RPRHybrid.git"
+@Field final String FT_REPO = "git@github.com:luxteam/jobs_test_core.git"
 
 
 def getArtifactName(String osName) {
@@ -137,7 +138,8 @@ def executePreBuild(Map options) {
     println "Commit SHA: ${options.commitSHA}"
 
     if ((commitMessage.contains("[CIS:GENREFALL]") || commitMessage.contains("[CIS:GENREF]")) && env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        options.updateRefs = true
+        options.updateUTRefs = true
+        options.updateFTRefs = true
         println("[CIS:GENREF] or [CIS:GENREFALL] have been found in comment")
     }
 
@@ -187,9 +189,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 
 def call(String projectBranch = "",
+         String testsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan",
-         Boolean updateRefs = false,
+         Boolean updateUTRefs = false,
+         String updateFTRefs = "No",
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON") {
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
@@ -225,8 +229,10 @@ def call(String projectBranch = "",
                            [platforms:processedPlatforms,
                             originalPlatforms:platforms,
                             projectBranch:projectBranch,
-                            updateRefs:updateRefs,
-                            PRJ_NAME:"HybridPro",
+                            testsBranch:testsBranch,
+                            updateUTRefs:updateUTRefs,
+                            updateFTRefs:updateFTRefs,
+                            PRJ_NAME:"HybridProUT",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:PROJECT_REPO,
                             BUILDER_TAG:"HybridBuilder",
