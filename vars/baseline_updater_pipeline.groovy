@@ -57,7 +57,7 @@ import groovy.json.JsonSlurperClassic
 @Field final Map PROFILE_BASELINES_MAPPING = [
     "full": "",
     "full2": "NorthStar",
-    "northstar64": "Northstar",
+    "northstar64": "Northstar64",
     "hybridpro": "HybridPro",
     "hybrid": "Hybrid",
     "tahoe": "",
