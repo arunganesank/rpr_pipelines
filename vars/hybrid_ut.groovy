@@ -4,6 +4,30 @@ import net.sf.json.JsonConfig
 import java.util.concurrent.ConcurrentHashMap
 
 
+@Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
+    supportedOS: ["Windows", "Ubuntu20"],
+    productExtensions: ["Windows": "zip", "Ubuntu20": "tar.xz"],
+    artifactNameBase: "BaikalNext_Build",
+    testProfile: "apiValue",
+    displayingProfilesMapping: [
+        "apiValue": [
+            "vulkan": "vulkan",
+            "d3d12": "d3d12"
+        ]
+    ]
+)
+
+
+Boolean filter(Map options, String asicName, String osName, String apiValue) {
+    if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
+        // DX12 tests are supported only on Windows
+        return true
+    }
+
+    return false
+}
+
+
 def executeGenTestRefCommand(String asicName, String osName, Map options, String apiValue = "vulkan") {
     dir('BaikalNext/RprTest') {
         options.enableRTX = ""
@@ -63,7 +87,9 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
 }
 
 
-def executeTestsWithApi(String osName, String asicName, Map options, String apiValue = "vulkan") {
+def executeTestsWithApi(String osName, String asicName, Map options) {
+    String apiValue = options.apiValue
+
     cleanWS(osName)
     String error_message = ""
     String REF_PATH_PROFILE
@@ -176,21 +202,12 @@ def executeTests(String osName, String asicName, Map options) {
 
     Boolean someStageFail = false 
 
-    options["apiValues"].each() { apiValue ->
-        try {
-            if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
-                // DX12 tests are supported only on Windows
-                return
-            }
-
-            // run in parallel to display api value in UI of JUnit plugin
-            Map stages = ["${apiValue}" : { executeTestsWithApi(osName, asicName, options, apiValue) }]
-            parallel stages
-        } catch (e) {
-            someStageFail = true
-            println(e.toString())
-            println(e.getMessage())
-        }
+    try {
+        executeTestsWithApi(osName, asicName, options)
+    } catch (e) {
+        someStageFail = true
+        println(e.toString())
+        println(e.getMessage())
     }
 
     if (osName == "Windows") {
@@ -205,6 +222,8 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
+    options.testsList = options.apiValues
+
     // set pending status for all
     if (env.CHANGE_ID) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
@@ -310,10 +329,13 @@ def call(String commitSHA = "",
                             PRJ_NAME:"HybridPro",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
+                            tests:"",
+                            apiValues: apiList,
                             executeBuild:false,
                             executeTests:true,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            apiValues: apiList,
+                            splitTestsExecution: false,
+                            skipCallback: this.&filter,
                             successfulTests: true])
 }
