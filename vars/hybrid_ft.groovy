@@ -495,6 +495,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 
 def call(String commitSHA = "",
+         String projectBranchName = "",
+         String commitMessage = "",
          String originalBuildLink = "",
          String testsBranch = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
@@ -506,6 +508,8 @@ def call(String commitSHA = "",
                            [configuration: PIPELINE_CONFIGURATION,
                             platforms:platforms,
                             commitSHA:commitSHA,
+                            projectBranchName:projectBranchName,
+                            commitMessage:commitMessage,
                             originalBuildLink:originalBuildLink,
                             testsBranch:testsBranch,
                             testRepo:hybrid.FT_REPO,
@@ -522,5 +526,6 @@ def call(String commitSHA = "",
                             flexibleUpdates: true,
                             finishedBuildStages: new ConcurrentHashMap(),
                             successfulTests: true,
+                            splitTestsExecution: false,
                             retriesForTestStage:2])
 }
