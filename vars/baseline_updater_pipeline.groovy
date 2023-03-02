@@ -186,7 +186,7 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
     }
 
     String gpuName = directory.split("-")[0]
-    String osName = directory.split("-")[1]
+    String osName = directory.split("-")[1].replace("/", "")
 
     List groups = null
 
