@@ -180,14 +180,19 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
         return false
     }
 
-    if (directory.split("-").length != 3) {
+    if (directory.split("-").length != 2 && directory.split("-").length != 3) {
         println("[INFO] Directory ${directory} hasn't required structure. Skip it")
         return false
     }
 
     String gpuName = directory.split("-")[0]
     String osName = directory.split("-")[1]
-    List groups = directory.split("-")[2].replace("/", "").split() as List
+
+    List groups = null
+
+    if (directory.split("-").length == 3) {
+        groups = directory.split("-")[2].replace("/", "").split() as List
+    }
 
     if (!allPlatforms) {
         String targetGpuName = platform.split("-")[0]
@@ -199,7 +204,7 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
         }
     }
 
-    if (directory.contains(".json~")) {
+    if (directory.contains(".json~") || ! groups) {
         // non-splittable package detected
         List nonSplittablePackageDirs
 
