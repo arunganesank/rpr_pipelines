@@ -1,7 +1,21 @@
+import groovy.transform.Field
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import java.util.concurrent.ConcurrentHashMap
+
+
+@Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
+    supportedOS: ["Windows", "Ubuntu20"],
+    productExtensions: ["Windows": "zip", "Ubuntu20": "tar.xz"],
+    artifactNameBase: "BaikalNext_Build",
+    testProfile: "engine",
+    displayingProfilesMapping: [
+        "engine": [
+            "HybridPro": "HybridPro"
+        ]
+    ]
+)
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
@@ -70,7 +84,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
             dir("rprSdk") {
-                downloadFiles(options.customHybridLinux, "rprsdk.zip")
+                downloadFiles(isUnix() ? options.rprsdkUbuntu : options.rprsdkWindows, "rprsdk.zip")
                 utils.unzip(this, "rprsdk.zip")
             }
 
@@ -81,12 +95,12 @@ def executeTests(String osName, String asicName, Map options) {
             switch(osName) {
                 case "Windows":
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
-                    utils.removeFiles(this, osName, "HybridPro.dll")
+                    utils.removeFile(this, osName, "HybridPro.dll")
                     utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.dll", "rprSdk/HybridPro.dll")
                     break
                 default:
                     sh "tar -xJf ${binaryName}"
-                    utils.removeFiles(this, osName, "HybridPro.so")
+                    utils.removeFile(this, osName, "HybridPro.so")
                     utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.so", "rprSdk/HybridPro.so")
             }
         }
@@ -218,8 +232,7 @@ def executeTests(String osName, String asicName, Map options) {
 }
 
 
-def getReportBuildArgs(Map options) {
-    String engineName = "HybridPro"
+def getReportBuildArgs(String engineName, Map options) {
     String buildNumber = options.collectTrackedMetrics ? env.BUILD_NUMBER : ""
 
     if (options["isPreBuilt"]) {
@@ -227,6 +240,13 @@ def getReportBuildArgs(Map options) {
     } else {
         return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
     }
+}
+
+
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
 }
 
 
@@ -280,7 +300,7 @@ def executePreBuild(Map options) {
             options.tests = tests.join(" ")          
         }
 
-        options.testsList = [""]
+        options.testsList = ["HybridPro"]
     }
 
     // make lists of raw profiles and lists of beautified profiles (displaying profiles)
@@ -308,15 +328,8 @@ def executePreBuild(Map options) {
             if (tokens.size() > 1) {
                 gpuNames = tokens.get(1)
                 gpuNames.split(',').each() { gpuName ->
-                    options["apiValues"].each() { apiValue ->
-                        if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
-                            // DX12 tests are supported only on Windows
-                            return
-                        }
-
-                        // Statuses for tests
-                        GithubNotificator.createStatus("Test", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
-                    }
+                    // Statuses for tests
+                    GithubNotificator.createStatus("Test", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
                 }
             }
         }
@@ -383,7 +396,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                             writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
                         }
                     
-                        bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(options)}"
+                        bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs("HybridPro", options)}"
 
                         bat "get_status.bat ..\\summaryTestResults"
                     }
@@ -487,14 +500,11 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
-    List apiList = apiValues.split(",") as List
-
-    println "[INFO] Testing APIs: ${apiList}"
-
     currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
-                           [platforms:platforms,
+                           [configuration: PIPELINE_CONFIGURATION,
+                            platforms:platforms,
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
                             testsBranch:testsBranch,
@@ -505,11 +515,12 @@ def call(String commitSHA = "",
                             projectRepo:hybrid.PROJECT_REPO,
                             testsPackage:"Full.json",
                             tests:"",
+                            engines:["HybridPro"],
                             executeBuild:false,
                             executeTests:true,
                             storeOnNAS: true,
+                            flexibleUpdates: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            apiValues: apiList,
                             successfulTests: true,
                             retriesForTestStage:2])
 }
