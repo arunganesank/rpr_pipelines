@@ -1,3 +1,4 @@
+import groovy.transform.Field
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
@@ -322,7 +323,8 @@ def call(String commitSHA = "",
     currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
-                           [platforms:platforms,
+                           [configuration: PIPELINE_CONFIGURATION,
+                            platforms:platforms,
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
                             updateRefs:updateRefs,

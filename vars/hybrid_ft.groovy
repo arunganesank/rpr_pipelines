@@ -337,7 +337,7 @@ def executePreBuild(Map options) {
 }
 
 
-def executeDeploy(Map options, List platformList, List testResultList) {
+def executeDeploy(Map options, List platformList, List testResultList, String engine) {
     cleanWS()
     try {
         if (options['executeTests'] && testResultList) {
@@ -350,10 +350,6 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-
-                        if (filter(options, testNameParts.get(0), testNameParts.get(1), engine)) {
-                            return
-                        }
 
                         dir(testName) {
                             try {
@@ -502,6 +498,8 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
+    ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+
     currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
@@ -527,5 +525,6 @@ def call(String commitSHA = "",
                             finishedBuildStages: new ConcurrentHashMap(),
                             successfulTests: true,
                             splitTestsExecution: false,
-                            retriesForTestStage:2])
+                            problemMessageManager:problemMessageManager,
+                            nodeRetry: []])
 }
