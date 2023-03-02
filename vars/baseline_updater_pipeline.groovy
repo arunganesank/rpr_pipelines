@@ -40,6 +40,7 @@ import groovy.json.JsonSlurperClassic
 @Field final Map PROFILE_REPORT_MAPPING = [
     "full": "Tahoe",
     "full2": "Northstar",
+    "northstar64": "Northstar64",
     "hybridpro": "HybridPro",
     "hybrid": "Hybrid",
     "tahoe": "tahoe",
@@ -56,6 +57,7 @@ import groovy.json.JsonSlurperClassic
 @Field final Map PROFILE_BASELINES_MAPPING = [
     "full": "",
     "full2": "NorthStar",
+    "northstar64": "Northstar",
     "hybridpro": "HybridPro",
     "hybrid": "Hybrid",
     "tahoe": "",
@@ -196,7 +198,7 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
 
     if (!allPlatforms) {
         String targetGpuName = platform.split("-")[0]
-        String targetOsName = platform.split("-")[1]
+        String targetOsName = platform.split("-")[1].replace("/", "")
 
         if (gpuName != targetGpuName || osName != targetOsName) {
             println("[INFO] Directory ${directory} doesn't apply to the required platform. Skip it")
@@ -244,7 +246,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String machineConfiguration
 
     String gpuName = directory.split("-")[0]
-    String osName = directory.split("-")[1]
+    String osName = directory.split("-")[1].replace("/", "")
 
     if (profile) {
         String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile
