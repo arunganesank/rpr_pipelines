@@ -1,4 +1,5 @@
 import groovy.transform.Field
+import groovy.json.JsonOutput
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
@@ -383,17 +384,46 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 println("[ERROR] Can't generate number of lost tests")
             }
 
-            withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
-                dir("jobs_launcher") {
-                    def retryInfo = JsonOutput.toJson(options.nodeRetry)
-                    dir("..\\summaryTestResults") {
-                        JSON jsonResponse = JSONSerializer.toJSON(retryInfo, new JsonConfig())
-                        writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
-                    }
-                
-                    bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(engine, options)}"
+            try {
+                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
+                    dir("jobs_launcher") {
+                        def retryInfo = JsonOutput.toJson(options.nodeRetry)
+                        dir("..\\summaryTestResults") {
+                            JSON jsonResponse = JSONSerializer.toJSON(retryInfo, new JsonConfig())
+                            writeJSON file: 'retry_info.json', json: jsonResponse, pretty: 4
+                        }
+                    
+                        bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(engine, options)}"
 
-                    bat "get_status.bat ..\\summaryTestResults"
+                        bat "get_status.bat ..\\summaryTestResults"
+                    }
+                }
+            } catch(e) {
+                String errorMessage = utils.getReportFailReason(e.getMessage())
+                if (utils.isReportFailCritical(e.getMessage())) {
+                    options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
+                    println("[ERROR] Failed to build test report.")
+                    println(e.toString())
+                    println(e.getMessage())
+
+                    if (!options.testDataSaved && !options.storeOnNAS) {
+                        try {
+                            // Save test data for access it manually anyway
+                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
+                                "Test Report FT", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
+                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+
+                            options.testDataSaved = true 
+                        } catch(e1) {
+                            println("[WARNING] Failed to publish test data.")
+                            println(e.toString())
+                            println(e.getMessage())
+                        }
+                    }
+                    throw e
+                } else {
+                    currentBuild.result = "FAILURE"
+                    options.problemMessageManager.saveGlobalFailReason(errorMessage)
                 }
             }
 
