@@ -479,7 +479,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         commentMessage = "\\n Functional tests failures - ${env.BUILD_URL}/HTML_20Failures_20HybridPro/"
                     }
                     String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-                    GithubNotificator.sendPullRequestComment("[FUNCTIONAL TESTS] Jenkins build for ${commitUrl} finished as ${status} ${commentMessage}", options)
+                    GithubNotificator.sendPullRequestComment("[FUNCTIONAL TESTS] Tests for ${commitUrl} finished as ${status} ${commentMessage}", options)
                 }
             }
         }

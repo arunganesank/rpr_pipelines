@@ -154,6 +154,12 @@ def executePreBuild(Map options) {
 
     println "Commit list message: ${options.commitMessage}"
     
+    dir("RprPerfTest") {
+        String archiveName = "scenarios.zip"
+        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " ${archiveName} -aoa")
+        makeArchiveArtifacts(name: archiveName, storeOnNAS: options.storeOnNAS)
+    }
+
     // set pending status for all
     if (env.CHANGE_ID) {
         withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
@@ -178,12 +184,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
         String status = currentBuild.result ?: "success"
         status = status.toLowerCase()
-        String commentMessage = ""
-        if (status == "success") {
-            commentMessage = "\\n Autotests will be launched soon"
-        }
+        String commentMessage = status == "success" ? "\\n Autotests will be launched soon" : "Autotests won't be launched"
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Jenkins build for ${commitUrl} finished as ${status} ${commentMessage}", options)
+        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Building for ${commitUrl} finished as ${status} ${commentMessage}", options)
     }
 }
 
@@ -192,7 +195,9 @@ def call(String projectBranch = "",
          String testsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan",
+         String scenarios = "all",
          Boolean updateUTRefs = false,
+         Boolean updatePTRefs = false,
          String updateFTRefs = "No",
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON") {
 
@@ -231,8 +236,9 @@ def call(String projectBranch = "",
                             projectBranch:projectBranch,
                             testsBranch:testsBranch,
                             updateUTRefs:updateUTRefs,
+                            updatePTRefs:updatePTRefs,
                             updateFTRefs:updateFTRefs,
-                            PRJ_NAME:"HybridProUT",
+                            PRJ_NAME:"HybridPro",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:PROJECT_REPO,
                             BUILDER_TAG:"HybridBuilder",
@@ -241,7 +247,8 @@ def call(String projectBranch = "",
                             cmakeKeys:cmakeKeys,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            apiValues: apiList])
+                            apiValues: apiList,
+                            scenarios: scenarios])
 
     // build stages finished successfully
     if (currentBuild.result == null) {

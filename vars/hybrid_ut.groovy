@@ -305,7 +305,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             commentMessage = "\\n Unit tests failures - ${env.BUILD_URL}/HTML_20Failures_20UT/"
         }
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[UNIT TESTS] Jenkins build for ${commitUrl} finished as ${status} ${commentMessage}", options)
+        GithubNotificator.sendPullRequestComment("[UNIT TESTS] Tests for ${commitUrl} finished as ${status} ${commentMessage}", options)
     }
 }
 
@@ -328,7 +328,7 @@ def call(String commitSHA = "",
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
                             updateRefs:updateRefs,
-                            PRJ_NAME:"HybridPro",
+                            PRJ_NAME:"HybridProUT",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
                             tests:"",
