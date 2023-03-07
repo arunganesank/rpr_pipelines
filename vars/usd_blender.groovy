@@ -28,7 +28,7 @@ import java.text.SimpleDateFormat
 
 
 Boolean filterTests(Map options, String asicName, String osName, String testName, String engine) {
-    if (osName.startsWith("Ubuntu") && engine == "HdStormRendererPlugin") {
+    if (osName.startsWith("Ubuntu") && (engine == "HdStormRendererPlugin" || engine == "Hybrid")) {
         return true
     }
 
