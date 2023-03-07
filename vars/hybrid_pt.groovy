@@ -309,6 +309,8 @@ def call(String commitSHA = "",
 
     currentBuild.description = ""
 
+    Map successfulTests = ["perf": true, "cliff_detected": false, "unexpected_acceleration": false]
+
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [platforms:platforms,
                             commitSHA:commitSHA,
@@ -321,6 +323,6 @@ def call(String commitSHA = "",
                             executeTests:true,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            successfulTests: true,
+                            successfulTests: successfulTests,
                             scenarios: scenarios])
 }

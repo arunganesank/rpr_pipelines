@@ -191,7 +191,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 
-def call(String projectBranch = "",
+def call(String pipelineBranch = "master",
+         String projectBranch = "",
          String testsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan",
@@ -232,6 +233,7 @@ def call(String projectBranch = "",
 
     multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, null,
                            [platforms:processedPlatforms,
+                            pipelineBranch:pipelineBranch,
                             originalPlatforms:platforms,
                             projectBranch:projectBranch,
                             testsBranch:testsBranch,
