@@ -313,7 +313,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 def call(String commitSHA = "",
          String originalBuildLink = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
-         String apiValues = "vulkan",
+         String apiValues = "vulkan,d3d12",
          Boolean updateRefs = false) {
 
     List apiList = apiValues.split(",") as List
@@ -321,6 +321,8 @@ def call(String commitSHA = "",
     println "[INFO] Testing APIs: ${apiList}"
 
     currentBuild.description = ""
+
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [configuration: PIPELINE_CONFIGURATION,

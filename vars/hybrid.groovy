@@ -195,7 +195,7 @@ def call(String pipelineBranch = "master",
          String projectBranch = "",
          String testsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
-         String apiValues = "vulkan",
+         String apiValues = "vulkan,d3d12",
          String scenarios = "all",
          Boolean updateUTRefs = false,
          Boolean updatePTRefs = false,
@@ -231,26 +231,24 @@ def call(String pipelineBranch = "master",
 
     processedPlatforms = processedPlatforms.join(";")
 
-    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, null,
-                           [platforms:processedPlatforms,
-                            pipelineBranch:pipelineBranch,
-                            originalPlatforms:platforms,
-                            projectBranch:projectBranch,
-                            testsBranch:testsBranch,
-                            updateUTRefs:updateUTRefs,
-                            updatePTRefs:updatePTRefs,
-                            updateFTRefs:updateFTRefs,
-                            PRJ_NAME:"HybridPro",
-                            PRJ_ROOT:"rpr-core",
-                            projectRepo:PROJECT_REPO,
-                            BUILDER_TAG:"HybridBuilder",
-                            executeBuild:true,
-                            executeTests:false,
-                            cmakeKeys:cmakeKeys,
-                            storeOnNAS: true,
-                            finishedBuildStages: new ConcurrentHashMap(),
-                            apiValues: apiList,
-                            scenarios: scenarios])
+    options = [platforms:processedPlatforms,
+               originalPlatforms:platforms,
+               projectBranch:projectBranch,
+               testsBranch:testsBranch,
+               updateUTRefs:updateUTRefs,
+               updatePTRefs:updatePTRefs,
+               updateFTRefs:updateFTRefs,
+               PRJ_NAME:"HybridPro",
+               PRJ_ROOT:"rpr-core",
+               projectRepo:PROJECT_REPO,
+               BUILDER_TAG:"HybridBuilder",
+               executeBuild:true,
+               executeTests:false,
+               cmakeKeys:cmakeKeys,
+               storeOnNAS: true,
+               finishedBuildStages: new ConcurrentHashMap()]
+
+    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, null, options)
 
     // build stages finished successfully
     if (currentBuild.result == null) {
@@ -261,6 +259,46 @@ def call(String pipelineBranch = "master",
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
 
-        // TODO: trigger jobs for testing
+        build(
+            job: env.JOB_NAME.replace("Build", "UT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "Platforms", value: platforms),
+                string(name: "ApiValues", value: apiList),
+                booleanParam(name: "UpdateRefs", value: updateUTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
+
+        build(
+            job: env.JOB_NAME.replace("Build", "PT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "CommitSHA", value: options.commitSHA),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "Platforms", value: platforms),
+                string(name: "Scenarios", value: scenarios),
+                booleanParam(name: "UpdateRefs", value: updatePTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
+
+        build(
+            job: env.JOB_NAME.replace("Build", "FT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "CommitSHA", value: options.commitSHA),
+                string(name: "ProjectBranchName", value: projectBranch),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "TestsBranch", value: testsBranch),
+                string(name: "Platforms", value: platforms),
+                booleanParam(name: "UpdateRefs", value: updateFTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
     }
 }
