@@ -62,6 +62,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
     }
 
     for (int i = 0; i < tries; i++) {
+        successCurrentNode = false
+
         String nodeName = ""
         options['currentTry'] = i
         options['nodeReallocateTries'] = tries
