@@ -223,6 +223,8 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
+
     options.testsList = options.apiValues
 
     // set pending status for all
@@ -321,8 +323,6 @@ def call(String commitSHA = "",
     println "[INFO] Testing APIs: ${apiList}"
 
     currentBuild.description = ""
-
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [configuration: PIPELINE_CONFIGURATION,
