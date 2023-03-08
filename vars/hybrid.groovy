@@ -9,6 +9,28 @@ import java.util.concurrent.ConcurrentHashMap
 @Field final String FT_REPO = "git@github.com:luxteam/jobs_test_core.git"
 
 
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
+
+
+def saveTriggeredBuildLink(String jobUrl, String testsName) {
+    String url = "${jobUrl}/api/json?tree=lastBuild[number,url]"
+
+    def rawInfo = httpRequest(
+        url: url,
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastBuild.url}">[${testsName}] This build triggered a new build with tests</a></h3>""")
+}
+
+
 def getArtifactName(String osName) {
     switch (osName) {
         case "Windows": 
@@ -265,12 +287,14 @@ def call(String pipelineBranch = "master",
                 string(name: "PipelineBranch", value: pipelineBranch),
                 string(name: "OriginalBuildLink", value: env.BUILD_URL),
                 string(name: "Platforms", value: platforms),
-                string(name: "ApiValues", value: apiList),
+                string(name: "ApiValues", value: apiValues),
                 booleanParam(name: "UpdateRefs", value: updateUTRefs)
             ],
             wait: false,
             quietPeriod : 0
         )
+
+        saveTriggeredBuildLink(env.JOB_URL.replace("Build", "UT"), "UNIT TESTS")
 
         build(
             job: env.JOB_NAME.replace("Build", "PT"),
@@ -286,6 +310,8 @@ def call(String pipelineBranch = "master",
             quietPeriod : 0
         )
 
+        saveTriggeredBuildLink(env.JOB_URL.replace("Build", "PT"), "PERF TESTS")
+
         build(
             job: env.JOB_NAME.replace("Build", "FT"),
             parameters: [
@@ -300,5 +326,7 @@ def call(String pipelineBranch = "master",
             wait: false,
             quietPeriod : 0
         )
+
+        saveTriggeredBuildLink(env.JOB_URL.replace("Build", "FT"), "FUNCTIONAL TESTS")
     }
 }
