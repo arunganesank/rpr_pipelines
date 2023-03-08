@@ -6,7 +6,7 @@ import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
 
-@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/WebUsdViewer.git"
+@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RenderStudio.git"
 @Field final String TEST_REPO = "git@github.com:luxteam/jobs_test_web_viewer.git"
 
 @Field final Integer MAX_TEST_INSTANCE_NUMBER = 9
@@ -75,6 +75,8 @@ def uninstallAMDRenderStudio(String osName, Map options) {
     if (installedProductCode) {
         println("[INFO] Found installed AMD RenderStudio. Uninstall it...")
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
     }
 }
 
@@ -278,6 +280,12 @@ def executeTests(String osName, String asicName, Map options) {
                 timeout(time: "10", unit: "MINUTES") {
                     uninstallAMDRenderStudio(osName, options)
                     installAMDRenderStudio(osName, options)
+
+                    // open application once to generate Storage files
+                    String appLink = getDesktopLink(osName, options)
+                    runApplication(appLink, osName, options)
+                    sleep(10)
+                    utils.closeProcess(this, "AMD RenderStudio", osName, options)
                 }
             }
 
@@ -363,6 +371,10 @@ def executeTests(String osName, String asicName, Map options) {
 
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+
+                            dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
+                                utils.removeDir(this, osName, "AMDRenderStudio")
+                            }
                         } else if (sessionReport.summary.failed > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
@@ -419,23 +431,23 @@ String patchSubmodule() {
 
 
 def patchVersions(Map options) {
-    dir("WebUsdLiveServer") {
+    dir("Live") {
         patchSubmodule()
     }
 
-    dir("WebUsdRouteServer") {
+    dir("Route") {
         patchSubmodule()
     }
 
-    dir("WebUsdStorageServer") {
+    dir("Storage") {
         patchSubmodule()
     }
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         patchSubmodule()
     }
 
-    dir("WebUsdStreamServer") {
+    dir("Engine") {
         patchSubmodule()
     }
 
@@ -460,6 +472,10 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         options.saveUSD = true
     }
 
+    dir("Build/Downloads/lights") {
+        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+    }
+
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
@@ -468,7 +484,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
             """
         } else {
             bat """
-                call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
                 python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
             """
         }
@@ -493,7 +509,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         """
     } else {
         bat """
-            call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
+            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
             python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
         """
     }
@@ -514,23 +530,23 @@ def executeBuildWindows(Map options) {
         downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
         if (options.projectBranchName.contains("demo/november")) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-            bat "move WebUsdFrontendServer\\env.demo.desktop.template WebUsdFrontendServer\\.env.production"
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+            bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
         } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/WebUsdFrontendServer", "--quiet")
-            bat "move WebUsdFrontendServer\\env.desktop.template WebUsdFrontendServer\\.env.production"
+            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+            bat "move Frontend\\env.desktop.template Frontend\\.env.production"
         }
 
         String frontendVersion
         String renderStudioVersion
 
-        dir("WebUsdFrontendServer") {
+        dir("Frontend") {
             frontendVersion = readFile("VERSION.txt").trim()
         }
 
         renderStudioVersion = readFile("VERSION.txt").trim()
 
-        String envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        String envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
         withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
@@ -539,10 +555,10 @@ def executeBuildWindows(Map options) {
             envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
         }
 
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
         try {
-            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}"]) {
+            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
                 bat """
                     cmake --version >> ${STAGE_NAME}.Build.log 2>&1
                     python--version >> ${STAGE_NAME}.Build.log 2>&1
@@ -564,7 +580,7 @@ def executeBuildWindows(Map options) {
 
                 println("[INFO] Saving exe files to NAS")
 
-                dir("WebUsdFrontendServer\\dist_electron") {
+                dir("Frontend\\dist_electron") {
                     def exeFile = findFiles(glob: '*.msi')
                     println("Found MSI files: ${exeFile}")
                     for (file in exeFile) {
@@ -621,10 +637,10 @@ def executeBuildLinux(Map options) {
     String envProductionContent
 
     if (!options.customDomain) {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/env.web.template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.template", "./Frontend", "--quiet")
+        sh "mv ./Frontend/env.web.template ./Frontend/.env.production"
 
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
 
         if (options.deployEnvironment == "prod") {
             envProductionContent = envProductionContent.replace("<domain_name>.", "")
@@ -632,34 +648,34 @@ def executeBuildLinux(Map options) {
             envProductionContent = envProductionContent.replace("<domain_name>", options.deployEnvironment)
         }
 
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     } else {
-        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.customdomain.template", "./WebUsdFrontendServer", "--quiet")
-        sh "mv ./WebUsdFrontendServer/env.web.customdomain.template ./WebUsdFrontendServer/.env.production"
+        downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.web.customdomain.template", "./Frontend", "--quiet")
+        sh "mv ./Frontend/env.web.customdomain.template ./Frontend/.env.production"
 
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent.replaceAll("<custom_domain>", options.customDomain)
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     }
 
     if (options.disableSsl) {
-        envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+        envProductionContent = readFile("./Frontend/.env.production")
         envProductionContent = envProductionContent.replaceAll("https", "http").replaceAll("wss", "ws")
-        writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
     }
 
     String frontendVersion
     String renderStudioVersion
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         frontendVersion = readFile("VERSION.txt").trim()
     }
 
     renderStudioVersion = readFile("VERSION.txt").trim()
 
-    envProductionContent = readFile("./WebUsdFrontendServer/.env.production")
+    envProductionContent = readFile("./Frontend/.env.production")
     envProductionContent = envProductionContent + "\nVUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
-    writeFile(file: "./WebUsdFrontendServer/.env.production", text: envProductionContent)
+    writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
     options["stage"] = "Build"
 
@@ -772,36 +788,32 @@ def executeBuild(String osName, Map options) {
             patchVersions(options)
 
             if (options.customHybridLinux && isUnix()) {
-                sh """
-                    curl --insecure --retry 5 -L -o HybridPro.tar.xz ${options.customHybridLinux}
-                """
+                downloadFiles(options.customHybridLinux, ".")
 
-                sh "tar -xJf HybridPro.tar.xz"
+                sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
 
                 sh """
-                    yes | cp -rf BaikalNext/bin/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
-                    yes | cp -rf BaikalNext/inc/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                    yes | cp -rf BaikalNext/inc/Rpr/* WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                    yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
+                    yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                    yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
                 """
 
-                dir ("WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
                     downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
                 }
             } else if (options.customHybridWin && !isUnix()) {
-                bat """
-                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.customHybridWin}
-                """
+                downloadFiles(options.customHybridWin, ".")
 
-                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
 
                 bat """
-                    copy /Y BaikalNext\\bin\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
-                    copy /Y BaikalNext\\inc\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\inc\\Rpr\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\lib\\* WebUsdStreamServer\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
+                    copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
+                    copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+                    copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
                 """
 
-                dir ("WebUsdStreamServer/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
                     downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
                 }
             }
@@ -874,31 +886,31 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio verion:</b> ${options.version}<br/>"
+    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
 
-    dir("WebUsdFrontendServer") {
+    dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Frontend verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Frontend version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdStreamServer") {
+    dir("Engine") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Streamer verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Engine version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdLiveServer") {
+    dir("Live") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Live server verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Live server version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdRouteServer") {
+    dir("Route") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Router verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Router version:</b> ${version}<br/>"
     }
 
-    dir("WebUsdStorageServer") {
+    dir("Storage") {
         String version = readFile("VERSION.txt").trim()
-        currentBuild.description += "<b>Storage verion:</b> ${version}<br/>"
+        currentBuild.description += "<b>Storage version:</b> ${version}<br/>"
     }
 }
 
@@ -917,13 +929,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url
-
-        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/view/change-requests/job/PR-1035/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        } else {
-            url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-        }
+        String url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
         def rawInfo = httpRequest(
             url: url,
@@ -935,7 +941,7 @@ def executePreBuild(Map options) {
 
 
         Integer hybridBuildNumber
-        String hybridBuildUrl
+        //String hybridBuildUrl
 
         if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
             hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
@@ -946,16 +952,11 @@ def executePreBuild(Map options) {
         }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-105") {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/PR-1035/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-            } else {
-                options.customHybridWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-                options.customHybridLinux = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-            }
+            options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+        //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
         // branch postfix
         options["branchPostfix"] = ""
@@ -969,7 +970,7 @@ def executePreBuild(Map options) {
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
     } else if (env.BRANCH_NAME && env.BRANCH_NAME == "main") {
-        removeClosedPRs(options)
+        //removeClosedPRs(options)
     }
 
     withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
@@ -1056,7 +1057,7 @@ def executePreBuild(Map options) {
 
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -1234,7 +1235,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
-                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
+                String matLibUrl
+
+                withCredentials([string(credentialsId: "matLibUrl", variable: "MATLIB_URL")]) {
+                    matLibUrl = MATLIB_URL
+                }
+
+                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "MATLIB_URL=${matLibUrl}"]) {
                     dir("jobs_launcher") {
                         List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                         retryInfoList.each{ gpu ->
@@ -1382,7 +1389,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX6800XT;Web',
+    String platforms = 'Windows:AMD_RX6800XT,AMD_RX7900XT',
     Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
@@ -1453,8 +1460,8 @@ def call(
                                 executeBuild:!isPreBuilt,
                                 executeTests:true,
                                 BUILD_TIMEOUT:120,
-                                TEST_TIMEOUT:130,
-                                NON_SPLITTED_PACKAGE_TIMEOUT: 105,
+                                TEST_TIMEOUT:240,
+                                NON_SPLITTED_PACKAGE_TIMEOUT: 240,
                                 problemMessageManager:problemMessageManager,
                                 isPreBuilt:isPreBuilt,
                                 splitTestsExecution: true,

@@ -64,7 +64,7 @@ class utils {
         }
     }
 
-    static def stashTestData(Object self, Map options, Boolean publishOnNAS = false, String excludes = "") {
+    static def stashTestData(Object self, Map options, Boolean publishOnNAS = false, String excludes = "", String subFolder = "") {
         if (publishOnNAS) {
             String profile = ""
             String stashName = ""
@@ -86,9 +86,10 @@ class utils {
                 reportName = "Test_Report"
             }
 
-            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${stashName}/"
+            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${subFolder}/${stashName}/" 
+
             self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true)
-            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: options.testResultsName, allowEmpty: true, storeOnNAS: true)
+            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true)
         } else {
             self.makeStash(includes: '**/*', excludes: excludes, name: options.testResultsName, allowEmpty: true)
         }
@@ -601,7 +602,8 @@ class utils {
                         nodesList = self.nodesByLabel(label: nodeName, offline: false)
                     }
 
-                    self.println("[INFO] Node is available")
+                    self.println("[INFO] Node is available. Wait additional 15 seconds for agent initialization")
+                    self.sleep(15)
 
                     break
                 } catch (FlowInterruptedException e) {
@@ -621,7 +623,7 @@ class utils {
 
     @NonCPS
     static Boolean isNodeIdle(String nodeName) {
-        return jenkins.model.Jenkins.instance.getNode(nodeName).getComputer().countIdle() > 0
+        return jenkins.model.Jenkins.instance.getNode(nodeName).getComputer().countIdle() > 0 && jenkins.model.Jenkins.instance.getNode(nodeName).getComputer().isOnline()
     }
 
     static def downloadMetrics(Object self, String localDir, String remoteDir) {
@@ -696,7 +698,15 @@ class utils {
                             break
                         }
 
-                        locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                        if (options.storeOnNAS) {
+                            self.withCredentials([self.string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
+                                locations = locations ?
+                                    "${locations}::http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
+                                    "http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
+                            }
+                        } else {
+                            locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                        }
                     }
 
                     if (allReportsExists) {
@@ -708,7 +718,7 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", false)
+                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", options.storeOnNAS)
                     }
                 }
             }
@@ -718,6 +728,8 @@ class utils {
     // Function that compare current and neweset AMD gpu driver on Windows.
     static def compareDriverVersion(Object self, String logFilePath, String osName)
     {
+        // FIXME: rework driver check implementation
+        return
         switch(osName) {
             case 'Windows':
                 try{

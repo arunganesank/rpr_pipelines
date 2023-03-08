@@ -37,7 +37,7 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
     }
 
     // run HybridPro only on RTX cards
-    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    return (engine == "Hybrid" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")))
 }
 
 
@@ -380,7 +380,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                         if exist ..\\libs rmdir /Q /S ..\\libs
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         python -m pip install -r requirements.txt >> ../${STAGE_NAME}_${pyVersion}.log 2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -all -clean -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
@@ -391,7 +391,7 @@ def executeBuildWindows(String osName, Map options, String pyVersion = "3.9") {
                 } else {
                     bat """
                         python --version >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
+                        call "%VS2019_VSVARSALL_PATH%" amd64 >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                         waitfor 1 /t 10 2>NUL || type nul>nul
                         python tools\\build.py -libs -mx-classes -addon -bin-dir ..\\bin -G "Visual Studio 16 2019" ${additionalKeys} >> ..\\${STAGE_NAME}_${pyVersion}.log  2>&1
                     """
@@ -896,7 +896,14 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             
             try {
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
+
+                String matLibUrl
+
+                withCredentials([string(credentialsId: "matLibUrl", variable: "MATLIB_URL")]) {
+                    matLibUrl = MATLIB_URL
+                }
+
+                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "MATLIB_URL=${matLibUrl}"]) {
                     dir("jobs_launcher") {
                         List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                         retryInfoList.each{ gpu ->
@@ -1054,7 +1061,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',
@@ -1071,7 +1078,7 @@ def call(String projectRepo = PROJECT_REPO,
     String customBuildLinkWindows = "",
     String customBuildLinkUbuntu20 = "",
     String customBuildLinkOSX = "",
-    String enginesNames = "RPR,GL,Hybrid",
+    String enginesNames = "RPR,Hybrid",
     String tester_tag = "Blender",
     String toolVersion = "3.2",
     String mergeablePR = "",

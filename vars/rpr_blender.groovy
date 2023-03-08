@@ -34,7 +34,15 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    return (engine == "HYBRIDPRO" && !(asicName.contains("RTX") || asicName.contains("AMD_RX6")))
+    if (engine == "FULL2" && asicName == "AMD_680M") {
+        return true
+    }
+
+    if (engine == "HYBRIDPRO" && (osName == "OSX" || osName == "MacOS_ARM")) {
+        return true
+    }
+
+    return false
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete)
@@ -149,12 +157,12 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
-        // FIXME: Blender 3.1 on Mumbai doesn't contain 'bpy.ops.import_scene.obj' func
-        if (env.NODE_NAME == "PC-TESTER-MUMBAI-OSX") {
-            if (options.tests.contains("Smoke") || options.tests.contains("regression.2")) {
+        // FIXME: Check Cloud on Goto
+        if (env.NODE_NAME == "PC-TESTER-GOTO-OSX") {
+            if (options.tests.contains("Cloud") || options.tests.contains("regression.0")) {
                 throw new ExpectedExceptionWrapper(
-                    "System doesn't support Smoke group", 
-                    new Exception("System doesn't support Smoke group")
+                    "System doesn't support Cloud group", 
+                    new Exception("System doesn't support Cloud group")
                 )
             }
         }
@@ -590,7 +598,7 @@ def executePreBuild(Map options)
             options['executeBuild'] = true
             options['executeTests'] = true
             options['testsPackage'] = "regression.json"
-        } else if (env.BRANCH_NAME == "master" || env.BRANCH_NAME == "develop") {
+        } else if (env.BRANCH_NAME == "master") {
            println "[INFO] ${env.BRANCH_NAME} branch was detected"
            options['executeBuild'] = true
            options['executeTests'] = true
@@ -605,9 +613,9 @@ def executePreBuild(Map options)
     options["branch_postfix"] = ""
     if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
         options["branch_postfix"] = "release"
-    } else if (env.BRANCH_NAME && env.BRANCH_NAME != "master" && env.BRANCH_NAME != "develop") {
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
         options["branch_postfix"] = env.BRANCH_NAME.replace('/', '-')
-    } else if(options.projectBranch && options.projectBranch != "master" && options.projectBranch != "develop") {
+    } else if(options.projectBranch && options.projectBranch != "master") {
         options["branch_postfix"] = options.projectBranch.replace('/', '-')
     }
 
@@ -652,7 +660,7 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
 
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
@@ -668,7 +676,7 @@ def executePreBuild(Map options)
                         bat """
                             git add src/rprblender/__init__.py
                             git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:develop
+                            git push origin HEAD:master
                         """
 
                         //get commit's sha which have to be build
@@ -1050,7 +1058,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
+    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
     String updateRefs = 'No',
     Boolean enableNotifications = true,
     Boolean incrementVersion = true,
@@ -1185,7 +1193,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testsPackage:testsPackage,
                         testsPackageOriginal:testsPackage,
                         tests:tests,
-                        PRJ_NAME:"RadeonProRenderBlenderPlugin",
+                        PRJ_NAME:"RPRBlenderPlugin",
                         PRJ_ROOT:"rpr-plugins",
                         BUILDER_TAG:'BuilderBlender',
                         toolVersion:toolVersion,

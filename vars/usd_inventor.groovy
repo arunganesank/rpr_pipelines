@@ -10,14 +10,14 @@ import groovy.transform.Field
 
 def executeBuildWindows(Map options) {
     String buildName = "${options.buildConfiguration}_${options.buildPlatform.replace(' ', '')}_${options.pluginVersion}"
-    String msBuildPath = "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\MSBuild\\Current\\Bin\\MSBuild.exe"
+    String msBuildPath = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe"
 
     try {
         dir ("RadeonProRenderInventorPlugin") {
             // build plugin
             bat """
                 set msbuild="${msBuildPath}"
-                %msbuild% RadeonProRenderInventorPlugin.sln /target:build /maxcpucount /property:Configuration="${options.buildConfiguration}";Platform="${options.buildPlatform}" >> "${STAGE_NAME}_${buildName}.log" 2>&1
+                %msbuild% RadeonProRenderInventorPlugin.sln /target:build /restore /p:RestorePackagesConfig=true /maxcpucount /property:Configuration="${options.buildConfiguration}";Platform="${options.buildPlatform}" >> "${STAGE_NAME}_${buildName}.log" 2>&1
             """
 
             // copy build results in separate directory

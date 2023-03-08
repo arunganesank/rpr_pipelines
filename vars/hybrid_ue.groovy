@@ -152,6 +152,10 @@ def executeBuildWindows(String projectName, Map options) {
         // download textures
         downloadFiles("/volume1/CIS/bin-storage/HybridUE/textures/*", "textures")
 
+        dir("RPRHybrid") {
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
+        }
+
         if (it == "Default") {
             String rprHybridSha
             String rprHybridUESha
@@ -193,13 +197,13 @@ def executeBuildWindows(String projectName, Map options) {
             throw new Exception("Nor svnRepoName, nor sceneFolder are specified")
         }
 
-        dir("RPRHybrid") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, cleanCheckout: options.cleanBuild)
-        }
-
         bat("mkdir ${targetDir}")
 
-        bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        String agilitySDKLocation = hybrid.downloadAgilitySDK()
+
+        withEnv(["AGILITY_SDK=${agilitySDKLocation}"]) {
+            bat("1_UpdateRPRHybrid.bat > \"1_UpdateRPRHybrid_${projectName}.log\" 2>&1")
+        }
 
         try {
             bat("2_CopyDLLsFromRPRtoUE.bat > \"2_CopyDLLsFromRPRtoUE_${projectName}.log\" 2>&1")
@@ -235,6 +239,12 @@ def executeBuildWindows(String projectName, Map options) {
             executeVideoRecording(svnRepoName, options)
         } else if (it == "Default") {
             dir("${targetDir}\\WindowsNoEditor") {
+                if (projects == "VictorianTrains") {
+                    dir("VictorianTrains26_ML\\Binaries\\Win64") {
+                        downloadFiles("/volume1/CIS/bin-storage/Hybrid/dxcompiler.dll", ".")
+                    }
+                }
+
                 String ARTIFACT_NAME = "${projectName}.zip"
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${ARTIFACT_NAME}\" .")
                 makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
@@ -253,8 +263,12 @@ def executeBuildWindows(String projectName, Map options) {
                         bat """
                             svn co svn://${NAS_URL.split("@")[1]}/${projectName}Editor .
                             svn resolve --accept working -R .
-                            svn propset svn:global-ignores -F .svn_ignore .
                             svn add * --force --quiet
+                            svn delete --force .git
+                            svn delete --force .vs
+                            svn delete --force Engine\\DerivedDataCache
+                            for /R . %%1 in (*.obj) do svn delete --force %%1
+                            for /R . %%1 in (*.pdb) do svn delete --force %%1
                             svn commit --username ${USERNAME} --password ${PASSWORD} -m "Build #${currentBuild.number}"
                         """
                     }
@@ -277,28 +291,30 @@ def executeBuild(String osName, Map options) {
             continue
         }
 
-        timeout(time: options["PROJECT_BUILD_TIMEOUT"], unit: "MINUTES") {
-            try {
-                utils.reboot(this, osName)
+        ws(projectName) {
+            timeout(time: options["PROJECT_BUILD_TIMEOUT"], unit: "MINUTES") {
+                try {
+                    utils.reboot(this, osName)
 
-                outputEnvironmentInfo(osName)
-                
-                withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                    switch(osName) {
-                        case "Windows":
-                            executeBuildWindows(projectName, options)
-                            break
-                        default:
-                            println("${osName} is not supported")
+                    outputEnvironmentInfo(osName)
+                    
+                    withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+                        switch(osName) {
+                            case "Windows":
+                                executeBuildWindows(projectName, options) 
+                                break
+                            default:
+                                println("${osName} is not supported")
+                        }
                     }
-                }
 
-                finishedProjects.add(projectName)
-            } catch (e) {
-                println(e.getMessage())
-                throw e
-            } finally {
-                archiveArtifacts "*.log"
+                    finishedProjects.add(projectName)
+                } catch (e) {
+                    println(e.getMessage())
+                    throw e
+                } finally {
+                    archiveArtifacts "*.log"
+                }
             }
         }
     }

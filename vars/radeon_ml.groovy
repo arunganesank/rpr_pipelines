@@ -28,25 +28,24 @@ def executeUnitTestsCommand(String osName, Map options) {
 }
 
 def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
-
-    String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
-    withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-        downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
-    }
-
     ws("WS/${options.PRJ_NAME}-FT") {
-
-        withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
-                cleanWS(osName)
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: "${options.gitlabURL}/rml/ft_engine.git", credentialsId: "radeonprorender-gitlab")
-            }
-        }
-
         try {
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_ml_autotests_assets" : "/mnt/c/TestResources/rpr_ml_autotests_assets"
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+                downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
+            }
+
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+                timeout(time: "5", unit: "MINUTES") {
+                    cleanWS(osName)
+                    checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+                }
+            }
+
             dir("rml_release") {
                 makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
             }
+
             withNotifications(title: "${asicName}-${osName}-FT", options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 switch (osName) {
                     case 'Windows':
@@ -56,7 +55,6 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                             bat """
                                 pip install --user -r requirements.txt >> ${STAGE_NAME}.ft.log 2>&1
                                 python -V >> ${STAGE_NAME}.ft.log 2>&1
-                                python run_tests.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 python execute_cases.py -t ${assetsDir} -e rml_release/test_app.exe -i ${assetsDir} -o results >> ${STAGE_NAME}.ft.log 2>&1
                                 python process_cases.py -i ${assetsDir} -o results -c true >> ${STAGE_NAME}.ft.log 2>&1
                                 rename ft.log ${STAGE_NAME}.execution.ft.log
@@ -103,10 +101,8 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
-
-    cleanWS(osName)
-
     try {
+        cleanWS(osName)
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, BUILD_URL)
         outputEnvironmentInfo(osName, "${STAGE_NAME}.UnitTests")
         makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
@@ -114,16 +110,30 @@ def executeTests(String osName, String asicName, Map options) {
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "success", options, NotificationConfiguration.UNIT_TESTS_PASSED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } catch (FlowInterruptedException error) {
         println("[INFO] Job was aborted during executing tests.")
+
+        if (isUnix()) {
+            sh "echo \"Failed to execute unit tests due to timeout\" >> ${STAGE_NAME}.UnitTests.log"
+        } else {
+            bat "echo \"Failed to execute unit tests due to timeout\" >> ${STAGE_NAME}.UnitTests.log"
+        }
+
         throw error
     } catch (e) {
         println(e.toString())
         println(e.getMessage())
         currentBuild.result = "UNSTABLE"
         options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_UNIT_TESTS)
+
+        if (isUnix()) {
+            sh "echo \"Failed to execute unit tests\" >> ${STAGE_NAME}.UnitTests.log"
+        } else {
+            bat "echo \"Failed to execute unit tests\" >> ${STAGE_NAME}.UnitTests.log"
+        }
+
         GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         try {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
             junit "*gtest.xml"
         } catch (e) {
             println("[WARNING] Failed to save unit tests results")
@@ -136,14 +146,12 @@ def executeTests(String osName, String asicName, Map options) {
 
     if (options.executeFT) {
         try {
-            outputEnvironmentInfo(osName, "${STAGE_NAME}.ft")
             executeFunctionalTestsCommand(osName, asicName, options)
         } catch (e) {
             println(e.toString())
             println(e.getMessage())
-
         } finally {
-            archiveArtifacts "*.log"
+            archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
         }
     }
 }
@@ -514,46 +522,9 @@ def executePreBuild(Map options) {
 }
 
 
-def executeDeploy(Map options, List platformList, List testResultList) {
-
-    try {
-        dir("rml-deploy") {
-           
-            checkoutScm(branchName: "master", repositoryUrl: "${options.gitlabURLSSH}/servants/rml-deploy.git", credentialsId: "radeonprorender-gitlab")
-             
-            bat """
-                git rm -r *
-            """ 
-
-            platformList.each() {
-                dir(it) {
-                    dir("Release"){
-                        makeUnstash(name: "deploy_${it}_Release", storeOnNAS: options.storeOnNAS)
-                    }
-                    dir("Debug"){
-                        makeUnstash(name: "deploy_${it}_Debug", storeOnNAS: options.storeOnNAS)
-                    }
-                }
-            }
-                
-            bat """
-                git add --all
-                git commit -m "buildmaster: SDK release ${env.TAG_NAME}"
-                git tag -a rml_sdk_${env.TAG_NAME} -m "rml_sdk_${env.TAG_NAME}"
-                git push --tag origin HEAD:master
-            """ 
-        }
-    } catch (e) {
-        println("[ERROR] Failed to deploy RML binaries")
-        println(e.toString())
-        println(e.getMessage())
-    }
-}
-
-
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;CentOS7;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT;Ubuntu20:AMD_RX6700XT',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean enableNotifications = true,
          Boolean executeFT = true) {
@@ -564,20 +535,13 @@ def call(String projectBranch = "",
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    def gitlabURL
-    withCredentials([string(credentialsId: 'gitlabURL', variable: 'GITLAB_URL'), string(credentialsId: 'gitlabURLSSH', variable: 'GITLAB_URL_SSH')]) {
-        gitlabURL = GITLAB_URL
-        gitlabURLSSH = GITLAB_URL_SSH
-    }
-
     try {
-
-        def deployStage = env.TAG_NAME ? this.&executeDeploy : null
         platforms = env.TAG_NAME ? "Windows;Ubuntu20;OSX;CentOS7" : platforms
 
         options << [platforms:platforms,
                     projectRepo:projectRepo,
                     projectBranch:projectBranch,
+                    testRepo:"git@github.com:luxteam/rml_ft.git",
                     testsBranch:testsBranch,
                     enableNotifications:enableNotifications,
                     PRJ_NAME:'RadeonML',
@@ -589,14 +553,13 @@ def call(String projectBranch = "",
                     executeBuild:true,
                     executeTests:true,
                     executeFT:executeFT,
-                    retriesForTestStage:1,
-                    gitlabURL:gitlabURL,
-                    gitlabURLSSH:gitlabURLSSH,
+                    retriesForTestStage:2,
                     storeOnNAS:true,
-                    flexibleUpdates: true
+                    flexibleUpdates: true,
+                    TESTER_TAG:"RML"
                     ]
 
-        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, deployStage, options)
+        multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, null, options)
 
     } catch (e) {
         currentBuild.result = "FAILURE"

@@ -67,11 +67,11 @@ def executeTests(String osName, String asicName, Map options) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
 
-                bat """
-                    curl --insecure --retry 5 -L -o HybridPro.zip ${options.hybridLinkWin}
-                """
+                String hybridLink = "/volume1/web/" + options.hybridLinkWin.split(".com/")[1]
 
-                unzip dir: '.', glob: '', zipFile: 'HybridPro.zip'
+                downloadFiles("${hybridLink}", ".")
+
+                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
 
                 bat """
                     copy /Y BaikalNext\\bin\\HybridPro.dll tool
@@ -290,7 +290,14 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             try {
                 GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
+
+                String matLibUrl
+
+                withCredentials([string(credentialsId: "matLibUrl", variable: "MATLIB_URL")]) {
+                    matLibUrl = MATLIB_URL
+                }
+
+                withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "MATLIB_URL=${matLibUrl}"]) {
                     dir("jobs_launcher") {
                         def retryInfo = JsonOutput.toJson(options.nodeRetry)
                         dir("..\\summaryTestResults") {
@@ -406,7 +413,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 
 def call(String testsBranch = "master",
-         String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI',
+         String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX7900XT',
          String updateRefs = 'No',
          String tests = "",
          String parallelExecutionTypeString = "TakeAllNodes",

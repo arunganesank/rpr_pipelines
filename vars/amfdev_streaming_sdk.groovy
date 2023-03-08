@@ -21,7 +21,7 @@ import TestsExecutionType
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
-            "Valorant": "Valorant",
+            "PUBG": "PUBG",
             "LoL": "LoL",
             "HeavenDX9": "HeavenDX9",
             "HeavenDX11": "HeavenDX11",
@@ -31,10 +31,8 @@ import TestsExecutionType
             "ValleyOpenGL":"ValleyOpenGL", 
             "Dota2DX11": "Dota2DX11",
             "Dota2Vulkan": "Dota2Vulkan", 
-            "CSGO": "CSGO",
-            "PUBG": "PUBG",
-            "Nothing": "Nothing",
-            "Empty": "Empty"
+            "LatencyTool": "LatencyTool",
+            "Non3DTestCases": "Non3DTestCases"
         ]
     ]
 )
@@ -45,12 +43,16 @@ Boolean shouldSkipBuild(Map options, String osName) {
 }
 
 
+String getServerLabels(Map options) {
+    return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+}
+
 String getClientLabels(Map options) {
-    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG}"
+    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG} && !Disabled"
 }
 
 String getMulticonnectionClientLabels(Map options) {
-    return "${options.osName} && ${options.TESTER_TAG} && ${options.MULTICONNECTION_CLIENT_TAG}"
+    return "${options.osName} && ${options.TESTER_TAG} && ${options.MULTICONNECTION_CLIENT_TAG} && !Disabled"
 }
 
 
@@ -65,54 +67,81 @@ def getReportBuildArgs(String engineName, Map options) {
 
 
 Boolean isIdleClient(Map options) {
+    Boolean result = false
+
+    def suitableNodes = nodesByLabel label: getServerLabels(options), offline: false
+
+    for (node in suitableNodes) {
+        if (utils.isNodeIdle(node)) {
+            result = true
+        }
+    }
+
+    println(result)
+
     if (options["osName"] == "Windows") {
-        Boolean result = false
+        Boolean firstClientReady = false
 
         // wait client machine
-        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+        suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
 
         for (node in suitableNodes) {
             if (utils.isNodeIdle(node)) {
-                result = true
+                firstClientReady = true
             }
         }
 
-        if (options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-            return options["finishedBuildStages"]["Android"] || options.skipBuild.contains("Android")
+        result &= firstClientReady
+
+        println(result)
+
+        if (options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+            println(options["finishedBuildStages"])
+            if (!options["finishedBuildStages"]["Android"] && !options.skipBuild.contains("Android")) {
+                result = false
+            }
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
-            result = false
+        println(result)
+
+        if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+            Boolean secondClientReady = false
 
             // wait multiconnection client machine
             suitableNodes = nodesByLabel label: getMulticonnectionClientLabels(options), offline: false
 
             for (node in suitableNodes) {
                 if (utils.isNodeIdle(node)) {
-                    result = true
+                    secondClientReady = true
                 }
             }
+
+            result &= secondClientReady
         }
+
+        println(result)
 
         return result
     } else if (options["osName"] == "Android") {
         // wait when Windows artifact will be built
-        return options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows")
+        return result && (options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows"))
     } else if (options["osName"] == "Ubuntu20") {
-        Boolean result = false
+        Boolean firstClientReady = false
 
         // wait client machine
-        def suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
+        suitableNodes = nodesByLabel label: getClientLabels(options), offline: false
 
         for (node in suitableNodes) {
             if (utils.isNodeIdle(node)) {
-                result = true
+                firstClientReady = true
             }
         }
 
         if (!options["finishedBuildStages"]["Windows"] && !options.skipBuild.contains("Windows")) {
             result = false
         }
+
+        result &= firstClientReady
 
         return result
     }
@@ -123,7 +152,7 @@ def getClientScreenWidth(String osName, Map options) {
     try {
         switch(osName) {
             case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentHorizontalResolution", returnStdout: true).split()[-1].trim()
+                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Width", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
                 return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
             case "OSX":
@@ -145,7 +174,7 @@ def getClientScreenHeight(String osName, Map options) {
     try {
         switch(osName) {
             case "Windows":
-                return powershell(script: "wmic path Win32_VideoController get CurrentVerticalResolution", returnStdout: true).split()[-1].trim()
+                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Height", returnStdout: true).split()[-1].trim()
             case "Ubuntu20":
                 return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
             case "OSX":
@@ -174,7 +203,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
                 unzip(zipFile: "${options.winTestingBuildName}.zip")
 
-                if (options["engine"] == "Empty" && options["parsedTests"].contains("Latency")) {
+                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
                     makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
@@ -453,11 +482,8 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
         if (stashResults) {
             dir("Work") {
-                def sessionReport
-
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
-
-                    sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
+                    def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
 
                     if (executionType == "client" || executionType == "android") {
                         String stashPostfix = executionType == "client" ? "_client" : ""
@@ -483,17 +509,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
-                }
 
-                // number of errors > 50% -> do retry
-                if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
-                    String errorMessage
-                    if (options.currentTry < options.nodeReallocateTries) {
-                        errorMessage = "Many tests were marked as error. The test group will be restarted."
-                    } else {
-                        errorMessage = "Many tests were marked as error."
+                    // number of errors > 50% -> do retry
+                    if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
+                        String errorMessage
+                        if (options.currentTry < options.nodeReallocateTries) {
+                            errorMessage = "Many tests were marked as error. The test group will be restarted."
+                        } else {
+                            errorMessage = "Many tests were marked as error."
+                        }
+                        throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                     }
-                    throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
                 }
             }
         }
@@ -675,7 +701,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             initAndroidDevice()
 
-                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { options.tests.contains(it) } 
+                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } 
                                 || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
 
                                 dir("StreamingSDKAndroid") {
@@ -709,7 +735,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
             sleep(5)
         }
 
-        if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+        if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
             while (!options["mcClientInfo"]["ready"]) {
                 if (options["mcClientInfo"]["failed"]) {
                     throw new Exception("Multiconnection client was failed")
@@ -1013,7 +1039,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
-            if (options.multiconnectionConfiguration.second_win_client.any { options.tests.contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+            if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
                 threads["${options.stageName}-multiconnection-client"] = { 
                     node(getMulticonnectionClientLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
@@ -1111,7 +1137,7 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("LatencyTool")) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
@@ -1351,7 +1377,7 @@ def executePreBuild(Map options) {
 
     if (options.projectBranch) {
         dir ("StreamingSDK") {
-            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: SPARSE_CHECKOUT_PATH + [AUTOTESTS_PATH], disableSubmodules: true)
+            checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], disableSubmodules: true)
 
             if (options.projectBranch) {
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
@@ -1514,18 +1540,20 @@ def executePreBuild(Map options) {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
 
             // Multiconnection group required Android client
-            if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { options.testsList.join("").contains(it) } || options.testsPackage == "regression.json~")) {
-                println(options.platforms)
-                options.platforms = options.platforms + ";Android"
-                println(options.platforms)
+            for (testsList in options.testsList) {
+                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
+                    options.platforms = options.platforms + ";Android"
 
-                options.androidBuildConfiguration = ["debug"]
-                options.androidTestingBuildName = "debug"
+                    options.androidBuildConfiguration = ["debug"]
+                    options.androidTestingBuildName = "debug"
 
-                println """
-                    Android build configuration was updated: ${options.androidBuildConfiguration}
-                    Android testing build name was updated: ${options.androidTestingBuildName}
-                """
+                    println """
+                        Android build configuration was updated: ${options.androidBuildConfiguration}
+                        Android testing build name was updated: ${options.androidTestingBuildName}
+                    """
+
+                    break
+                }
             }
         }
 
@@ -1592,7 +1620,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                         groupLost = true
                                     }
 
-                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[3].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                                         try {
                                             makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
                                         } catch (e) {
@@ -1668,7 +1696,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                             String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
-                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> it.contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[3].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
                                 dir(testName.replace("testResult-", "")) {
                                     try {
                                         makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
@@ -1773,7 +1801,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                 // Save test data for access it manually anyway
                                 // FIXME: save reports on NAS
                                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                                    "Test Report ${game}", "Summary Report, Compare Report", false, \
+                                    "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
                                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
                                 options.testDataSaved = true 
                             } catch (e1) {
@@ -1846,7 +1874,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                 withNotifications(title: "Building test report for ${game}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                     // FIXME: save reports on NAS
                     utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
-                        "Test Report ${game}", "Summary Report, Compare Report", false, \
+                        "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
                         ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
                     if (summaryTestResults) {
@@ -1978,7 +2006,7 @@ def call(String projectBranch = "",
                         BUILD_TIMEOUT: 45,
                         // update timeouts dynamicly based on number of cases + traces are generated or not
                         TEST_TIMEOUT: 180,
-                        DEPLOY_TIMEOUT: 150,
+                        DEPLOY_TIMEOUT: 240,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         BUILDER_TAG: "BuilderStreamingSDK",
                         TESTER_TAG: testerTag,
@@ -1999,7 +2027,8 @@ def call(String projectBranch = "",
                         skipBuild: skipBuild,
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
-                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                        retriesForTestStage:2
                         ]
         }
 
