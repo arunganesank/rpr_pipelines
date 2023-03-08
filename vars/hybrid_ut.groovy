@@ -143,9 +143,6 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         error_message = e.getMessage()
 
         String additionalDescription = ""
-        if (options.currentTry + 1 >= options.nodeReallocateTries) {
-            options.successfulTests = false
-        }
 
         try {
             if (options['updateRefs']) {
@@ -163,6 +160,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             }
 
             utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+            options.successfulTests = false
 
             options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
         } catch (err) {
