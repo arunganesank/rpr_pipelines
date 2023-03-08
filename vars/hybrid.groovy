@@ -292,7 +292,7 @@ def call(String pipelineBranch = "master",
                storeOnNAS: true,
                finishedBuildStages: new ConcurrentHashMap()]
 
-    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, null, options)
+    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
 
     String testPlatforms = getTestPlatforms(options)
 
