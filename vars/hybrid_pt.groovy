@@ -177,7 +177,7 @@ def executePerfTests(String osName, String asicName, Map options) {
             String description = errorMessage ? "Testing finished with error message: ${errorMessage}" : "Testing finished"
             String status = errorMessage ? "action_required" : "success"
             String url = "${env.BUILD_URL}/artifact/${STAGE_NAME}.perf.log"
-            GithubNotificator.updateStatus('Test-Perf', title, status, options, description, url)
+            GithubNotificator.updateStatus("Test-PT", title, status, options, description, url)
         }
     }
 }
@@ -195,7 +195,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test", "${asicName}-${osName}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus("Test-PT", "${asicName}-${osName}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -238,14 +238,9 @@ def executePreBuild(Map options) {
             if (tokens.size() > 1) {
                 gpuNames = tokens.get(1)
                 gpuNames.split(',').each() { gpuName ->
-                    options["apiValues"].each() { apiValue ->
-                        if (apiValue == "d3d12" && osName.contains("Ubuntu")) {
-                            // DX12 tests are supported only on Windows
-                            return
-                        }
-
-                        // Statuses for tests
-                        GithubNotificator.createStatus("Test", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                    if (options.scenarios) {
+                        // Statuses for performance tests
+                        GithubNotificator.createStatus("Test-PT", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }

@@ -174,7 +174,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         String description = error_message ? "Testing finished with error message: ${error_message}" : "Testing finished"
         String status = error_message ? "action_required" : "success"
         String url = error_message ? "${env.BUILD_URL}/${STAGE_NAME}_${apiValue}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}_${apiValue}.log"
-        GithubNotificator.updateStatus('Test', title, status, options, description, url)
+        GithubNotificator.updateStatus("Test-UT", title, status, options, description, url)
 
         archiveArtifacts "*.log"
         archiveArtifacts "*.gtest.xml"
@@ -195,7 +195,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test", "${asicName}-${osName}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus("Test-UT", "${asicName}-${osName}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -247,7 +247,7 @@ def executePreBuild(Map options) {
                         }
 
                         // Statuses for tests
-                        GithubNotificator.createStatus("Test", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus("Test-UT", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
