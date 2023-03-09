@@ -192,7 +192,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test-UT", "${asicName}-${osName}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus("Test-UT", "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
