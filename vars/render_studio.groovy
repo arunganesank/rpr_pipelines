@@ -868,12 +868,22 @@ def notifyByTg(Map options){
 
 
 def getReportBuildArgs(String mode, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    String buildNumber = ""
+
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
 
     if (options["isPreBuilt"]) {
-        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     } else {
-        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     }
 }
 
@@ -1226,9 +1236,14 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/${mode}"
+                String metricsRemoteDir
+
+                if (env.BRANCH_NAME) {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/auto/main/${mode}"
+                } else {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/weekly/${mode}"
+                }
+
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (useTrackedMetrics) {
@@ -1443,6 +1458,13 @@ def call(
         Is prebuilt: ${isPreBuilt}
         Modes: ${modes}
     """
+
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
+        || env.BRANCH_NAME)
+
+    boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
+
     def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
@@ -1481,7 +1503,9 @@ def call(
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
                                 testsPreCondition: this.&isWebDeployed,
-                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                                useTrackedMetrics:useTrackedMetrics,
+                                saveTrackedMetrics:saveTrackedMetrics
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
