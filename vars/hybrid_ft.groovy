@@ -499,6 +499,19 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
+    if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
+            println("[INFO] Make a delay because there is a running build in master branch")
+            sleep(300)
+        }
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) {
+            milestone(buildNumber - 1)
+        }
+        milestone(buildNumber) 
+    }
+
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     currentBuild.description = ""

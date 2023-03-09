@@ -315,6 +315,19 @@ def call(String commitSHA = "",
          String apiValues = "vulkan,d3d12",
          Boolean updateRefs = false) {
 
+    if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
+            println("[INFO] Make a delay because there is a running build in master branch")
+            sleep(300)
+        }
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) {
+            milestone(buildNumber - 1)
+        }
+        milestone(buildNumber) 
+    }
+
     List apiList = apiValues.split(",") as List
 
     println "[INFO] Testing APIs: ${apiList}"
