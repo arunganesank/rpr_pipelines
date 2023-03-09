@@ -177,20 +177,6 @@ def executePreBuild(Map options) {
 }
 
 
-def executeDeploy(Map options, List platformList, List testResultList) {
-    // set error statuses for PR, except if current build has been superseded by new execution
-    if (env.CHANGE_ID && !currentBuild.nextBuild) {
-        // if jobs was aborted or crushed remove pending status for unfinished stages
-        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
-        String status = currentBuild.result ?: "success"
-        status = status.toLowerCase()
-        String commentMessage = status == "success" ? "\\n Autotests will be launched soon" : "Autotests won't be launched"
-        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Building for ${commitUrl} finished as ${status} ${commentMessage}", options)
-    }
-}
-
-
 @NonCPS
 def parseResponse(String response) {
     def jsonSlurper = new groovy.json.JsonSlurperClassic()
@@ -210,6 +196,93 @@ def saveTriggeredBuildLink(String jobUrl, String testsName) {
     def parsedInfo = parseResponse(rawInfo.content)
 
     rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastBuild.url}">[${testsName}] This build triggered a new build with tests</a></h3>""")
+
+    return parsedInfo.lastBuild.url
+}
+
+
+def executeDeploy(Map options, List platformList, List testResultList) {
+    String testPlatforms = getTestPlatforms(options)
+
+    String links = ""
+
+    if (testPlatforms) {
+        if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
+            build(job: "HybridProMTLX-Auto/master", wait: false)
+            build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
+            build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
+            build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
+        }
+
+        build(
+            job: env.JOB_NAME.replace("Build", "UT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "Platforms", value: testPlatforms),
+                string(name: "ApiValues", value: apiValues),
+                booleanParam(name: "UpdateRefs", value: updateUTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
+
+        String utLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "UT"), "UNIT TESTS")
+
+        build(
+            job: env.JOB_NAME.replace("Build", "PT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "CommitSHA", value: options.commitSHA),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "Platforms", value: testPlatforms),
+                string(name: "Scenarios", value: scenarios),
+                booleanParam(name: "UpdateRefs", value: updatePTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
+
+        String ptLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "PT"), "PERF TESTS")
+
+        build(
+            job: env.JOB_NAME.replace("Build", "FT"),
+            parameters: [
+                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "CommitSHA", value: options.commitSHA),
+                string(name: "ProjectBranchName", value: projectBranch),
+                string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                string(name: "TestsBranch", value: testsBranch),
+                string(name: "Platforms", value: testPlatforms),
+                string(name: "UpdateRefs", value: updateFTRefs)
+            ],
+            wait: false,
+            quietPeriod : 0
+        )
+
+        String ftLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "FT"), "FUNCTIONAL TESTS")
+
+        String links += "\\n Unit tests build: ${utLink}"
+        String links += "\\n Performance tests build: ${ptLink}"
+        String links += "\\n Functional tests build: ${ftLink}"
+    }
+
+    // set error statuses for PR, except if current build has been superseded by new execution
+    if (env.CHANGE_ID && !currentBuild.nextBuild) {
+        // if jobs was aborted or crushed remove pending status for unfinished stages
+        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
+
+        String status = currentBuild.result ?: "success"
+        status = status.toLowerCase()
+        String commentMessage = status == "success" ? "\\n Autotests will be launched soon" : "\\nAutotests won't be launched"
+
+        if (links) {
+            commitMessage += links
+        }
+
+        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
+        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Building for ${commitUrl} finished as ${status} ${commentMessage}", options)
+    }
 }
 
 
@@ -293,65 +366,4 @@ def call(String pipelineBranch = "master",
                finishedBuildStages: new ConcurrentHashMap()]
 
     multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
-
-    String testPlatforms = getTestPlatforms(options)
-
-    if (testPlatforms) {
-        node("PreBuild") {
-            if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
-                build(job: "HybridProMTLX-Auto/master", wait: false)
-                build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
-                build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
-                build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
-            }
-
-            build(
-                job: env.JOB_NAME.replace("Build", "UT"),
-                parameters: [
-                    string(name: "PipelineBranch", value: pipelineBranch),
-                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                    string(name: "Platforms", value: testPlatforms),
-                    string(name: "ApiValues", value: apiValues),
-                    booleanParam(name: "UpdateRefs", value: updateUTRefs)
-                ],
-                wait: false,
-                quietPeriod : 0
-            )
-
-            saveTriggeredBuildLink(env.JOB_URL.replace("Build", "UT"), "UNIT TESTS")
-
-            build(
-                job: env.JOB_NAME.replace("Build", "PT"),
-                parameters: [
-                    string(name: "PipelineBranch", value: pipelineBranch),
-                    string(name: "CommitSHA", value: options.commitSHA),
-                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                    string(name: "Platforms", value: testPlatforms),
-                    string(name: "Scenarios", value: scenarios),
-                    booleanParam(name: "UpdateRefs", value: updatePTRefs)
-                ],
-                wait: false,
-                quietPeriod : 0
-            )
-
-            saveTriggeredBuildLink(env.JOB_URL.replace("Build", "PT"), "PERF TESTS")
-
-            build(
-                job: env.JOB_NAME.replace("Build", "FT"),
-                parameters: [
-                    string(name: "PipelineBranch", value: pipelineBranch),
-                    string(name: "CommitSHA", value: options.commitSHA),
-                    string(name: "ProjectBranchName", value: projectBranch),
-                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                    string(name: "TestsBranch", value: testsBranch),
-                    string(name: "Platforms", value: testPlatforms),
-                    string(name: "UpdateRefs", value: updateFTRefs)
-                ],
-                wait: false,
-                quietPeriod : 0
-            )
-
-            saveTriggeredBuildLink(env.JOB_URL.replace("Build", "FT"), "FUNCTIONAL TESTS")
-        }
-    }
 }

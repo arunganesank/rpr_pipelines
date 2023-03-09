@@ -155,8 +155,6 @@ def executeTests(String osName, String asicName, Map options) {
         String additionalDescription = ""
         if (options.currentTry + 1 < options.nodeReallocateTries) {
             stashResults = false
-        } else {
-            options.successfulTests = false
         }
 
         println(e.toString())
@@ -477,7 +475,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                     String status = currentBuild.result ?: "success"
                     status = status.toLowerCase()
                     String commentMessage = ""
-                    if (!options.successfulTests || summaryTestResults.error > 0) {
+                    if (summaryTestResults.error > 0) {
                         commentMessage = "\\n Functional tests failures - ${env.BUILD_URL}/HTML_20Failures_20HybridPro/"
                     }
                     String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
@@ -526,7 +524,6 @@ def call(String commitSHA = "",
                             storeOnNAS: true,
                             flexibleUpdates: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            successfulTests: true,
                             splitTestsExecution: false,
                             problemMessageManager:problemMessageManager,
                             nodeRetry: []])

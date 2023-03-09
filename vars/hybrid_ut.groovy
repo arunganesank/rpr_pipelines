@@ -160,7 +160,6 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             }
 
             utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
-            options.successfulTests = false
 
             options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
         } catch (err) {
@@ -301,7 +300,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         String status = currentBuild.result ?: "success"
         status = status.toLowerCase()
         String commentMessage = ""
-        if (!options.successfulTests) {
+        if (currentBuild.result != null) {
             commentMessage = "\\n Unit tests failures - ${env.BUILD_URL}/HTML_20Failures_20UT/"
         }
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
@@ -338,6 +337,5 @@ def call(String commitSHA = "",
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
                             splitTestsExecution: false,
-                            skipCallback: this.&filter,
-                            successfulTests: true])
+                            skipCallback: this.&filter])
 }

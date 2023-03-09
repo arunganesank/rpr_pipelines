@@ -135,7 +135,6 @@ def executePerfTests(String osName, String asicName, Map options) {
     } catch (e) {
         println(e.getMessage())
         errorMessage = e.getMessage()
-        options.successfulTests["perf"] = false
         currentBuild.result = "UNSTABLE"
     } finally {
         archiveArtifacts "*.log"
@@ -162,7 +161,6 @@ def executePerfTests(String osName, String asicName, Map options) {
                 }
                 if (cliffDetected) {
                     currentBuild.result = "UNSTABLE"
-                    options.successfulTests["perf"] = false
                 }
                 if (cliffDetected) {
                     errorMessage += " Testing finished with 'cliff detected'."
@@ -289,7 +287,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         String status = currentBuild.result ?: "success"
         status = status.toLowerCase()
         String commentMessage = ""
-        if (!options.successfulTests) {
+        if (currentBuild.result != null) {
             commentMessage = "\\n Perf tests failures - ${env.BUILD_URL}/Performance_20Tests_20Report/"
         }
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
@@ -306,7 +304,7 @@ def call(String commitSHA = "",
 
     currentBuild.description = ""
 
-    Map successfulTests = ["perf": true, "cliff_detected": false, "unexpected_acceleration": false]
+    Map successfulTests = ["cliff_detected": false, "unexpected_acceleration": false]
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [platforms:platforms,
@@ -320,6 +318,5 @@ def call(String commitSHA = "",
                             executeTests:true,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            successfulTests: successfulTests,
                             scenarios: scenarios])
 }
