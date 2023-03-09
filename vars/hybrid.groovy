@@ -262,9 +262,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
         String ftLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "FT"), "FUNCTIONAL TESTS")
 
-        String links += "\\n Unit tests build: ${utLink}"
-        String links += "\\n Performance tests build: ${ptLink}"
-        String links += "\\n Functional tests build: ${ftLink}"
+        links += "\\n Unit tests build: ${utLink}"
+        links += "\\n Performance tests build: ${ptLink}"
+        links += "\\n Functional tests build: ${ftLink}"
     }
 
     // set error statuses for PR, except if current build has been superseded by new execution
