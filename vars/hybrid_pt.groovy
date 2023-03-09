@@ -85,8 +85,6 @@ def executePerfTests(String osName, String asicName, Map options) {
         String scenariosPath = "/volume1/web/${options.originalBuildLink.split('/job/', 2)[1].replace('/job/', '/')}Artifacts/${scenariosName}"
         downloadFiles(binaryPath, ".")
 
-        dir("BaikalNext/")
-
         switch(osName) {
             case "Windows":
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
