@@ -436,7 +436,7 @@ def executeBuildWindows(Map options)
             }
 
             String ARTIFACT_NAME = options.branch_postfix ? "RadeonProRenderForBlender_${options.pluginVersion}_Windows.(${options.branch_postfix}).zip" : "RadeonProRenderForBlender_${options.pluginVersion}_Windows.zip"
-            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
             bat """
                 rename RadeonProRender*.zip RadeonProRenderBlender_Windows.zip

@@ -826,4 +826,11 @@ class utils {
             """
         }
     }
+
+    static def generateRandomString(Object self, int length) {
+        String alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        def random = new Random()
+
+        return (1..length).collect { alphabet[ random.nextInt( alphabet.length() ) ] }.join("")
+    }
 }
