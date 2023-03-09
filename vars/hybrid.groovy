@@ -217,11 +217,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         build(
             job: env.JOB_NAME.replace("Build", "UT"),
             parameters: [
-                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "PipelineBranch", value: options.pipelineBranch),
                 string(name: "OriginalBuildLink", value: env.BUILD_URL),
                 string(name: "Platforms", value: testPlatforms),
-                string(name: "ApiValues", value: apiValues),
-                booleanParam(name: "UpdateRefs", value: updateUTRefs)
+                string(name: "ApiValues", value: options.apiValues),
+                booleanParam(name: "UpdateRefs", value: options.updateUTRefs)
             ],
             wait: false,
             quietPeriod : 0
@@ -232,12 +232,12 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         build(
             job: env.JOB_NAME.replace("Build", "PT"),
             parameters: [
-                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "PipelineBranch", value: options.pipelineBranch),
                 string(name: "CommitSHA", value: options.commitSHA),
                 string(name: "OriginalBuildLink", value: env.BUILD_URL),
                 string(name: "Platforms", value: testPlatforms),
-                string(name: "Scenarios", value: scenarios),
-                booleanParam(name: "UpdateRefs", value: updatePTRefs)
+                string(name: "Scenarios", value: options.scenarios),
+                booleanParam(name: "UpdateRefs", value: options.updatePTRefs)
             ],
             wait: false,
             quietPeriod : 0
@@ -248,13 +248,13 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         build(
             job: env.JOB_NAME.replace("Build", "FT"),
             parameters: [
-                string(name: "PipelineBranch", value: pipelineBranch),
+                string(name: "PipelineBranch", value: options.pipelineBranch),
                 string(name: "CommitSHA", value: options.commitSHA),
-                string(name: "ProjectBranchName", value: projectBranch),
+                string(name: "ProjectBranchName", value: options.projectBranch),
                 string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                string(name: "TestsBranch", value: testsBranch),
+                string(name: "TestsBranch", value: options.testsBranch),
                 string(name: "Platforms", value: testPlatforms),
-                string(name: "UpdateRefs", value: updateFTRefs)
+                string(name: "UpdateRefs", value: options.updateFTRefs)
             ],
             wait: false,
             quietPeriod : 0
@@ -350,8 +350,11 @@ def call(String pipelineBranch = "master",
 
     options = [platforms:processedPlatforms,
                originalPlatforms:platforms,
+               pipelineBranch:pipelineBranch,
                projectBranch:projectBranch,
                testsBranch:testsBranch,
+               apiValues:apiValues,
+               scenarios:scenarios,
                updateUTRefs:updateUTRefs,
                updatePTRefs:updatePTRefs,
                updateFTRefs:updateFTRefs,
@@ -361,6 +364,7 @@ def call(String pipelineBranch = "master",
                BUILDER_TAG:"HybridBuilder",
                executeBuild:true,
                executeTests:false,
+               forceDeploy:true,
                cmakeKeys:cmakeKeys,
                storeOnNAS: true,
                finishedBuildStages: new ConcurrentHashMap()]
