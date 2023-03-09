@@ -277,7 +277,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
         String commentMessage = status == "success" ? "\\n Autotests will be launched soon" : "\\nAutotests won't be launched"
 
         if (links) {
-            commitMessage += links
+            commentMessage += links
         }
 
         String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
