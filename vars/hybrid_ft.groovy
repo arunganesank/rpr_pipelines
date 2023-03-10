@@ -410,7 +410,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         try {
                             // Save test data for access it manually anyway
                             utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                                "Test Report FT", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
+                                "Test Report HybridPro", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
                                 ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                             options.testDataSaved = true 
@@ -465,7 +465,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             withNotifications(stage: "Test-FT", title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                    "Test Report FT", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
+                    "Test Report HybridPro", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 // set error statuses for PR, except if current build has been superseded by new execution
