@@ -803,15 +803,27 @@ class utils {
         return true
     }
 
-    static def removeInventorEnv(Object self) {
-        try {
-            self.bat """
-                REG delete \"HKCU\\Environment\" /F /V HDRPR_CACHE_PATH_OVERRIDE
-            """
-        } catch (e) {
-            self.println("\n[WARNING] Unable to remove Inventor plugin environment variable\n")
-            self.println(e.toString())
-            self.println(e.getMessage())
+    static def removeEnvVars(Object self) {
+        if (!self.isUnix()) {
+            try {
+                self.bat """
+                    REG delete \"HKCU\\Environment\" /F /V HDRPR_CACHE_PATH_OVERRIDE
+                """
+            } catch (e) {
+                self.println("\n[WARNING] Unable to remove Inventor plugin environment variable\n")
+                self.println(e.toString())
+                self.println(e.getMessage())
+            }
+
+            try {
+                self.bat """
+                    REG delete \"HKCU\\Environment\" /F /V RPRTRACEPATH
+                """
+            } catch (e) {
+                self.println("\n[WARNING] Unable to remove traces path collection environment variable\n")
+                self.println(e.toString())
+                self.println(e.getMessage())
+            }
         }
     }
 

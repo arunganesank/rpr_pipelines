@@ -188,6 +188,8 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
     
     try {
+        utils.removeEnvVars(this)
+
         // FIXME: too many random errors on Maya on Mac machines
         if (osName == "OSX") {
             utils.reboot(this, osName)
