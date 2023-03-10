@@ -1246,7 +1246,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
-                if (useTrackedMetrics) {
+                if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
@@ -1292,7 +1292,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                     }
                 }
 
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
