@@ -502,7 +502,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         }
 
                         println "Stashing logs to : ${options.testResultsName}_server"
-                        makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*log,**/*html', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
@@ -538,9 +538,10 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 def prepareLatencyToolEnvironment() {
     if (!isUnix()) {
         bat """
-            taskkill /f /im \"borderlands3.exe\"
-            taskkill /f /im \"borderlands3.exe\"
-            taskkill /f /im \"borderlands3.exe\"
+            taskkill /f /im \"anydesk.exe\"
+            taskkill /f /im \"pservice.exe\"
+            taskkill /f /im \"parsecd.exe\"
+            taskkill /f /im \"steam.exe\"
         """
     }
 }
