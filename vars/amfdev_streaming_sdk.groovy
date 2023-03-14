@@ -634,10 +634,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         executeTestCommand(osName, asicName, options, "client")
 
         options["clientInfo"]["executeTestsFinished"] = true
-
-        if (options.engine == "LatencyTool") {
-            utils.reboot(this, osName)
-        }
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -661,6 +657,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "client")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
@@ -781,10 +781,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         options["serverInfo"]["executeTestsFinished"] = true
-
-        if (options.engine == "LatencyTool") {
-            utils.reboot(this, osName)
-        }
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
@@ -808,6 +804,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
