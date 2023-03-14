@@ -539,7 +539,7 @@ def prepareLatencyToolEnvironment() {
     if (!isUnix()) {
         try {
             bat """
-                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"AnyDesk.exe\"
                 taskkill /f /im \"pservice.exe\"
                 taskkill /f /im \"parsecd.exe\"
                 taskkill /f /im \"steam.exe\"
