@@ -535,12 +535,27 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 }
 
 
+def prepareLatencyToolEnvironment() {
+    if (!isUnix()) {
+        bat """
+            taskkill /f /im \"borderlands3.exe\"
+            taskkill /f /im \"borderlands3.exe\"
+            taskkill /f /im \"borderlands3.exe\"
+        """
+    }
+}
+
+
 def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         timeout(time: "10", unit: "MINUTES") {
@@ -614,6 +629,9 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
         options["clientInfo"]["executeTestsFinished"] = true
 
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
+        }
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -648,6 +666,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
@@ -754,6 +776,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         options["serverInfo"]["executeTestsFinished"] = true
 
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
+        }
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
