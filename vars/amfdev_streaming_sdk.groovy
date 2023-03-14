@@ -537,12 +537,18 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
 def prepareLatencyToolEnvironment() {
     if (!isUnix()) {
-        bat """
-            taskkill /f /im \"anydesk.exe\"
-            taskkill /f /im \"pservice.exe\"
-            taskkill /f /im \"parsecd.exe\"
-            taskkill /f /im \"steam.exe\"
-        """
+        try {
+            bat """
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"pservice.exe\"
+                taskkill /f /im \"parsecd.exe\"
+                taskkill /f /im \"steam.exe\"
+            """
+        } catch (e) {
+            println("[WARNING] Failed to close apps for Latency Tool")
+            println(e)
+        }
     }
 }
 
@@ -629,10 +635,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         executeTestCommand(osName, asicName, options, "client")
 
         options["clientInfo"]["executeTestsFinished"] = true
-
-        if (options.engine == "LatencyTool") {
-            utils.reboot(this, osName)
-        }
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -656,6 +658,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "client")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
@@ -776,10 +782,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         options["serverInfo"]["executeTestsFinished"] = true
-
-        if (options.engine == "LatencyTool") {
-            utils.reboot(this, osName)
-        }
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
@@ -803,6 +805,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
