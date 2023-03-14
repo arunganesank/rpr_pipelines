@@ -537,12 +537,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 
 def prepareLatencyToolEnvironment() {
     if (!isUnix()) {
-        bat """
-            taskkill /f /im \"anydesk.exe\"
-            taskkill /f /im \"pservice.exe\"
-            taskkill /f /im \"parsecd.exe\"
-            taskkill /f /im \"steam.exe\"
-        """
+        try {
+            bat """
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"pservice.exe\"
+                taskkill /f /im \"parsecd.exe\"
+                taskkill /f /im \"steam.exe\"
+            """
+        } catch (e) {
+            println("[WARNING] Failed to close apps for Latency Tool")
+            println(e)
+        }
     }
 }
 
