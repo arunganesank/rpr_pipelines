@@ -202,7 +202,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
                 unzip(zipFile: "StreamingSDK_Windows.zip")
 
-                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
+                if (options["engine"] == "LatencyTool") {
                     downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
@@ -1562,6 +1562,7 @@ def executePreBuild(Map options) {
 
         dir("jobs_test_streaming_sdk/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
+            options.latencyConfiguration = readJSON file: "jobs/latency.json"
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {
