@@ -160,16 +160,6 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
-        // FIXME: Check Cloud on Goto
-        if (env.NODE_NAME == "PC-TESTER-GOTO-OSX") {
-            if (options.tests.contains("Cloud") || options.tests.contains("regression.0")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support Cloud group", 
-                    new Exception("System doesn't support Cloud group")
-                )
-            }
-        }
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
