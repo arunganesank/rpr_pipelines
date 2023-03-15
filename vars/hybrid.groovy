@@ -6,7 +6,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 
 @Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RPRHybrid.git"
-@Field final String FT_REPO = "git@github.com:luxteam/jobs_test_core.git"
+@Field final String SDK_REPO = "git@github.com:luxteam/jobs_test_core.git"
+@Field final String MTLX_REPO = "git@github.com:luxteam/jobs_test_hybrid_mtlx.git"
 
 
 def getArtifactName(String osName) {
@@ -137,9 +138,10 @@ def executePreBuild(Map options) {
     println "Commit SHA: ${options.commitSHA}"
 
     if ((commitMessage.contains("[CIS:GENREFALL]") || commitMessage.contains("[CIS:GENREF]")) && env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        options.updateUTRefs = true
-        options.updatePTRefs = true
-        options.updateFTRefs = "Update"
+        options.updateUnitRefs = true
+        options.updatePerfRefs = true
+        options.updateSdkRefs = "Update"
+        options.updateMtlxRefs = "Update"
         println("[CIS:GENREF] or [CIS:GENREFALL] have been found in comment")
     }
 
@@ -158,6 +160,10 @@ def executePreBuild(Map options) {
         String archiveName = "scenarios.zip"
         bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " ${archiveName} -aoa")
         makeArchiveArtifacts(name: archiveName, storeOnNAS: options.storeOnNAS)
+    }
+
+    if (env.BRANCH_NAME && (env.BRANCH_NAME == "master" || env.BRANCH_NAME.contains("-rc") || env.BRANCH_NAME.contains("release"))) {
+        options.mtlxTestsPackage = "Full.json"
     }
 
     // set pending status for all
@@ -201,87 +207,149 @@ def saveTriggeredBuildLink(String jobUrl, String testsName) {
 }
 
 
+def checkBuildResult(String buildUrl) {
+    def rawInfo = httpRequest(
+        url: "${buildUrl}/api/json?tree=result,description",
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    return parsedInfo
+}
+
+
+def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
+    waitUntil({checkBuildResult(buildUrl).result != null}, quiet: true)
+
+    String buildResult = checkBuildResult(buildUrl)
+    currentBuild.result = buildResult.result
+
+    if (buildResult == "FAILURE") {
+        currentBuild.description += "<span style='color: #7d6608'>${testsName} finished as Failed. Check <a href='reportLink'>test report</a> for more details</span><br/>"
+    } else if (buildResult == "UNSTABLE") {
+        currentBuild.description += "<span style='color: #641e16'>${testsName} finished as Unstable. Check <a href='reportLink'>test report</a> for more details</span><br/>"
+    }
+
+    currentBuild.description += buildResult.description
+    buildResult.description += "<br/>"
+}
+
+
 def executeDeploy(Map options, List platformList, List testResultList) {
     String testPlatforms = getTestPlatforms(options)
 
-    String links = ""
-
     if (testPlatforms) {
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
-            build(job: "HybridProMTLX-Auto/master", wait: false)
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
 
-        build(
-            job: env.JOB_NAME.replace("Build", "UT"),
-            parameters: [
-                string(name: "PipelineBranch", value: options.pipelineBranch),
-                string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                string(name: "Platforms", value: testPlatforms),
-                string(name: "ApiValues", value: options.apiValues),
-                booleanParam(name: "UpdateRefs", value: options.updateUTRefs)
-            ],
-            wait: false,
-            quietPeriod : 0
-        )
-
-        String utLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "UT"), "UNIT TESTS")
+        String unitLink
+        String perfLink
+        String rprSdkLink
+        String mtlxLink
 
         build(
-            job: env.JOB_NAME.replace("Build", "PT"),
-            parameters: [
-                string(name: "PipelineBranch", value: options.pipelineBranch),
-                string(name: "CommitSHA", value: options.commitSHA),
-                string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                string(name: "Platforms", value: testPlatforms),
-                string(name: "Scenarios", value: options.scenarios),
-                booleanParam(name: "UpdateRefs", value: options.updatePTRefs)
-            ],
-            wait: false,
-            quietPeriod : 0
+            if (options.apiValues) {
+                job: env.JOB_NAME.replace("Build", "Unit"),
+                parameters: [
+                    string(name: "PipelineBranch", value: options.pipelineBranch),
+                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                    string(name: "Platforms", value: testPlatforms),
+                    string(name: "ApiValues", value: options.apiValues),
+                    booleanParam(name: "UpdateRefs", value: options.updateUnitRefs)
+                ],
+                wait: false,
+                quietPeriod : 0
+            }
+
+            unitLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
         )
 
-        String ptLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "PT"), "PERF TESTS")
+        if (options.scenarios) {
+            build(
+                job: env.JOB_NAME.replace("Build", "Perf"),
+                parameters: [
+                    string(name: "PipelineBranch", value: options.pipelineBranch),
+                    string(name: "CommitSHA", value: options.commitSHA),
+                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                    string(name: "Platforms", value: testPlatforms),
+                    string(name: "Scenarios", value: options.scenarios),
+                    booleanParam(name: "UpdateRefs", value: options.updatePerfRefs)
+                ],
+                wait: false,
+                quietPeriod : 0
+            )
 
-        build(
-            job: env.JOB_NAME.replace("Build", "FT"),
-            parameters: [
-                string(name: "PipelineBranch", value: options.pipelineBranch),
-                string(name: "CommitSHA", value: options.commitSHA),
-                string(name: "ProjectBranchName", value: options.projectBranch),
-                string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                string(name: "TestsBranch", value: options.testsBranch),
-                string(name: "Platforms", value: testPlatforms),
-                string(name: "UpdateRefs", value: options.updateFTRefs)
-            ],
-            wait: false,
-            quietPeriod : 0
-        )
+            perfLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Perf"), "PERF TESTS")
+        }
 
-        String ftLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "FT"), "FUNCTIONAL TESTS")
+        if (options.rprSdkTestsPackage != "none") {
+            build(
+                job: env.JOB_NAME.replace("Build", "SDK"),
+                parameters: [
+                    string(name: "PipelineBranch", value: options.pipelineBranch),
+                    string(name: "CommitSHA", value: options.commitSHA),
+                    string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                    string(name: "TestsBranch", value: options.rprSdkTestsBranch),
+                    string(name: "TestsPackage", value: options.rprSdkTestsPackage),
+                    string(name: "Platforms", value: testPlatforms),
+                    string(name: "UpdateRefs", value: options.updateSdkRefs)
+                ],
+                wait: false,
+                quietPeriod : 0
+            )
 
-        links += "\\n Unit tests build: ${utLink}"
-        links += "\\n Performance tests build: ${ptLink}"
-        links += "\\n Functional tests build: ${ftLink}"
+            rprSdkLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "SDK"), "RPR SDK TESTS")
+        }
+
+        if (options.mtlxTestsPackage != "none") {
+            build(
+                job: env.JOB_NAME.replace("Build", "MTLX"),
+                parameters: [
+                    string(name: "PipelineBranch", value: options.pipelineBranch),
+                    string(name: "CommitSHA", value: options.commitSHA),
+                    string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                    string(name: "TestsBranch", value: options.mtlxTestsBranch),
+                    string(name: "TestsPackage", value: options.mtlxTestsPackage),
+                    string(name: "Tests", value: ""),
+                    string(name: "Platforms", value: testPlatforms),
+                    string(name: "UpdateRefs", value: options.updateMtlxRefs)
+                ],
+                wait: false,
+                quietPeriod : 0
+            )
+
+            mtlxLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "MTLX"), "MATERIALX TESTS")
+        }
+
+        if (unitLink) {
+            String reportLink = "${unitLink}/testReport"
+            awaitBuildFinishing(unitLink, "Unit tests", reportLink)
+        }
+        if (perfLink) {
+            String reportLink = "${unitLink}/Performance_20Tests_20Report"
+            awaitBuildFinishing(perfLink, "Performance tests", reportLink)
+        }
+        if (rprSdkLink) {
+            String reportLink = "${unitLink}/Test_20Report_20HybridPro"
+            awaitBuildFinishing(rprSdkLink, "RPR SDK tests", reportLink)
+        }
+        if (mtlxLink) {
+            String reportLink = "${unitLink}/Test_20Report"
+            awaitBuildFinishing(mtlxLink, "MaterialX tests", reportLink)
+        }
     }
 
     // set error statuses for PR, except if current build has been superseded by new execution
     if (env.CHANGE_ID && !currentBuild.nextBuild) {
         // if jobs was aborted or crushed remove pending status for unfinished stages
         GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
-
-        String status = currentBuild.result ?: "success"
-        status = status.toLowerCase()
-        String commentMessage = status == "success" ? "\\n Autotests will be launched soon" : "\\nAutotests won't be launched"
-
-        if (links) {
-            commentMessage += links
-        }
-
-        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[PROJECT BUILDING] Building for ${commitUrl} finished as ${status} ${commentMessage}", options)
     }
 }
 
@@ -300,7 +368,7 @@ def getTestPlatforms(Map options) {
                 }
             }
         } else {
-            currentBuild.result = "FAILED"
+            currentBuild.result = "FAILURE"
         }
     }
 
@@ -310,13 +378,17 @@ def getTestPlatforms(Map options) {
 
 def call(String pipelineBranch = "master",
          String projectBranch = "",
-         String testsBranch = "master",
+         String rprSdkTestsBranch = "master",
+         String mtlxTestsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan,d3d12",
          String scenarios = "all",
-         Boolean updateUTRefs = false,
-         Boolean updatePTRefs = false,
-         String updateFTRefs = "No",
+         String rprSdkTestsPackage = "Full.json",
+         String mtlxTestsPackage = "regression.json",
+         Boolean updateUnitRefs = false,
+         Boolean updatePerfRefs = false,
+         String updateSdkRefs = "No",
+         String updateMtlxRefs = "No",
          String cmakeKeys = "-DCMAKE_BUILD_TYPE=Release -DBAIKAL_ENABLE_RPR=ON -DBAIKAL_NEXT_EMBED_KERNELS=ON") {
 
     List apiList = apiValues.split(",") as List
@@ -339,12 +411,16 @@ def call(String pipelineBranch = "master",
                originalPlatforms:platforms,
                pipelineBranch:pipelineBranch,
                projectBranch:projectBranch,
-               testsBranch:testsBranch,
+               rprSdkTestsBranch:rprSdkTestsBranch,
+               mtlxTestsBranch:mtlxTestsBranch,
                apiValues:apiValues,
                scenarios:scenarios,
-               updateUTRefs:updateUTRefs,
-               updatePTRefs:updatePTRefs,
-               updateFTRefs:updateFTRefs,
+               rprSdkTestsPackage:rprSdkTestsPackage,
+               mtlxTestsPackage:mtlxTestsPackage,
+               updateUnitRefs:updateUnitRefs,
+               updatePerfRefs:updatePerfRefs,
+               updateSdkRefs:updateSdkRefs,
+               updateMtlxRefs:updateMtlxRefs,
                PRJ_NAME:"HybridPro",
                PRJ_ROOT:"rpr-core",
                projectRepo:PROJECT_REPO,

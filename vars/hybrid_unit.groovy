@@ -92,7 +92,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
     String apiValue = options.apiValue
 
     cleanWS(osName)
-    String error_message = ""
+    String errorMessage = ""
     String REF_PATH_PROFILE
     Boolean isRTXCard = asicName.contains("RTX") || asicName.contains("AMD_RX6") || asicName.contains("AMD_RX7")
 
@@ -140,7 +140,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
     } catch (e) {
         println("Exception during tests execution")
         println(e.getMessage())
-        error_message = e.getMessage()
+        errorMessage = e.getMessage()
 
         String additionalDescription = ""
 
@@ -168,10 +168,10 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         }
     } finally {
         String title = "${asicName}-${osName}-${apiValue}"
-        String description = error_message ? "Testing finished with error message: ${error_message}" : "Testing finished"
-        String status = error_message ? "action_required" : "success"
-        String url = error_message ? "${env.BUILD_URL}/${STAGE_NAME}_${apiValue}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}_${apiValue}.log"
-        GithubNotificator.updateStatus("Test-UT", title, status, options, description, url)
+        String description = errorMessage ? "Error: ${errorMessage}" : "Testing finished"
+        String status = errorMessage ? "action_required" : "success"
+        String url = errorMessage ? "${env.BUILD_URL}/${STAGE_NAME}_${apiValue}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}_${apiValue}.log"
+        GithubNotificator.updateStatus("Test-Unit", title, status, options, description, url)
 
         archiveArtifacts "*.log"
         archiveArtifacts "*.gtest.xml"
@@ -192,7 +192,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test-UT", "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus("Test-Unit", "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -244,7 +244,7 @@ def executePreBuild(Map options) {
                         }
 
                         // Statuses for tests
-                        GithubNotificator.createStatus("Test-UT", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus("Test-Unit", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
@@ -285,26 +285,12 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             if (options.failedConfigurations.size() != 0) {
                 utils.publishReport(this, "${BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
-                    "HTML Failures UT", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
+                    "HTML Failures Unit", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
             }
         } catch(e) {
             println(e.toString())
         }
-    }
-
-    // set error statuses for PR, except if current build has been superseded by new execution
-    if (env.CHANGE_ID && !currentBuild.nextBuild) {
-        // if jobs was aborted or crushed remove pending status for unfinished stages
-        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
-        String status = currentBuild.result ?: "success"
-        status = status.toLowerCase()
-        String commentMessage = ""
-        if (currentBuild.result != null) {
-            commentMessage = "\\n Unit tests failures - ${env.BUILD_URL}/HTML_20Failures_20UT/"
-        }
-        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[UNIT TESTS] Tests for ${commitUrl} finished as ${status} ${commentMessage}", options)
     }
 }
 
@@ -340,7 +326,7 @@ def call(String commitSHA = "",
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
                             updateRefs:updateRefs,
-                            PRJ_NAME:"HybridProUT",
+                            PRJ_NAME:"HybridProUnit",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
                             tests:"",

@@ -170,10 +170,10 @@ def executePerfTests(String osName, String asicName, Map options) {
 
         if (env.BRANCH_NAME) {
             String title = "${asicName}-${osName}"
-            String description = errorMessage ? "Testing finished with error message: ${errorMessage}" : "Testing finished"
+            String description = errorMessage ? "Error: ${errorMessage}" : "Testing finished"
             String status = errorMessage ? "action_required" : "success"
             String url = "${env.BUILD_URL}/artifact/${STAGE_NAME}.perf.log"
-            GithubNotificator.updateStatus("Test-PT", title, status, options, description, url)
+            GithubNotificator.updateStatus("Test-Perf", title, status, options, description, url)
         }
     }
 }
@@ -191,7 +191,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test-PT", "${asicName}-${osName}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus("Test-Perf", "${asicName}-${osName}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -236,7 +236,7 @@ def executePreBuild(Map options) {
                 gpuNames.split(',').each() { gpuName ->
                     if (options.scenarios) {
                         // Statuses for performance tests
-                        GithubNotificator.createStatus("Test-PT", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus("Test-Perf", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
@@ -277,20 +277,6 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             println(e.toString())
         }
     }
-
-    // set error statuses for PR, except if current build has been superseded by new execution
-    if (env.CHANGE_ID && !currentBuild.nextBuild) {
-        // if jobs was aborted or crushed remove pending status for unfinished stages
-        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
-        String status = currentBuild.result ?: "success"
-        status = status.toLowerCase()
-        String commentMessage = ""
-        if (currentBuild.result != null) {
-            commentMessage = "\\n Perf tests failures - ${env.BUILD_URL}/Performance_20Tests_20Report/"
-        }
-        String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-        GithubNotificator.sendPullRequestComment("[PERF TESTS] Tests for ${commitUrl} finished as ${status} ${commentMessage}", options)
-    }
 }
 
 
@@ -322,7 +308,7 @@ def call(String commitSHA = "",
                             commitSHA:commitSHA,
                             originalBuildLink:originalBuildLink,
                             updateRefs:updateRefs,
-                            PRJ_NAME:"HybridProPT",
+                            PRJ_NAME:"HybridProPerf",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
                             executeBuild:false,

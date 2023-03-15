@@ -19,28 +19,6 @@ import java.util.concurrent.ConcurrentHashMap
 )
 
 
-def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir('scripts') {
-        switch(osName) {
-            case 'Windows':
-                bat """
-                    make_results_baseline.bat ${delete}
-                """
-                break
-            case 'OSX':
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
-                break
-            default:
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
-        }
-    }
-}
-
-
 def executeTestCommand(String osName, String asicName, Map options) {
     switch(osName) {
         case 'Windows':
@@ -76,14 +54,14 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        withNotifications(stage: "Test-FT", title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(stage: "Test-SDK", title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
         }
 
-        withNotifications(stage: "Test-FT", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
+        withNotifications(stage: "Test-SDK", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
             dir("rprSdk") {
                 downloadFiles(isUnix() ? options.rprsdkUbuntu : options.rprsdkWindows, "rprsdk.zip")
                 utils.unzip(this, "rprsdk.zip")
@@ -106,7 +84,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
-        withNotifications(stage: "Test-FT", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+        withNotifications(stage: "Test-SDK", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
             downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assetsDir)
         }
@@ -120,9 +98,9 @@ def executeTests(String osName, String asicName, Map options) {
         outputEnvironmentInfo(osName, "", options.currentTry)
 
         if (options["updateRefs"].contains("Update")) {
-            withNotifications(stage: "Test-FT", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: "Test-SDK", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
-                executeGenTestRefCommand(osName, options, options["updateRefs"].contains("clean"))
+                rpr_sdk.executeGenTestRefCommand(osName, options, options["updateRefs"].contains("clean"))
                 uploadFiles("./Work/GeneratedBaselines/", REF_PATH_PROFILE)
                 // delete generated baselines when they're sent 
                 switch(osName) {
@@ -134,7 +112,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
         } else {
-            withNotifications(stage: "Test-FT", title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
+            withNotifications(stage: "Test-SDK", title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_baselines" : "/mnt/c/TestResources/rpr_core_autotests_baselines"
                 baseline_dir = enginePostfix ? "${baseline_dir}-${enginePostfix}" : baseline_dir
                 println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
@@ -144,7 +122,7 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
 
-            withNotifications(stage: "Test-FT", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: "Test-SDK", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
             }
         }
@@ -161,10 +139,10 @@ def executeTests(String osName, String asicName, Map options) {
         println(e.getMessage())
         
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test-FT", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test-SDK", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}\n${additionalDescription}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test-FT", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test-SDK", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED} ${additionalDescription}", "${BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}\n${additionalDescription}", e)
         }
     } finally {
@@ -183,11 +161,11 @@ def executeTests(String osName, String asicName, Map options) {
                         sessionReport = readJSON file: 'Results/Core/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test-FT", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test-SDK", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test-FT", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test-SDK", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test-FT", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test-SDK", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
@@ -219,10 +197,10 @@ def executeTests(String osName, String asicName, Map options) {
             // throw exception in finally block only if test stage was finished
             if (options.executeTestsFinished) {
                 if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test-FT", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test-SDK", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
                     throw e
                 } else {
-                    GithubNotificator.updateStatus("Test-FT", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test-SDK", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
                     throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
                 }
             }
@@ -232,7 +210,17 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(String engineName, Map options) {
-    String buildNumber = options.collectTrackedMetrics ? env.BUILD_NUMBER : ""
+    String buildNumber = ""
+
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
 
     if (options["isPreBuilt"]) {
         return """Core "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
@@ -263,7 +251,6 @@ def executePreBuild(Map options) {
 
     def parsedInfo = parseResponse(rawInfo.content)
 
-
     Integer rprsdkBuildNumber
     String rprsdkBuildUrl
 
@@ -278,6 +265,10 @@ def executePreBuild(Map options) {
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
         options.rprsdkWindows = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreWin64.zip"
         options.rprsdkUbuntu = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreUbuntu20.zip"
+    }
+
+    if (env.BRANCH_NAME == "master") {
+        options.collectTrackedMetrics = true
     }
 
     dir('jobs_test_core') {
@@ -312,10 +303,6 @@ def executePreBuild(Map options) {
         options.reportUpdater.init(this.&getReportBuildArgs)
     }
 
-    if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, "${BUILD_URL}")
-    }
-
     // set pending status for all
     if (env.CHANGE_ID) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
@@ -330,7 +317,7 @@ def executePreBuild(Map options) {
                 gpuNames = tokens.get(1)
                 gpuNames.split(',').each() { gpuName ->
                     // Statuses for tests
-                    GithubNotificator.createStatus("Test-FT", "${gpuName}-${osName}-HybridPro", "queued", options, "Scheduled", "${env.JOB_URL}")
+                    GithubNotificator.createStatus("Test-SDK", "${gpuName}-${osName}-HybridPro", "queued", options, "Scheduled", "${env.JOB_URL}")
                 }
             }
         }
@@ -385,6 +372,12 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/HybridProDev/${engine}"
+
+                if (options.collectTrackedMetrics) {
+                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
+                }
+
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
                         def retryInfo = JsonOutput.toJson(options.nodeRetry)
@@ -398,6 +391,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         bat "get_status.bat ..\\summaryTestResults"
                     }
                 }
+
+                if (options.collectTrackedMetrics) {
+                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
+                } 
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 if (utils.isReportFailCritical(e.getMessage())) {
@@ -463,24 +460,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                 currentBuild.result = "UNSTABLE"
             }
 
-            withNotifications(stage: "Test-FT", title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
+            withNotifications(stage: "Test-SDK", title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                     "Test Report HybridPro", "Summary Report, Performance Report, Compare Report", options.storeOnNAS, \
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
-
-                // set error statuses for PR, except if current build has been superseded by new execution
-                if (env.CHANGE_ID && !currentBuild.nextBuild) {
-                    // if jobs was aborted or crushed remove pending status for unfinished stages
-                    GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
-                    String status = currentBuild.result ?: "success"
-                    status = status.toLowerCase()
-                    String commentMessage = ""
-                    if (summaryTestResults.error > 0) {
-                        commentMessage = "\\n Functional tests failures - ${env.BUILD_URL}/HTML_20Failures_20HybridPro/"
-                    }
-                    String commitUrl = "${options.githubNotificator.repositoryUrl}/commit/${options.githubNotificator.commitSHA}"
-                    GithubNotificator.sendPullRequestComment("[FUNCTIONAL TESTS] Tests for ${commitUrl} finished as ${status} ${commentMessage}", options)
-                }
             }
         }
     } catch (e) {
@@ -496,6 +479,7 @@ def call(String commitSHA = "",
          String commitMessage = "",
          String originalBuildLink = "",
          String testsBranch = "",
+         String testsPackage = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
@@ -513,7 +497,6 @@ def call(String commitSHA = "",
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-
     currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
@@ -524,12 +507,12 @@ def call(String commitSHA = "",
                             commitMessage:commitMessage,
                             originalBuildLink:originalBuildLink,
                             testsBranch:testsBranch,
-                            testRepo:hybrid.FT_REPO,
+                            testRepo:hybrid.SDK_REPO,
                             updateRefs:updateRefs,
-                            PRJ_NAME:"HybridProFT",
+                            PRJ_NAME:"HybridProSDK",
                             PRJ_ROOT:"rpr-core",
                             projectRepo:hybrid.PROJECT_REPO,
-                            testsPackage:"Full.json",
+                            testsPackage:testsPackage,
                             tests:"",
                             engines:["HybridPro"],
                             executeBuild:false,
