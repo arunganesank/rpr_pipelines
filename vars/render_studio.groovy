@@ -524,6 +524,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     if (options.redownloadDependencies) {
         // save dependencies from Downloads folder for future builds
         dir("Build/Downloads") {
+            utils.removeDir(this, osName, "lights")
             uploadFiles(".", "/volume1/CIS/WebUSD/Downloads/", "--quiet")
         }
     }
