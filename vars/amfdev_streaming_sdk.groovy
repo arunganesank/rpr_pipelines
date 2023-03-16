@@ -202,7 +202,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
                 unzip(zipFile: "StreamingSDK_Windows.zip")
 
-                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
+                if (options["engine"] == "LatencyTool") {
                     downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
@@ -502,7 +502,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         }
 
                         println "Stashing logs to : ${options.testResultsName}_server"
-                        makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*log,**/*html', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
@@ -535,12 +535,34 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 }
 
 
+def prepareLatencyToolEnvironment() {
+    if (!isUnix()) {
+        try {
+            bat """
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"pservice.exe\"
+                taskkill /f /im \"parsecd.exe\"
+                taskkill /f /im \"steam.exe\"
+            """
+        } catch (e) {
+            println("[WARNING] Failed to close apps for Latency Tool")
+            println(e)
+        }
+    }
+}
+
+
 def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         timeout(time: "10", unit: "MINUTES") {
@@ -613,7 +635,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         executeTestCommand(osName, asicName, options, "client")
 
         options["clientInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -638,6 +659,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "client")
         }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
+        }
     }
 }
 
@@ -648,6 +673,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
@@ -753,7 +782,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         options["serverInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
@@ -777,6 +805,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
@@ -1536,6 +1568,7 @@ def executePreBuild(Map options) {
 
         dir("jobs_test_streaming_sdk/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
+            options.latencyConfiguration = readJSON file: "jobs/latency.json"
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {

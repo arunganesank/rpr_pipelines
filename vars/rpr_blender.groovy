@@ -162,16 +162,6 @@ def executeTests(String osName, String asicName, Map options)
     try {
         utils.removeEnvVars(this)
 
-        // FIXME: Check Cloud on Goto
-        if (env.NODE_NAME == "PC-TESTER-GOTO-OSX") {
-            if (options.tests.contains("Cloud") || options.tests.contains("regression.0")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support Cloud group", 
-                    new Exception("System doesn't support Cloud group")
-                )
-            }
-        }
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
@@ -1100,6 +1090,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     theshold = (theshold == 'Default') ? '0.05' : theshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
+
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-584") {
+        testsBranch = "inemankov/updated_engine_selection"
+    }
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
