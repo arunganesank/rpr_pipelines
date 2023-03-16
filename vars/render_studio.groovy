@@ -472,6 +472,13 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         options.saveUSD = true
     }
 
+    if (!options.redownloadDependencies) {
+        // use saved dependencies from Downloads folder
+        dir("Build/Downloads") {
+            downloadFiles("/volume1/CIS/WebUSD/Downloads/", ".", , "--quiet")
+        }
+    }
+
     dir("Build/Downloads/lights") {
         downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
     }
@@ -512,6 +519,13 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
             call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
             python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
         """
+    }
+
+    if (options.redownloadDependencies) {
+        // save dependencies from Downloads folder for future builds
+        dir("Build/Downloads") {
+            uploadFiles(".", "/volume1/CIS/WebUSD/Downloads/", "--quiet")
+        }
     }
 }
 
@@ -1418,7 +1432,8 @@ def call(
     Boolean skipBuild = false,
     String customBuildLinkWindows = "",
     Boolean rebuildUSD = false,
-    Boolean saveUSD = false
+    Boolean saveUSD = false,
+    Boolean redownloadDependencies = false
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
@@ -1501,6 +1516,7 @@ def call(
                                 nodeRetry: [],
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
+                                redownloadDependencies: redownloadDependencies,
                                 finishedBuildStages: new ConcurrentHashMap(),
                                 testsPreCondition: this.&isWebDeployed,
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
