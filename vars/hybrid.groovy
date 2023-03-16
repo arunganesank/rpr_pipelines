@@ -5,7 +5,7 @@ import net.sf.json.JsonConfig
 import java.util.concurrent.ConcurrentHashMap
 
 
-@Field final String PROJECT_REPO = "git@github.com:Radeon-Pro/RPRHybrid.git"
+@Field final String PROJECT_REPO = "https://github.com/Radeon-Pro/RPRHybrid.git"
 @Field final String SDK_REPO = "git@github.com:luxteam/jobs_test_core.git"
 @Field final String MTLX_REPO = "git@github.com:luxteam/jobs_test_hybrid_mtlx.git"
 
@@ -31,6 +31,68 @@ def downloadAgilitySDK() {
     unzip dir: "AgilitySDK", glob: "", zipFile: archiveName
 
     return "${pwd()}\\AgilitySDK\\build\\native"
+}
+
+
+def makeRelease(Map options) {
+    def releases = options["githubApiProvider"].getReleases(PROJECT_REPO)
+    boolean releaseExists = false
+
+    // find and delete existing release if it exists
+    for (release in releases) {
+        if (release['tag_name'] == env.TAG_NAME) {
+            println("[INFO] Previous release found. Delete existing assets from it")
+
+            releaseExists = true
+            options["release_id"] = "${release.id}"
+
+            // remove existing assets
+            def assets = options["githubApiProvider"].getAssets(PROJECT_REPO, "${release.id}")
+
+            for (asset in assets) {
+                options["githubApiProvider"].removeAsset(PROJECT_REPO, "${asset.id}")
+            }
+
+            break
+        }
+    }
+
+    if (!releaseExists) {
+        def releaseInfo = options["githubApiProvider"].createRelease(PROJECT_REPO, env.TAG_NAME, "Version ${env.TAG_NAME}")
+        options["release_id"] = "${releaseInfo.id}"
+    }
+
+    options["githubApiProvider"].addAsset(PROJECT_REPO, options["release_id"], artifactName)
+
+    bat """
+        mkdir release
+        mkdir release\\Windows
+        mkdir release\\Ubuntu
+    """
+
+    for (entry in options["finishedBuildStages"]) {
+        if (entry.value["successfully"]) {
+            makeUnstash(name: "app${entry.key}")
+
+            switch(osName) {
+                case "Windows":
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
+                    utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.dll", "release/Windows/HybridPro.dll")
+                    break
+                default:
+                    sh "tar -xJf ${binaryName}"
+                    utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.so", "release/Ubuntu/HybridPro.so")
+            }
+
+            utils.removeDir(this, "Windows", "BaikalNext")
+        }
+    }
+
+    dir("release") {
+        String archiveName = "HybridPro.zip"
+        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${archiveName}\" .")
+        options["githubApiProvider"].addAsset(PROJECT_REPO, options["release_id"], archiveName)
+    }
 }
 
 
@@ -60,16 +122,6 @@ def executeBuildWindows(Map options) {
             }
 
             bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " BaikalNext_${STAGE_NAME}.zip BaikalNext\\bin\\dxcompiler.dll")
-        }
-
-        if (env.BRANCH_NAME == "material_x") {
-            withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.UPDATE_BINARIES) {
-
-                hybrid_vs_northstar.updateBinaries(
-                    newBinaryFile: "Build\\_CPack_Packages\\win64\\ZIP\\BaikalNext\\bin\\HybridPro.dll", 
-                    targetFileName: "HybridPro.dll", osName: "Windows", compareChecksum: true
-                )
-            }
         }
     }
 }
@@ -107,7 +159,10 @@ def executeBuild(String osName, Map options) {
         }
 
         dir("Build") {
-            makeStash(includes: "BaikalNext_${STAGE_NAME}*", name: "app${osName}", storeOnNAS: options.storeOnNAS)
+            if (env.TAG_NAME) {
+                // use stashed artifacts on deploy stage to upload them on GitHub release
+                makeStash(includes: "BaikalNext_${STAGE_NAME}*", name: "app${osName}", storeOnNAS: options.storeOnNAS)
+            }
         }
     } catch (e) {
         println(e.getMessage())
@@ -164,6 +219,10 @@ def executePreBuild(Map options) {
 
     if (env.BRANCH_NAME && (env.BRANCH_NAME == "master" || env.BRANCH_NAME.contains("-rc") || env.BRANCH_NAME.contains("release"))) {
         options.mtlxTestsPackage = "Full.json"
+    }
+
+    if (env.TAG_NAME) {
+        options["githubApiProvider"] = new GithubApiProvider(this)
     }
 
     // set pending status for all
@@ -350,6 +409,10 @@ def executeDeploy(Map options, List platformList, List testResultList) {
     if (env.CHANGE_ID && !currentBuild.nextBuild) {
         // if jobs was aborted or crushed remove pending status for unfinished stages
         GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
+    }
+
+    if (env.TAG_NAME) {
+        makeRelease(options)
     }
 }
 
