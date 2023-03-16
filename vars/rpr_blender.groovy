@@ -160,6 +160,8 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
+        utils.removeEnvVars(this)
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
