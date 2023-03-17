@@ -1438,6 +1438,8 @@ def call(
 ) {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
+    redownloadDependencies = true
+
     if (env.BRANCH_NAME) {
         switch (env.BRANCH_NAME) {
             case "main":
