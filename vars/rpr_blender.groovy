@@ -112,24 +112,33 @@ def executeTestCommand(String osName, String asicName, Map options)
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            // OSX & Ubuntu20
-            default:
-                dir("scripts") {
-                    sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                    """
-                }
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        String tracesVariable = options.collectTraces ? "RPRTRACEPATH=${env.WORKSPACE}/traces" : ""
+
+        if (tracesVariable) {
+            tracesVariable = isUnix() ? tracesVariable : tracesVariable.replace("/", "\\")
+            utils.createDir(this, "traces")
+        }
+
+        withEnv([tracesVariable]) {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                // OSX & Ubuntu20
+                default:
+                    dir("scripts") {
+                        sh """
+                            ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
+            }
         }
     }
 }
@@ -1076,7 +1085,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String toolVersion = "3.3",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3)
+    Integer testCaseRetries = 3,
+    Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1226,7 +1236,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        collectTraces: collectTraces
                         ]
         }
 

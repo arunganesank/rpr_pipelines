@@ -177,17 +177,26 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            default:
-                println("[WARNING] ${osName} is not supported")
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        String tracesVariable = options.collectTraces ? "RPRTRACEPATH=${env.WORKSPACE}/traces" : ""
+
+        if (tracesVariable) {
+            tracesVariable = isUnix() ? tracesVariable : tracesVariable.replace("/", "\\")
+            utils.createDir(this, "traces")
+        }
+
+        withEnv([tracesVariable]) {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                default:
+                    println("[WARNING] ${osName} is not supported")
+            }
         }
     }
 }
@@ -1067,7 +1076,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5,
-        Boolean buildOldInstaller = false)
+        Boolean buildOldInstaller = false,
+        Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1193,7 +1203,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         buildOldInstaller:buildOldInstaller,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        collectTraces: collectTraces
                         ]
         }
 
