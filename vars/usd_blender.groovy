@@ -100,21 +100,30 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                """
-            }
-            break
-        // OSX & Ubuntu
-        default:
-            dir("scripts") {
-                sh """
-                    ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                """
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        String tracesVariable = options.collectTraces ? "RPRTRACEPATH=${env.WORKSPACE}/traces" : ""
+
+        if (tracesVariable) {
+            tracesVariable = isUnix() ? tracesVariable : tracesVariable.replace("/", "\\")
+            utils.createDir(this, "traces")
+        }
+
+        withEnv([tracesVariable]) {
+            switch(osName) {
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                    """
+                }
+                break
+            // OSX & Ubuntu
+            default:
+                dir("scripts") {
+                    sh """
+                        ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                    """
+                }
             }
         }
     }
