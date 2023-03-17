@@ -1094,7 +1094,8 @@ def call(String projectRepo = PROJECT_REPO,
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3
+    Integer testCaseRetries = 3,
+    Boolean collectTraces = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1232,7 +1233,8 @@ def call(String projectRepo = PROJECT_REPO,
                         flexibleUpdates: true,
                         skipCallback: this.&filterTests,
                         forceReinstall: true,
-                        testsPackageOriginal: testsPackage
+                        testsPackageOriginal: testsPackage,
+                        collectTraces: collectTraces
                         ]
         }
 
