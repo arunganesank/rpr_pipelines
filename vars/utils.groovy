@@ -845,4 +845,8 @@ class utils {
 
         return (1..length).collect { alphabet[ random.nextInt( alphabet.length() ) ] }.join("")
     }
+
+    static def createDir(Object self, String dirName) {
+        self.dir(dirName) { self.isUnix() ? self.sh("") : self.bat("") }
+    }
 }
