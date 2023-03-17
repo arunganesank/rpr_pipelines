@@ -450,19 +450,11 @@ def executeBuildWindows(Map options) {
             String artifactURL
 
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                bat """
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                    """
-                } else {
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
-
-                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                    """
-                }
+                    build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                """
             }
             dir('installation') {
                 makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
