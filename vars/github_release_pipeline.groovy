@@ -12,7 +12,7 @@ def parseDescriptionRow(String row) {
 }
 
 def createRelease(String jobName, String repositoryUrl, String branch) {
-    List possibleArtifactsExtensions = ['.zip', '.msi', '.dmg'] 
+    List possibleArtifactsExtensions = ['.zip', '.msi', '.dmg', '.tar.gz'] 
 
     String jenkinsUrl
     withCredentials([string(credentialsId: 'jenkinsURL', variable: 'JENKINS_URL')]) {

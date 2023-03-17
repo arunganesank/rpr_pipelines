@@ -543,6 +543,7 @@ def executePreBuild(Map options) {
                 currentBuild.description += "<b>Version:</b> ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+                currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
             }
         }
     }
