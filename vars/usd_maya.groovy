@@ -178,14 +178,15 @@ def executeTestCommand(String osName, String asicName, Map options) {
     println "Set timeout to ${testTimeout}"
 
     timeout(time: testTimeout, unit: 'MINUTES') {
-        String tracesVariable = options.collectTraces ? "RPRTRACEPATH=${env.WORKSPACE}/traces" : ""
+        def tracesVariable = []
 
-        if (tracesVariable) {
-            tracesVariable = isUnix() ? tracesVariable : tracesVariable.replace("/", "\\")
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
             utils.createDir(this, "traces")
         }
 
-        withEnv([tracesVariable]) {
+        withEnv(tracesVariable) {
             switch(osName) {
                 case 'Windows':
                     dir('scripts') {
