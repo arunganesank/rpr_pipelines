@@ -290,13 +290,15 @@ def executeBuildWindows(String osName, Map options) {
             additionalKeys = "-G 'Visual Studio 16 2019 Win64'"
         }
 
+        additionalKeys = additionalKeys ? '--cmake_options additionalKeys' : ''
+
         options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
         bat """
             mkdir build
             set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
             set HFS=${options.win_tool_path}
             python --version >> ..\\${STAGE_NAME}.log 2>&1
-            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
+            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys} >> ..\\${STAGE_NAME}.log 2>&1
         """
 
         dir("build") {                
