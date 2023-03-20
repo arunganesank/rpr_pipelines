@@ -287,7 +287,7 @@ def executeBuildWindows(String osName, Map options) {
         String additionalKeys = ""
 
         if (options.toolVersion.startsWith("19.0.")) {
-            additionalKeys = "-G 'Visual Studio 16 2019 Win64'"
+            additionalKeys = "-G 'Visual Studio 16 2019'"
         }
 
         additionalKeys = additionalKeys ? "--cmake_options \"${additionalKeys}\"" : ""
