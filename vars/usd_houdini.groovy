@@ -290,7 +290,7 @@ def executeBuildWindows(String osName, Map options) {
             additionalKeys = "-G 'Visual Studio 16 2019 Win64'"
         }
 
-        additionalKeys = additionalKeys ? "--cmake_options ${additionalKeys}" : ""
+        additionalKeys = additionalKeys ? "--cmake_options \"${additionalKeys}\"" : ""
 
         options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
         bat """
