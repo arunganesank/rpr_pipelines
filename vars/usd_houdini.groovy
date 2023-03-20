@@ -286,8 +286,8 @@ def executeBuildWindows(String osName, Map options) {
         
         String additionalKeys = ""
 
-        if (options.toolVersion.startsWith("18.5.")) {
-            additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
+        if (options.toolVersion.startsWith("19.0.")) {
+            additionalKeys = "-G 'Visual Studio 16 2019 Win64'"
         }
 
         options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
