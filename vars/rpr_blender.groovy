@@ -458,11 +458,13 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 
         String buildScriptName = isx86 ? "build_osx.sh" : "build_osx-arm64.sh"
 
-        dir('../RadeonProRenderSDK/hipbin') {
-            sh """
-                git lfs install
-                git lfs pull
-            """
+        if (!isx86) {
+            dir('../RadeonProRenderSDK/hipbin') {
+                sh """
+                    git lfs install
+                    git lfs pull
+                """
+            }
         }
 
         sh """
