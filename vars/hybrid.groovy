@@ -336,21 +336,16 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
         if (buildInfo.result == "FAILURE") {
             currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
         } else if (buildInfo.result == "UNSTABLE") {
-            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are as Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
         } else if (buildInfo.result == "SUCCESS") {
-            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are as Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
         } else {
             currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
-        }
-
-        if (buildInfo.description) {
-            currentBuild.description += buildInfo.description
-        } else {
-            currentBuild.description += "<br/>"
         }
     } catch (Exception e) {
         println("[WARNING] Failed to get '${testsName}' build description")
         println(e)
+        currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/>"
     }
 }
 
