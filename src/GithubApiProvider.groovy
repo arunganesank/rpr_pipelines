@@ -239,6 +239,26 @@ class GithubApiProvider {
     }
 
     /**
+     * Function to delete specific release (see https://docs.github.com/en/rest/releases/releases)
+     *
+     * @param repositoryUrl url to the target repository
+     * @param releaseId id of the release which has to be deleted
+     */
+    def deleteRelease(String repositoryUrl, def releaseId) {
+        context.withCredentials([context.string(credentialsId: "github", variable: "GITHUB_TOKEN")]) {
+            def response = context.httpRequest(
+                url: "${repositoryUrl.replace('https://github.com', 'https://api.github.com/repos')}/releases/${releaseId}",
+                httpMode: "DELETE",
+                customHeaders: [
+                    [name: "Authorization", value: "Bearer ${context.GITHUB_TOKEN}"]
+                ]
+            )
+
+            return parseResponse(response.content)
+        }
+    }
+
+    /**
      * Function to get all assets of some release (see https://docs.github.com/en/rest/reference/repos#list-release-assets)
      *
      * @param repositoryUrl url to the target repository

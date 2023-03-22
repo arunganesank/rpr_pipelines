@@ -435,7 +435,7 @@ def shouldExecuteDelpoyStage(Map options) {
             }
         }
     } else {
-        return false
+        return options.containsKey("forceDeploy") && options["forceDeploy"]
     }
 
     return true

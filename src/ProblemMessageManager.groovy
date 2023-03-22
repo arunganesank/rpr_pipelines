@@ -209,7 +209,7 @@ public class ProblemMessageManager {
      */
     def publishMessages() {
         String statusMessage = "</br>"
-        if (failReasons.size() != 0) {
+        if (failReasons.size() != 0 && currentBuild.result == "FAILURE") {
             List failReasonsMessage = []
             for (stage in failReasons) {
                 if (stage.value instanceof Map) {

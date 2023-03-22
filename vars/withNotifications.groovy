@@ -45,8 +45,9 @@
  * @param code Block of code which is executed
  */
 def call(Map blockOptions, Closure code) {
-    def title = blockOptions["title"]
     def options = blockOptions["options"]
+    def stage = blockOptions.containsKey("stage") ? blockOptions["stage"] : options["stage"]
+    def title = blockOptions["title"]
     def logUrl = blockOptions["logUrl"]
     def artifactUrl = blockOptions["artifactUrl"]
     def printMessage = blockOptions["printMessage"]
@@ -54,7 +55,7 @@ def call(Map blockOptions, Closure code) {
 
     try {
         if (configuration.begin?.message) {
-            GithubNotificator.updateStatus(options["stage"], title, "in_progress",
+            GithubNotificator.updateStatus(stage, title, "in_progress",
                 options, configuration["begin"]["message"], logUrl)
         }
 
@@ -66,7 +67,7 @@ def call(Map blockOptions, Closure code) {
         }
 
         if (configuration.end?.message) {
-            GithubNotificator.updateStatus(options["stage"], title, "success",
+            GithubNotificator.updateStatus(stage, title, "success",
                 options, configuration["end"]["message"], artifactUrl)
         }
     } catch (e) {
@@ -95,14 +96,14 @@ def call(Map blockOptions, Closure code) {
                         processReboot(exception["rebootConfiguration"], options)
                     }
 
-                    if (!printMessage && options.problemMessageManager && (options["stage"] != "Test")) {
-                        saveProblemMessage(options, exception, exception["problemMessage"], options["stage"], options["osName"])
+                    if (!printMessage && options.problemMessageManager && (stage != "Test")) {
+                        saveProblemMessage(options, exception, exception["problemMessage"], stage, options["osName"])
                     } else {
                         println(exception["problemMessage"])
                     }
 
                     if (exception["githubNotification"]) {
-                        GithubNotificator.updateStatus(options["stage"], title, exception["githubNotification"]["status"], 
+                        GithubNotificator.updateStatus(stage, title, exception["githubNotification"]["status"], 
                             options, exception["githubNotification"]["message"] ?: exception["problemMessage"])
                     }
 
