@@ -334,18 +334,18 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
         }
 
         if (buildInfo.result == "FAILURE") {
-            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else if (buildInfo.result == "UNSTABLE") {
-            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else if (buildInfo.result == "SUCCESS") {
-            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else {
-            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         }
     } catch (Exception e) {
         println("[WARNING] Failed to get '${testsName}' build description")
         println(e)
-        currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/>"
+        currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/><br/>"
     }
 }
 
@@ -596,6 +596,8 @@ def call(String pipelineBranch = "master",
         println e.toString()
         throw e
     } finally {
-        String problemMessage = problemMessageManager.publishMessages()
+        if (currentBuild.result == "FAILURE") {
+            String problemMessage = problemMessageManager.publishMessages()
+        }
     }
 }
