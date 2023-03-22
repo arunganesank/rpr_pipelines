@@ -98,7 +98,6 @@ def isTag(){
 }
 
 
-
 def isCisDevelopJob(){
     return env.JOB_NAME.startsWith("Dev")
 }
