@@ -519,108 +519,110 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
 def executeBuildWindows(Map options) {
     options["stage"] = "Build"
 
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
-        utils.reboot(this, "Windows")
+    withEnv(["PATH=C:\\Cmake326\\bin;${PATH}"]) {
+        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+            utils.reboot(this, "Windows")
 
-        Boolean failure = false
-        String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
-        String amfPath = "C:\\JN\\thirdparty\\amf"
+            Boolean failure = false
+            String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
+            String amfPath = "C:\\JN\\thirdparty\\amf"
 
-        downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
-        downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+            downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-        if (options.projectBranchName.contains("demo/november")) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
-            bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
-        } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
-            bat "move Frontend\\env.desktop.template Frontend\\.env.production"
-        }
+            if (options.projectBranchName.contains("demo/november")) {
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+                bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
+            } else {
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+                bat "move Frontend\\env.desktop.template Frontend\\.env.production"
+            }
 
-        String frontendVersion
-        String renderStudioVersion
+            String frontendVersion
+            String renderStudioVersion
 
-        dir("Frontend") {
-            frontendVersion = readFile("VERSION.txt").trim()
-        }
+            dir("Frontend") {
+                frontendVersion = readFile("VERSION.txt").trim()
+            }
 
-        renderStudioVersion = readFile("VERSION.txt").trim()
+            renderStudioVersion = readFile("VERSION.txt").trim()
 
-        String envProductionContent = readFile("./Frontend/.env.production")
-        envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+            String envProductionContent = readFile("./Frontend/.env.production")
+            envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
-        withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-            String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
 
-            envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
-        }
+                envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
+            }
 
-        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
+            writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
-        try {
-            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
-                bat """
-                    cmake --version >> ${STAGE_NAME}.Build.log 2>&1
-                    python--version >> ${STAGE_NAME}.Build.log 2>&1
-                    python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
-                    mkdir Build
-                    echo [WebRTC] >> Build\\LocalBuildConfig.txt
-                    echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                    echo [AMF] >> Build/LocalBuildConfig.txt
-                    echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                """
+            try {
+                withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
+                    bat """
+                        cmake --version >> ${STAGE_NAME}.Build.log 2>&1
+                        python--version >> ${STAGE_NAME}.Build.log 2>&1
+                        python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
+                        mkdir Build
+                        echo [WebRTC] >> Build\\LocalBuildConfig.txt
+                        echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
+                        echo [AMF] >> Build/LocalBuildConfig.txt
+                        echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
+                    """
 
-                executeBuildScript("Windows", options)
+                    executeBuildScript("Windows", options)
 
-                println("[INFO] Start building installer")
+                    println("[INFO] Start building installer")
 
-                bat """
-                    python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
-                """
+                    bat """
+                        python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
+                    """
 
-                println("[INFO] Saving exe files to NAS")
+                    println("[INFO] Saving exe files to NAS")
 
-                dir("Frontend\\dist_electron") {
-                    def exeFile = findFiles(glob: '*.msi')
-                    println("Found MSI files: ${exeFile}")
-                    for (file in exeFile) {
-                        renamedFilename = file.toString().replace(" ", "_")
+                    dir("Frontend\\dist_electron") {
+                        def exeFile = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exeFile}")
+                        for (file in exeFile) {
+                            renamedFilename = file.toString().replace(" ", "_")
 
-                        if (options.branchPostfix) {
-                            String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+                            if (options.branchPostfix) {
+                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
 
-                            bat """
-                                rename "${file}" "${filenameWithPostfix}"
-                            """
+                                bat """
+                                    rename "${file}" "${filenameWithPostfix}"
+                                """
 
-                            makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
 
-                            bat """
-                                rename "${filenameWithPostfix}" "${renamedFilename}"
-                            """
-                        } else {
-                            bat """
-                                rename "${file}" "${renamedFilename}"
-                            """  
+                                bat """
+                                    rename "${filenameWithPostfix}" "${renamedFilename}"
+                                """
+                            } else {
+                                bat """
+                                    rename "${file}" "${renamedFilename}"
+                                """  
 
-                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                            }
+
+                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
                         }
-
-                        makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
-            }
-        } catch(e) {
-            println("Error during build on Windows")
-            println(e.toString())
-            failure = true
-        } finally {
-            archiveArtifacts "*.log"
-            if (failure) {
-                currentBuild.result = "FAILED"
-                error "error during build"
-            }
-        } 
+            } catch(e) {
+                println("Error during build on Windows")
+                println(e.toString())
+                failure = true
+            } finally {
+                archiveArtifacts "*.log"
+                if (failure) {
+                    currentBuild.result = "FAILED"
+                    error "error during build"
+                }
+            } 
+        }
     }
 }
 
@@ -868,12 +870,22 @@ def notifyByTg(Map options){
 
 
 def getReportBuildArgs(String mode, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    String buildNumber = ""
+
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
 
     if (options["isPreBuilt"]) {
-        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     } else {
-        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     }
 }
 
@@ -1226,12 +1238,17 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/${mode}"
+                String metricsRemoteDir
+
+                if (env.BRANCH_NAME) {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/auto/main/${mode}"
+                } else {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/weekly/${mode}"
+                }
+
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
-                if (useTrackedMetrics) {
+                if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
@@ -1277,7 +1294,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                     }
                 }
 
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
@@ -1443,6 +1460,13 @@ def call(
         Is prebuilt: ${isPreBuilt}
         Modes: ${modes}
     """
+
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
+        || env.BRANCH_NAME)
+
+    boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
+
     def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
@@ -1481,7 +1505,9 @@ def call(
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
                                 testsPreCondition: this.&isWebDeployed,
-                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                                useTrackedMetrics:useTrackedMetrics,
+                                saveTrackedMetrics:saveTrackedMetrics
                                 ]
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)

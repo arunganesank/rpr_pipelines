@@ -212,6 +212,8 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        utils.removeEnvVars(this)
+
         if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
             if (options.tests.contains("CPU") || options.tests.contains("weekly.2") || options.tests.contains("regression.2")) {
                 throw new ExpectedExceptionWrapper(
@@ -383,7 +385,7 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         try {
-            utils.removeInventorEnv(this)
+            utils.removeEnvVars(this)
 
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")

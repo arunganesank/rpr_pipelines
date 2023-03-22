@@ -112,24 +112,34 @@ def executeTestCommand(String osName, String asicName, Map options)
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            // OSX & Ubuntu20
-            default:
-                dir("scripts") {
-                    sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                    """
-                }
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        def tracesVariable = []
+
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+            utils.createDir(this, "traces")
+        }
+
+        withEnv(tracesVariable) {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                // OSX & Ubuntu20
+                default:
+                    dir("scripts") {
+                        sh """
+                            ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
+            }
         }
     }
 }
@@ -145,6 +155,9 @@ def cloneTestsRepository(Map options) {
             } else {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
+
+            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            utils.unzip(this, "hipbin_3.01.00.zip")
         }
     }
 }
@@ -157,18 +170,10 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
-        // FIXME: Check Cloud on Goto
-        if (env.NODE_NAME == "PC-TESTER-GOTO-OSX") {
-            if (options.tests.contains("Cloud") || options.tests.contains("regression.0")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support Cloud group", 
-                    new Exception("System doesn't support Cloud group")
-                )
-            }
-        }
+        utils.removeEnvVars(this)
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "15", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
                 cloneTestsRepository(options)
             }
@@ -433,7 +438,7 @@ def executeBuildWindows(Map options)
             }
 
             String ARTIFACT_NAME = options.branch_postfix ? "RadeonProRenderForBlender_${options.pluginVersion}_Windows.(${options.branch_postfix}).zip" : "RadeonProRenderForBlender_${options.pluginVersion}_Windows.zip"
-            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
             bat """
                 rename RadeonProRender*.zip RadeonProRenderBlender_Windows.zip
@@ -1081,7 +1086,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     String toolVersion = "3.3",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3)
+    Integer testCaseRetries = 3,
+    Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1095,6 +1101,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     theshold = (theshold == 'Default') ? '0.05' : theshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
+
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-584") {
+        testsBranch = "inemankov/updated_engine_selection"
+    }
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
@@ -1227,7 +1237,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        collectTraces: collectTraces
                         ]
         }
 

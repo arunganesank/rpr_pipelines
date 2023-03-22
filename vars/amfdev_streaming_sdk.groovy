@@ -202,7 +202,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
                 unzip(zipFile: "StreamingSDK_Windows.zip")
 
-                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
+                if (options["engine"] == "LatencyTool") {
                     downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
@@ -502,7 +502,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         }
 
                         println "Stashing logs to : ${options.testResultsName}_server"
-                        makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*log,**/*html', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
@@ -535,12 +535,34 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 }
 
 
+def prepareLatencyToolEnvironment() {
+    if (!isUnix()) {
+        try {
+            bat """
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"pservice.exe\"
+                taskkill /f /im \"parsecd.exe\"
+                taskkill /f /im \"steam.exe\"
+            """
+        } catch (e) {
+            println("[WARNING] Failed to close apps for Latency Tool")
+            println(e)
+        }
+    }
+}
+
+
 def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         timeout(time: "10", unit: "MINUTES") {
@@ -613,7 +635,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         executeTestCommand(osName, asicName, options, "client")
 
         options["clientInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -638,6 +659,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "client")
         }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
+        }
     }
 }
 
@@ -648,6 +673,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
@@ -753,7 +782,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         options["serverInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
@@ -777,6 +805,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
@@ -1087,7 +1119,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     dir("StreamingSDK\\drivers\\amf") {
-        bat "git submodule update --recursive --init ."
+        bat "git submodule update --recursive --init"
     }
 
     options.winBuildConfiguration.each() { winBuildConf ->
@@ -1125,7 +1157,7 @@ def executeBuildWindows(Map options) {
 
                     bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${DRIVER_NAME} .")
 
-                    makeArchiveArtifacts(name: DRIVER_NAME, storeOnNAS: options.storeOnNAS)
+                    makeArchiveArtifacts(name: DRIVER_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
                     if (options.winTestingDriverName == winBuildConf) {
                         utils.moveFiles(this, "Windows", DRIVER_NAME, "${options.winTestingDriverName}.zip")
@@ -1155,7 +1187,7 @@ def executeBuildWindows(Map options) {
 
                     bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
 
-                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
                     if (options.winTestingDriverName == winBuildConf) {
                         makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
@@ -1218,7 +1250,7 @@ def executeBuildWindows(Map options) {
 
 def executeBuildAndroid(Map options) {
     dir("StreamingSDK\\drivers\\amf") {
-        bat "git submodule update --recursive --init ."
+        bat "git submodule update --recursive --init"
     }
 
     withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
@@ -1243,15 +1275,14 @@ def executeBuildAndroid(Map options) {
                 dir("app/build/outputs/apk/arm/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
+                    bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${BUILD_NAME} app-arm-${androidBuildConf}.apk")
+
+                    makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
                     if (options.androidTestingBuildName == androidBuildConf) {
                         utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
                         makeStash(includes: "android_${options.androidTestingBuildName}.zip", name: "ToolAndroid", preZip: false, storeOnNAS: options.storeOnNAS)
                     }
-
-                    archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-                    rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
                 }
             }
 
@@ -1264,7 +1295,7 @@ def executeBuildAndroid(Map options) {
 
 def executeBuildUbuntu(Map options) {
     dir("StreamingSDK/drivers/amf") {
-        sh "git submodule update --recursive --init ."
+        sh "git submodule update --recursive --init"
     }
 
     String logName = "${STAGE_NAME}.log"
@@ -1299,12 +1330,11 @@ def executeBuildUbuntu(Map options) {
         
         sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
-        zip archive: true, zipFile: BUILD_NAME
+        sh("zip --symlinks -r ${BUILD_NAME} .")
+
+        makeArchiveArtifacts(name: BUILD_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
         makeStash(includes: BUILD_NAME, name: "ToolUbuntu20", preZip: false, storeOnNAS: options.storeOnNAS)
-
-        archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
-        rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
     }
 
     GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
@@ -1538,6 +1568,7 @@ def executePreBuild(Map options) {
 
         dir("jobs_test_streaming_sdk/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
+            options.latencyConfiguration = readJSON file: "jobs/latency.json"
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {

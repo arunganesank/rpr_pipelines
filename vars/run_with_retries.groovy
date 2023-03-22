@@ -64,6 +64,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
     String statusCheckStageName = options.containsKey("customStageName") ? options["customStageName"] : stageName
 
     for (int i = 0; i < tries; i++) {
+        successCurrentNode = false
+
         String nodeName = ""
         options['currentTry'] = i
         options['nodeReallocateTries'] = tries

@@ -28,7 +28,7 @@ import java.text.SimpleDateFormat
 
 
 Boolean filterTests(Map options, String asicName, String osName, String testName, String engine) {
-    if (osName.startsWith("Ubuntu") && engine == "HdStormRendererPlugin") {
+    if (osName.startsWith("Ubuntu") && (engine == "HdStormRendererPlugin" || engine == "Hybrid")) {
         return true
     }
 
@@ -100,21 +100,31 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                """
-            }
-            break
-        // OSX & Ubuntu
-        default:
-            dir("scripts") {
-                sh """
-                    ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                """
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        def tracesVariable = []
+
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+            utils.createDir(this, "traces")
+        }
+
+        withEnv(tracesVariable) {
+            switch(osName) {
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                    """
+                }
+                break
+            // OSX & Ubuntu
+            default:
+                dir("scripts") {
+                    sh """
+                        ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                    """
+                }
             }
         }
     }
@@ -155,6 +165,8 @@ def executeTests(String osName, String asicName, Map options) {
     }
 
     try {
+        utils.removeEnvVars(this)
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
                 cleanWS(osName)
@@ -1083,7 +1095,8 @@ def call(String projectRepo = PROJECT_REPO,
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3
+    Integer testCaseRetries = 3,
+    Boolean collectTraces = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1221,7 +1234,8 @@ def call(String projectRepo = PROJECT_REPO,
                         flexibleUpdates: true,
                         skipCallback: this.&filterTests,
                         forceReinstall: true,
-                        testsPackageOriginal: testsPackage
+                        testsPackageOriginal: testsPackage,
+                        collectTraces: collectTraces
                         ]
         }
 
