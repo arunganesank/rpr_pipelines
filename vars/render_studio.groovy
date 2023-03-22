@@ -523,7 +523,6 @@ def executeBuildWindows(Map options) {
         withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
             utils.reboot(this, "Windows")
 
-            Boolean failure = false
             String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
             String amfPath = "C:\\JN\\thirdparty\\amf"
 
@@ -614,13 +613,24 @@ def executeBuildWindows(Map options) {
             } catch(e) {
                 println("Error during build on Windows")
                 println(e.toString())
-                failure = true
+
+                def exception = e
+
+                try {
+                    String buildLogContent = readFile("${STAGE_NAME}.Build.log")
+                    if (buildLogContent.contains("CMake error : Cannot restore timestamp")) {
+                        exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
+                        exception.retry = true
+
+                        utils.reboot(this, osName)
+                    }
+                } catch (e1) {
+                    println("[WARNING] Could not analyze build log")
+                }
+
+                throw exception
             } finally {
                 archiveArtifacts "*.log"
-                if (failure) {
-                    currentBuild.result = "FAILED"
-                    error "error during build"
-                }
             } 
         }
     }
