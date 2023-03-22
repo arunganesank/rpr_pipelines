@@ -941,7 +941,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+        String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
         def rawInfo = httpRequest(
             url: url,
@@ -964,8 +964,8 @@ def executePreBuild(Map options) {
         }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            options.customHybridWin = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
         //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
