@@ -769,6 +769,8 @@ public class NotificationConfiguration {
 
     def static SEGMENTATION_FAULT = "Segmentation fault detected."
 
+    def static USD_GLTF_BUILD_ERROR = "Failed to build usdGltf library."
+
     def static FILES_CRASHED = "Corrupted autotest JSON files detected."
 
     def static FAILED_UPDATE_BASELINES_NAS = "Failed to update baselines on NAS"
