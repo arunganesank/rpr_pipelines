@@ -173,7 +173,7 @@ def executePerfTests(String osName, String asicName, Map options) {
             String description = errorMessage ? "Error: ${errorMessage}" : "Testing finished"
             String status = errorMessage ? "action_required" : "success"
             String url = "${env.BUILD_URL}/artifact/${STAGE_NAME}.perf.log"
-            GithubNotificator.updateStatus("Test-Perf", title, status, options, description, url)
+            GithubNotificator.updateStatus(options.customStageName, title, status, options, description, url)
         }
     }
 }
@@ -191,7 +191,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test-Perf", "${asicName}-${osName}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus(options.customStageName, "${asicName}-${osName}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -236,7 +236,7 @@ def executePreBuild(Map options) {
                 gpuNames.split(',').each() { gpuName ->
                     if (options.scenarios) {
                         // Statuses for performance tests
-                        GithubNotificator.createStatus("Test-Perf", "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus(options.customStageName, "${gpuName}-${osName}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
@@ -315,5 +315,6 @@ def call(String commitSHA = "",
                             executeTests:true,
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
-                            scenarios: scenarios])
+                            scenarios: scenarios,
+                            customStageName: "Test-Perf"])
 }

@@ -35,6 +35,9 @@ def downloadAgilitySDK() {
 
 
 def makeRelease(Map options) {
+    // TODO: fix archive publishing
+    return
+
     def releases = options["githubApiProvider"].getReleases(PROJECT_REPO)
     boolean releaseExists = false
 
@@ -62,8 +65,6 @@ def makeRelease(Map options) {
         options["release_id"] = "${releaseInfo.id}"
     }
 
-    options["githubApiProvider"].addAsset(PROJECT_REPO, options["release_id"], artifactName)
-
     bat """
         mkdir release
         mkdir release\\Windows
@@ -74,7 +75,7 @@ def makeRelease(Map options) {
         if (entry.value["successfully"]) {
             makeUnstash(name: "app${entry.key}")
 
-            switch(osName) {
+            switch(entry.key) {
                 case "Windows":
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
                     utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.dll", "release/Windows/HybridPro.dll")
@@ -183,7 +184,9 @@ def executeBuild(String osName, Map options) {
 }
 
 def executePreBuild(Map options) {
-    checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
+        checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, disableSubmodules: true)
+    }
 
     options.commitAuthor = bat (script: "git show -s --format=%%an HEAD ",returnStdout: true).split('\r\n')[2].trim()
     commitMessage = bat (script: "git log --format=%%B -n 1", returnStdout: true)
@@ -252,70 +255,136 @@ def parseResponse(String response) {
 def saveTriggeredBuildLink(String jobUrl, String testsName) {
     String url = "${jobUrl}/api/json?tree=lastBuild[number,url]"
 
+    withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+        url = url.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
+    }
+
+    def parsedInfo = doRequest(url)
+
+    node("PreBuild") {
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastBuild.url}">[${testsName}] This build triggered a new build with tests</a></h3>""")
+    }
+
+    return parsedInfo.lastBuild.url
+}
+
+
+def doRequest(String url) {
     def rawInfo = httpRequest(
         url: url,
         authentication: 'jenkinsCredentials',
         httpMode: 'GET'
     )
 
-    def parsedInfo = parseResponse(rawInfo.content)
-
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastBuild.url}">[${testsName}] This build triggered a new build with tests</a></h3>""")
-
-    return parsedInfo.lastBuild.url
+    return parseResponse(rawInfo.content)
 }
 
 
 def checkBuildResult(String buildUrl) {
-    def rawInfo = httpRequest(
-        url: "${buildUrl}/api/json?tree=result,description",
-        authentication: 'jenkinsCredentials',
-        httpMode: 'GET'
-    )
+    withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+        buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
+    }
 
-    def parsedInfo = parseResponse(rawInfo.content)
+    def parsedInfo = doRequest("${buildUrl}/api/json?tree=result,description,inProgress")
 
     return parsedInfo
 }
 
 
-def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
-    waitUntil({checkBuildResult(buildUrl).result != null}, quiet: true)
-
-    String buildResult = checkBuildResult(buildUrl)
-    currentBuild.result = buildResult.result
-
-    if (buildResult == "FAILURE") {
-        currentBuild.description += "<span style='color: #7d6608'>${testsName} finished as Failed. Check <a href='reportLink'>test report</a> for more details</span><br/>"
-    } else if (buildResult == "UNSTABLE") {
-        currentBuild.description += "<span style='color: #641e16'>${testsName} finished as Unstable. Check <a href='reportLink'>test report</a> for more details</span><br/>"
+def getProblemsCount(String buildUrl, String testsName) {
+    withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+        buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
     }
 
-    currentBuild.description += buildResult.description
-    buildResult.description += "<br/>"
+    switch (testsName) {
+        case "Unit":
+            def parsedInfo = doRequest("${buildUrl}/testReport/api/json")
+            return ["failed": parsedInfo["failCount"], "error": 0]
+        case "Performance":
+            // TODO: add implementation for Perf tests when they'll be fixed
+            return ["failed": 0, "error": 0]
+        case "RPR SDK":
+            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+        case "MaterialX":
+            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+        default: 
+            throw new Exception("Unexpected testsName '${testsName}'")
+    }
+}
+
+
+def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
+    waitUntil({!checkBuildResult(buildUrl).inProgress}, quiet: true)
+
+    try {
+        def buildInfo = checkBuildResult(buildUrl)
+        currentBuild.result = buildInfo.result
+
+        Map problems = getProblemsCount(buildUrl, testsName)
+        String problemsDescription = ""
+
+        if (problems["failed"] > 0 && problems["error"] > 0) {
+            problemsDescription = "(${problems.failed} failed / ${problems.error} error)"
+        } else if (problems["failed"] > 0) {
+            problemsDescription = "(${problems.failed} failed)"
+        } else if (problems["error"] > 0) {
+            problemsDescription = "(${problems.error} error)"
+        }
+
+        if (buildInfo.result == "FAILURE") {
+            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+        } else if (buildInfo.result == "UNSTABLE") {
+            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are as Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+        } else if (buildInfo.result == "SUCCESS") {
+            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are as Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+        } else {
+            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/>"
+        }
+
+        if (buildInfo.description) {
+            currentBuild.description += buildInfo.description
+        } else {
+            currentBuild.description += "<br/>"
+        }
+    } catch (Exception e) {
+        println("[WARNING] Failed to get '${testsName}' build description")
+        println(e)
+    }
 }
 
 
 def executeDeploy(Map options, List platformList, List testResultList) {
-    String testPlatforms = getTestPlatforms(options)
+    // set error statuses for PR, except if current build has been superseded by new execution
+    if (env.CHANGE_ID && !currentBuild.nextBuild) {
+        // if jobs was aborted or crushed remove pending status for unfinished stages
+        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
+    }
 
-    if (testPlatforms) {
+    if (env.TAG_NAME) {
+        makeRelease(options)
+    }
+}
+
+
+def launchAndWaitTests(Map options) {
+    String testPlatforms = getTestPlatforms(options)
+    String testPlatformsMtlx = getTestPlatformsMtlx(testPlatforms)
+
+    if (!options["unitLink"]) {
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
 
-        String unitLink
-        String perfLink
-        String rprSdkLink
-        String mtlxLink
-
-        build(
-            if (options.apiValues) {
+        if (options.apiValues) {
+            build(
                 job: env.JOB_NAME.replace("Build", "Unit"),
                 parameters: [
                     string(name: "PipelineBranch", value: options.pipelineBranch),
+                    string(name: "CommitSHA", value: options.commitSHA),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "Platforms", value: testPlatforms),
                     string(name: "ApiValues", value: options.apiValues),
@@ -323,11 +392,13 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 ],
                 wait: false,
                 quietPeriod : 0
-            }
+            )
 
-            unitLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
-        )
+            options["unitLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
+        }
+    }
 
+    if (!options["perfLink"]) {
         if (options.scenarios) {
             build(
                 job: env.JOB_NAME.replace("Build", "Perf"),
@@ -343,9 +414,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 quietPeriod : 0
             )
 
-            perfLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Perf"), "PERF TESTS")
+            options["perfLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Perf"), "PERF TESTS")
         }
+    }
 
+    if (!options["rprSdkLink"]) {
         if (options.rprSdkTestsPackage != "none") {
             build(
                 job: env.JOB_NAME.replace("Build", "SDK"),
@@ -353,6 +426,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
                     string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "TestsBranch", value: options.rprSdkTestsBranch),
                     string(name: "TestsPackage", value: options.rprSdkTestsPackage),
@@ -363,9 +437,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 quietPeriod : 0
             )
 
-            rprSdkLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "SDK"), "RPR SDK TESTS")
+            options["rprSdkLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "SDK"), "RPR SDK TESTS")
         }
+    }
 
+    if (!options["mtlxLink"]) {
         if (options.mtlxTestsPackage != "none") {
             build(
                 job: env.JOB_NAME.replace("Build", "MTLX"),
@@ -373,47 +449,40 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
                     string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "TestsBranch", value: options.mtlxTestsBranch),
                     string(name: "TestsPackage", value: options.mtlxTestsPackage),
                     string(name: "Tests", value: ""),
-                    string(name: "Platforms", value: testPlatforms),
+                    string(name: "Platforms", value: testPlatformsMtlx),
                     string(name: "UpdateRefs", value: options.updateMtlxRefs)
                 ],
                 wait: false,
                 quietPeriod : 0
             )
 
-            mtlxLink = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "MTLX"), "MATERIALX TESTS")
-        }
-
-        if (unitLink) {
-            String reportLink = "${unitLink}/testReport"
-            awaitBuildFinishing(unitLink, "Unit tests", reportLink)
-        }
-        if (perfLink) {
-            String reportLink = "${unitLink}/Performance_20Tests_20Report"
-            awaitBuildFinishing(perfLink, "Performance tests", reportLink)
-        }
-        if (rprSdkLink) {
-            String reportLink = "${unitLink}/Test_20Report_20HybridPro"
-            awaitBuildFinishing(rprSdkLink, "RPR SDK tests", reportLink)
-        }
-        if (mtlxLink) {
-            String reportLink = "${unitLink}/Test_20Report"
-            awaitBuildFinishing(mtlxLink, "MaterialX tests", reportLink)
+            options["mtlxLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "MTLX"), "MATERIALX TESTS")
         }
     }
 
-    // set error statuses for PR, except if current build has been superseded by new execution
-    if (env.CHANGE_ID && !currentBuild.nextBuild) {
-        // if jobs was aborted or crushed remove pending status for unfinished stages
-        GithubNotificator.closeUnfinishedSteps(options, "Build has been terminated unexpectedly")
+    if (options["unitLink"]) {
+        String reportLink = "${options.unitLink}/testReport"
+        awaitBuildFinishing(options["unitLink"], "Unit", reportLink)
+    }
+    if (options["perfLink"]) {
+        String reportLink = "${options.perfLink}/Performance_20Tests_20Report"
+        awaitBuildFinishing(options["perfLink"], "Performance", reportLink)
+    }
+    if (options["rprSdkLink"]) {
+        String reportLink = "${options.rprSdkLink}/Test_20Report_20HybridPro"
+        awaitBuildFinishing(options["rprSdkLink"], "RPR SDK", reportLink)
+    }
+    if (options["mtlxLink"]) {
+        String reportLink = "${options.mtlxLink}/Test_20Report"
+        awaitBuildFinishing(options["mtlxLink"], "MaterialX", reportLink)
     }
 
-    if (env.TAG_NAME) {
-        makeRelease(options)
-    }
+    return true
 }
 
 
@@ -439,13 +508,35 @@ def getTestPlatforms(Map options) {
 }
 
 
+def getTestPlatformsMtlx(String testPlatforms) {
+    List platformsByOS = testPlatforms.split(";") as List
+
+    for (platforms in platformsByOS) {
+        if (platforms.startsWith("Windows")) {
+            List suitablePlafroms = []
+            List platformsList = platforms.split(":")[1].split(",") as List
+
+            platformsList.each() { platform ->
+                if (platform.contains("RTX") || platform.contains("AMD_RX6") || platform.contains("AMD_RX7")) {
+                    suitablePlafroms.add(platform)
+                }
+            }
+
+            return "Windows:" + suitablePlafroms.join(",")
+        }
+    }
+
+    return ""
+}
+
+
 def call(String pipelineBranch = "master",
          String projectBranch = "",
          String rprSdkTestsBranch = "master",
          String mtlxTestsBranch = "master",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan,d3d12",
-         String scenarios = "all",
+         String scenarios = "",
          String rprSdkTestsPackage = "Full.json",
          String mtlxTestsPackage = "regression.json",
          Boolean updateUnitRefs = false,
@@ -470,30 +561,46 @@ def call(String pipelineBranch = "master",
 
     processedPlatforms = processedPlatforms.join(";")
 
-    options = [platforms:processedPlatforms,
-               originalPlatforms:platforms,
-               pipelineBranch:pipelineBranch,
-               projectBranch:projectBranch,
-               rprSdkTestsBranch:rprSdkTestsBranch,
-               mtlxTestsBranch:mtlxTestsBranch,
-               apiValues:apiValues,
-               scenarios:scenarios,
-               rprSdkTestsPackage:rprSdkTestsPackage,
-               mtlxTestsPackage:mtlxTestsPackage,
-               updateUnitRefs:updateUnitRefs,
-               updatePerfRefs:updatePerfRefs,
-               updateSdkRefs:updateSdkRefs,
-               updateMtlxRefs:updateMtlxRefs,
-               PRJ_NAME:"HybridPro",
-               PRJ_ROOT:"rpr-core",
-               projectRepo:PROJECT_REPO,
-               BUILDER_TAG:"HybridBuilder",
-               executeBuild:true,
-               executeTests:false,
-               forceDeploy:true,
-               cmakeKeys:cmakeKeys,
-               storeOnNAS: true,
-               finishedBuildStages: new ConcurrentHashMap()]
+    ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+    currentBuild.description = ""
 
-    multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
+    try {
+        Map options = [:]
+
+        options = [platforms:processedPlatforms,
+                   originalPlatforms:platforms,
+                   pipelineBranch:pipelineBranch,
+                   projectBranch:projectBranch,
+                   rprSdkTestsBranch:rprSdkTestsBranch,
+                   mtlxTestsBranch:mtlxTestsBranch,
+                   apiValues:apiValues,
+                   scenarios:scenarios,
+                   rprSdkTestsPackage:rprSdkTestsPackage,
+                   mtlxTestsPackage:mtlxTestsPackage,
+                   updateUnitRefs:updateUnitRefs,
+                   updatePerfRefs:updatePerfRefs,
+                   updateSdkRefs:updateSdkRefs,
+                   updateMtlxRefs:updateMtlxRefs,
+                   PRJ_NAME:"HybridPro",
+                   PRJ_ROOT:"rpr-core",
+                   projectRepo:PROJECT_REPO,
+                   BUILDER_TAG:"HybridBuilder",
+                   executeBuild:true,
+                   executeTests:false,
+                   forceDeploy:true,
+                   cmakeKeys:cmakeKeys,
+                   storeOnNAS: true,
+                   DEPLOY_TIMEOUT: 30,
+                   finishedBuildStages: new ConcurrentHashMap(),
+                   problemMessageManager:problemMessageManager,
+                   deployPreCondition: this.&launchAndWaitTests]
+
+        multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
+    } catch(e) {
+        currentBuild.result = "FAILURE"
+        println e.toString()
+        throw e
+    } finally {
+        String problemMessage = problemMessageManager.publishMessages()
+    }
 }

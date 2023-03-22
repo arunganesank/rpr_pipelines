@@ -171,7 +171,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         String description = errorMessage ? "Error: ${errorMessage}" : "Testing finished"
         String status = errorMessage ? "action_required" : "success"
         String url = errorMessage ? "${env.BUILD_URL}/${STAGE_NAME}_${apiValue}_Failures" : "${env.BUILD_URL}/artifact/${STAGE_NAME}_${apiValue}.log"
-        GithubNotificator.updateStatus("Test-Unit", title, status, options, description, url)
+        GithubNotificator.updateStatus(options.customStageName, title, status, options, description, url)
 
         archiveArtifacts "*.log"
         archiveArtifacts "*.gtest.xml"
@@ -192,7 +192,7 @@ def changeWinDevMode(Boolean turnOn) {
 
 
 def executeTests(String osName, String asicName, Map options) {
-    GithubNotificator.updateStatus("Test-Unit", "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
+    GithubNotificator.updateStatus(options.customStageName, "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
         changeWinDevMode(true)
@@ -244,7 +244,7 @@ def executePreBuild(Map options) {
                         }
 
                         // Statuses for tests
-                        GithubNotificator.createStatus("Test-Unit", "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus(options.customStageName, "${gpuName}-${osName}-${apiValue}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
@@ -336,5 +336,6 @@ def call(String commitSHA = "",
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
                             splitTestsExecution: false,
-                            skipCallback: this.&filter])
+                            skipCallback: this.&filter,
+                            customStageName: "Test-Unit"])
 }

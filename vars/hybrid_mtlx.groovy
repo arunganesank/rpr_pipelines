@@ -3,6 +3,7 @@ import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
+import java.util.concurrent.ConcurrentHashMap
 
 
 @NonCPS
@@ -62,14 +63,14 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        withNotifications(stage: "Test-MTLX", title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
         }
 
-        withNotifications(stage: "Test-MTLX", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
 
@@ -83,7 +84,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         }
 
-        withNotifications(stage: "Test-MTLX", title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_assets" : "/mnt/c/TestResources/hybrid_mtlx_autotests_assets"
             downloadFiles("/volume1/web/Assets/materials/", assetsDir)
         }
@@ -94,7 +95,7 @@ def executeTests(String osName, String asicName, Map options) {
         outputEnvironmentInfo(osName, "", options.currentTry)
 
         if (options["updateRefs"].contains("Update")) {
-            withNotifications(stage: "Test-MTLX", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
                 executeGenTestRefCommand(osName, options, options["updateRefs"].contains("clean"))
                 uploadFiles("./Work/GeneratedBaselines/", REF_PATH_PROFILE)
@@ -113,12 +114,12 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
         } else {
-            withNotifications(stage: "Test-MTLX", title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_baselines" : "/mnt/c/TestResources/hybrid_mtlx_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
                 options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
             }
-            withNotifications(stage: "Test-MTLX", title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
             }
         }
@@ -205,7 +206,7 @@ def getReportBuildArgs(Map options) {
 
 
 def executePreBuild(Map options) {
-    if (!env.BRANCH_NAME) {
+    if (!options.originalBuildLink) {
         // get links to the latest built HybridPro in manual/weekly job
         def rawInfo = httpRequest(
             url: "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastCompletedBuild[number,url]",
@@ -323,8 +324,10 @@ def executePreBuild(Map options) {
                 gpuNames = tokens.get(1)
                 gpuNames.split(',').each() { gpuName ->
                     options.testsList.each() { testName ->
+                        def parts = testName.split("\\.")
+                        def formattedTestName = parts[0] + "." + parts[1]
                         // Statuses for tests
-                        GithubNotificator.createStatus("Test-MTLX", "${gpuName}-${osName}-${testName}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                        GithubNotificator.createStatus(options.customStageName, "${gpuName}-${osName}-${formattedTestName}", "queued", options, "Scheduled", "${env.JOB_URL}")
                     }
                 }
             }
@@ -417,6 +420,16 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             try {
                 dir("jobs_launcher") {
+                    bat "get_status.bat ..\\summaryTestResults"
+                }
+            } catch(e) {
+                println("[ERROR] Failed to generate slack status.")
+                println(e.toString())
+                println(e.getMessage())
+            }
+
+            try {
+                dir("jobs_launcher") {
                     archiveArtifacts "launcher.engine.log"
                 }
             } catch(e) {
@@ -428,7 +441,13 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             Map summaryTestResults = [:]
             try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                def summaryReport
+
+                dir("summaryTestResults") {
+                    archiveArtifacts artifacts: "summary_status.json"
+                    summaryReport = readJSON file: "summary_status.json"
+                }
+
                 summaryTestResults = [passed: summaryReport.passed, failed: summaryReport.failed, error: summaryReport.error]
                 if (summaryReport.error > 0) {
                     println "[INFO] Some tests marked as error. Build result = FAILURE."
@@ -448,7 +467,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 currentBuild.result = "UNSTABLE"
             }
 
-            withNotifications(stage: "Test-MTLX", title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
+            withNotifications(stage: options.customStageName, title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                 utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                     "Test Report", "Summary Report, Compare Report", options.storeOnNAS, \
                     ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
@@ -488,27 +507,31 @@ def call(String commitSHA = "",
     currentBuild.description = ""
 
     try {
+        Map options = [:]
+
         options << [platforms:platforms,
                     commitSHA:commitSHA,
                     projectBranchName:projectBranchName,
                     commitMessage:commitMessage,
                     originalBuildLink:originalBuildLink,
                     testsBranch:testsBranch,
-                    testRepo:hybrid.SDK_REPO,
+                    testRepo:hybrid.MTLX_REPO,
                     PRJ_NAME: 'HybridProMTLX',
                     PRJ_ROOT: 'rpr-core',
                     projectRepo:hybrid.PROJECT_REPO,
                     testsPackage:testsPackage,
                     tests:tests,
+                    updateRefs:updateRefs,
                     executeBuild:false,
                     executeTests:true,
                     storeOnNAS: true,
                     flexibleUpdates: true,
                     finishedBuildStages: new ConcurrentHashMap(),
                     splitTestsExecution: true,
-                    parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                    parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                     problemMessageManager:problemMessageManager,
-                    nodeRetry: []]
+                    nodeRetry: [],
+                    customStageName: "Test-MTLX"]
 
         multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
     } catch(e) {
@@ -516,6 +539,6 @@ def call(String commitSHA = "",
         println e.toString()
         throw e
     } finally {
-        String problemMessage = options.problemMessageManager.publishMessages()
+        String problemMessage = problemMessageManager.publishMessages()
     }
 }
