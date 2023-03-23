@@ -197,14 +197,14 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Windows":
             utils.clearCurrentDir(this, osName)
             if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
-                downloadFiles("/volume1/CIS/bin-storage/FullSamples.zip", ".")
-                unzip(zipFile: "FullSamples.zip")
+                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
+                unzip(zipFile: "StreamingSDK_Windows.zip")
             } else {
-                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "${options.winTestingBuildName}.zip")
+                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
+                unzip(zipFile: "StreamingSDK_Windows.zip")
 
-                if (options["engine"] == "LatencyTool" && options.tests.contains("Latency")) {
-                    makeUnstash(name: "LatencyToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                if (options["engine"] == "LatencyTool") {
+                    downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
                 }
             }
@@ -218,7 +218,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             break
         case "Ubuntu20":
             utils.clearCurrentDir(this, osName)
-            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
+            downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Ubuntu20.zip", ".")
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             sh("chmod u+x RemoteGameServer")
             break
@@ -504,7 +504,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         }
 
                         println "Stashing logs to : ${options.testResultsName}_server"
-                        makeStash(includes: '**/*_server.log,**/*_android.log', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*log,**/*html', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
@@ -537,12 +537,34 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
 }
 
 
+def prepareLatencyToolEnvironment() {
+    if (!isUnix()) {
+        try {
+            bat """
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"anydesk.exe\"
+                taskkill /f /im \"pservice.exe\"
+                taskkill /f /im \"parsecd.exe\"
+                taskkill /f /im \"steam.exe\"
+            """
+        } catch (e) {
+            println("[WARNING] Failed to close apps for Latency Tool")
+            println(e)
+        }
+    }
+}
+
+
 def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         timeout(time: "10", unit: "MINUTES") {
@@ -615,7 +637,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         executeTestCommand(osName, asicName, options, "client")
 
         options["clientInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["clientInfo"]["ready"] = false
         options["clientInfo"]["failed"] = true
@@ -640,6 +661,10 @@ def executeTestsClient(String osName, String asicName, Map options) {
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "client")
         }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
+        }
     }
 }
 
@@ -650,6 +675,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
+        }
+
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
@@ -705,6 +734,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                                 || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
 
                                 dir("StreamingSDKAndroid") {
+                                    copyAndroidScripts()
                                     prepareTool("Android", options)
                                     installAndroidClient()
                                 }
@@ -755,7 +785,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         options["serverInfo"]["executeTestsFinished"] = true
-
     } catch (e) {
         options["serverInfo"]["ready"] = false
         options["serverInfo"]["failed"] = true
@@ -779,6 +808,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
 
         if (options.tests.contains("AMD_Link")) {
             closeAmdLink(osName, options, "server")
+        }
+
+        if (options.engine == "LatencyTool") {
+            utils.reboot(this, osName)
         }
     }
 }
@@ -912,14 +945,17 @@ def initAndroidDevice() {
 }
 
 
-def installAndroidClient() {
+def copyAndroidScripts() {
     try {
         utils.copyFile(this, "Windows", "%STREAMING_SCRIPTS_LOCATION%\\*", ".")
     } catch(Exception e) {
         println("[ERROR] Failed to copy installation scripts")
         throw e
     }
+}
 
+
+def installAndroidClient() {
     try {
         bat "uninstall.bat"
         println "[INFO] Android client was uninstalled"
@@ -984,6 +1020,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
                 if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
+                        copyAndroidScripts()
                         prepareTool("Android", options)
                         installAndroidClient()
                     }
@@ -1127,7 +1164,7 @@ def executeBuildWindows(Map options) {
 
                     bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${DRIVER_NAME} .")
 
-                    makeArchiveArtifacts(name: DRIVER_NAME, storeOnNAS: options.storeOnNAS)
+                    makeArchiveArtifacts(name: DRIVER_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
                     if (options.winTestingDriverName == winBuildConf) {
                         utils.moveFiles(this, "Windows", DRIVER_NAME, "${options.winTestingDriverName}.zip")
@@ -1137,7 +1174,7 @@ def executeBuildWindows(Map options) {
             }
         }
 
-        if (options.winTestingBuildName == winBuildName && options.engines.contains("LatencyTool")) {
+        if (options.winTestingBuildName == winBuildName && options.engines.contains("Empty")) {
             dir("AMFTests") {
                 withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
@@ -1157,7 +1194,7 @@ def executeBuildWindows(Map options) {
 
                     bat("%CIS_TOOLS%\\7-Zip\\7z.exe a ${LATENCY_TOOL_NAME} .")
 
-                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS)
+                    makeArchiveArtifacts(name: LATENCY_TOOL_NAME, storeOnNAS: options.storeOnNAS, randomizeArtifactsLinks: options.storeOnNAS)
 
                     if (options.winTestingDriverName == winBuildConf) {
                         makeStash(includes: LATENCY_TOOL_NAME, name: "LatencyToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
@@ -1372,6 +1409,10 @@ def executePreBuild(Map options) {
         }
     }
 
+    options["finishedBuildStages"]["Windows"] = true
+    options["finishedBuildStages"]["Android"] = true
+    options["finishedBuildStages"]["Ubuntu20"] = true
+
 
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
 
@@ -1538,6 +1579,7 @@ def executePreBuild(Map options) {
 
         dir("StreamingSDK/${AUTOTESTS_PATH}") {
             options.multiconnectionConfiguration = readJSON file: "jobs/multiconnection.json"
+            options.latencyConfiguration = readJSON file: "jobs/latency.json"
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {
@@ -1926,7 +1968,8 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            Boolean executeBuild = true
+            // temporary take built Streaming SDK from NAS
+            Boolean executeBuild = false
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false

@@ -62,6 +62,7 @@ public class ReportUpdater {
                 throw Exception("Unknown report type: ${reportType}")
         }
 
+
         if (options.testProfiles) {
             options.testProfiles.each { profile ->
                 String profileName

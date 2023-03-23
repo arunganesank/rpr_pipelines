@@ -286,9 +286,11 @@ def executeBuildWindows(String osName, Map options) {
         
         String additionalKeys = ""
 
-        if (options.toolVersion.startsWith("18.5.")) {
-            additionalKeys = "-G 'Visual Studio 15 2017 Win64'"
+        if (options.toolVersion.startsWith("19.0.")) {
+            additionalKeys = "-G 'Visual Studio 16 2019'"
         }
+
+        additionalKeys = additionalKeys ? "--cmake_options \"${additionalKeys}\"" : ""
 
         options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
         bat """
@@ -296,7 +298,7 @@ def executeBuildWindows(String osName, Map options) {
             set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
             set HFS=${options.win_tool_path}
             python --version >> ..\\${STAGE_NAME}.log 2>&1
-            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys ? '--cmake_options "${additionalKeys}"' : ''} >> ..\\${STAGE_NAME}.log 2>&1
+            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys} >> ..\\${STAGE_NAME}.log 2>&1
         """
 
         dir("build") {                
@@ -543,6 +545,7 @@ def executePreBuild(Map options) {
                 currentBuild.description += "<b>Version:</b> ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+                currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
             }
         }
     }
@@ -813,8 +816,8 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_RX7900XT;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
-        String houdiniVersions = "19.0.622,19.5.435",
+        String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_WX9100,AMD_RX7900XT;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
+        String houdiniVersions = "19.0.622,19.5.534",
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
         String tests = "",

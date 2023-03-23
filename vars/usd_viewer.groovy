@@ -193,6 +193,8 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
+        utils.removeEnvVars(this)
+
         if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
             if (options.tests.contains("CPU") || options.tests.contains("weekly.2") || options.tests.contains("regression.2")) {
                 throw new ExpectedExceptionWrapper(
@@ -392,6 +394,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         try {
+            utils.removeEnvVars(this)
+
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
                 utils.moveFiles(this, osName, "../scripts/*.log", ".")

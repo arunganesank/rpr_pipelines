@@ -103,10 +103,23 @@ def call(Map params) {
                         // Escaping of space characters should be done by different ways for local path and remote paths
                         // Read more about it here: https://rsync.samba.org/FAQ.html#9
                         if (isUnix()) {
-                            if (preZip) {
-                                status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                            // on MacOS and Ubuntu spaces are processing differently by rsync tool
+                            // TODO: replace spaces by some reserved symbol
+                            def uname = sh script: "uname", returnStdout: true
+                            boolean isMacOS = uname.startsWith("Darwin")
+
+                            if (isMacOS) {
+                                if (preZip) {
+                                    status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                } else {
+                                    status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                }
                             } else {
-                                status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                if (preZip) {
+                                    status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath}\" " + '$REMOTE_HOST $SSH_PORT')
+                                } else {
+                                    status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath}\" " + '$REMOTE_HOST $SSH_PORT')
+                                }
                             }
                         } else {
                             if (preZip) {
@@ -146,7 +159,7 @@ def call(Map params) {
                 if (cantUpload) {
                     withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
                         try {
-                            if (isUnix) {
+                            if (isUnix()) {
                                 sh """
                                     ping -c 10 ${REMOTE_HOST}
                                     tracepath ${REMOTE_HOST}

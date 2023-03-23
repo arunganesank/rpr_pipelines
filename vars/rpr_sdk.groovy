@@ -108,10 +108,19 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
 
     try {
+        utils.removeEnvVars(this)
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+
+                if (options.engine == "Northstar64") {
+                    dir("rprSdk") {
+                        downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+                        utils.unzip(this, "hipbin_3.01.00.zip")
+                    }
+                }
             }
         }
 
@@ -672,7 +681,7 @@ def call(String projectBranch = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
-         String enginesNames = "Northstar64,HybridPro,Hybrid",
+         String enginesNames = "Northstar64,HybridPro",
          Boolean collectTrackedMetrics = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)

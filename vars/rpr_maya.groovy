@@ -139,26 +139,36 @@ def executeTestCommand(String osName, String asicName, Map options)
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            case 'OSX':
-                dir('scripts') {
-                    sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                    """
-                }
-                break
-            default:
-                println("[WARNING] ${osName} is not supported")
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        def tracesVariable = []
+
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+            utils.createDir(this, "traces")
+        }
+
+        withEnv(tracesVariable) {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                case 'OSX':
+                    dir('scripts') {
+                        sh """
+                            ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
+                    break
+                default:
+                    println("[WARNING] ${osName} is not supported")
+            }
         }
     }
 }
@@ -174,6 +184,9 @@ def cloneTestsRepository(Map options) {
             } else {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
+
+            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            utils.unzip(this, "hipbin_3.01.00.zip")
         }
     }
 }
@@ -185,13 +198,15 @@ def executeTests(String osName, String asicName, Map options)
     Boolean stashResults = true
     
     try {
+        utils.removeEnvVars(this)
+
         // FIXME: too many random errors on Maya on Mac machines
         if (osName == "OSX") {
             utils.reboot(this, osName)
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "15", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 try {
                     if (osName == "OSX" && asicName == "AppleM1") {
                         sh """
@@ -421,9 +436,9 @@ def executeTests(String osName, String asicName, Map options)
                         // retry on Maya crash
                         if (sessionReport.summary.error > 0) {
                             for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup]["render_results"]) {
+                                for (caseResults in sessionReport.results[testGroup][""]["render_results"]) {
                                     for (message in caseResults.message) {
-                                        if (message.contains("Error windows {'maya'}")) {
+                                        if (message.contains("Error windows")) {
                                             String errorMessage
                                             if (options.currentTry < options.nodeReallocateTries) {
                                                 errorMessage = "Maya crash detected. The test group will be restarted."
@@ -1064,7 +1079,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String tester_tag = 'Maya',
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 5)
+        Integer testCaseRetries = 5,
+        Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1198,7 +1214,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testCaseRetries:testCaseRetries,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        collectTraces: collectTraces
                         ]
         }
 

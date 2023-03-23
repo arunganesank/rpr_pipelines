@@ -40,6 +40,7 @@ import groovy.json.JsonSlurperClassic
 @Field final Map PROFILE_REPORT_MAPPING = [
     "full": "Tahoe",
     "full2": "Northstar",
+    "northstar64": "Northstar64",
     "hybridpro": "HybridPro",
     "hybrid": "Hybrid",
     "tahoe": "tahoe",
@@ -56,6 +57,7 @@ import groovy.json.JsonSlurperClassic
 @Field final Map PROFILE_BASELINES_MAPPING = [
     "full": "",
     "full2": "NorthStar",
+    "northstar64": "Northstar64",
     "hybridpro": "HybridPro",
     "hybrid": "Hybrid",
     "tahoe": "",
@@ -180,18 +182,23 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
         return false
     }
 
-    if (directory.split("-").length != 3) {
+    if (directory.split("-").length != 2 && directory.split("-").length != 3) {
         println("[INFO] Directory ${directory} hasn't required structure. Skip it")
         return false
     }
 
     String gpuName = directory.split("-")[0]
-    String osName = directory.split("-")[1]
-    List groups = directory.split("-")[2].replace("/", "").split() as List
+    String osName = directory.split("-")[1].replace("/", "")
+
+    List groups = null
+
+    if (directory.split("-").length == 3) {
+        groups = directory.split("-")[2].replace("/", "").split() as List
+    }
 
     if (!allPlatforms) {
         String targetGpuName = platform.split("-")[0]
-        String targetOsName = platform.split("-")[1]
+        String targetOsName = platform.split("-")[1].replace("/", "")
 
         if (gpuName != targetGpuName || osName != targetOsName) {
             println("[INFO] Directory ${directory} doesn't apply to the required platform. Skip it")
@@ -199,7 +206,7 @@ boolean isSuitableDir(UpdateInfo updateInfo, String directory, String targetGrou
         }
     }
 
-    if (directory.contains(".json~")) {
+    if (directory.contains(".json~") || ! groups) {
         // non-splittable package detected
         List nonSplittablePackageDirs
 
@@ -239,7 +246,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String machineConfiguration
 
     String gpuName = directory.split("-")[0]
-    String osName = directory.split("-")[1]
+    String osName = directory.split("-")[1].replace("/", "")
 
     if (profile) {
         String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile

@@ -177,17 +177,27 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            default:
-                println("[WARNING] ${osName} is not supported")
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        def tracesVariable = []
+
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+            utils.createDir(this, "traces")
+        }
+
+        withEnv(tracesVariable) {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                default:
+                    println("[WARNING] ${osName} is not supported")
+            }
         }
     }
 }
@@ -196,15 +206,7 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
-        // FIXME: 003 test case from Blender test group crashes only on Philadelphia
-        if (env.NODE_NAME == "PC-SR-PHILADELPHIA-RadeonVII-WIN10") {
-            if (options.tests.contains("Blender") || options.tests.contains("Render_Modes")) {
-                throw new ExpectedExceptionWrapper(
-                    "System doesn't support the current test group", 
-                    new Exception("System doesn't support the current test group")
-                )
-            }
-        }
+        utils.removeEnvVars(this)
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "15", unit: "MINUTES") {                
@@ -407,6 +409,25 @@ def executeTests(String osName, String asicName, Map options) {
                             }
                         }
 
+                        // retry on Maya crash
+                        if (sessionReport.summary.error > 0) {
+                            for (testGroup in sessionReport.results) {
+                                for (caseResults in sessionReport.results[testGroup][""]["render_results"]) {
+                                    for (message in caseResults.message) {
+                                        if (message.contains("Error windows")) {
+                                            String errorMessage
+                                            if (options.currentTry < options.nodeReallocateTries) {
+                                                errorMessage = "Maya crash detected. The test group will be restarted."
+                                            } else {
+                                                errorMessage = "Maya crash detected."
+                                            }
+                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
                         }
@@ -439,19 +460,11 @@ def executeBuildWindows(Map options) {
             String artifactURL
 
             withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-48") {
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
+                bat """
+                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
 
-                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                    """
-                } else {
-                    bat """
-                        call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ..\\${STAGE_NAME}.EnvVariables.log 2>&1
-
-                        build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
-                    """
-                }
+                    build_with_devkit.bat > ..\\${STAGE_NAME}.devkit.log 2>&1
+                """
             }
             dir('installation') {
                 makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
@@ -529,14 +542,12 @@ def executeBuild(String osName, Map options) {
 
         outputEnvironmentInfo(osName)
 
-        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-            switch(osName) {
-                case "Windows":
-                    executeBuildWindows(options)
-                    break
-                default:
-                    println "[WARNING] ${osName} is not supported"
-            }
+        switch(osName) {
+            case "Windows":
+                executeBuildWindows(options)
+                break
+            default:
+                println "[WARNING] ${osName} is not supported"
         }
 
         options[getProduct.getIdentificatorKey(osName, options)] = options.commitSHA
@@ -1066,7 +1077,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5,
-        Boolean buildOldInstaller = false)
+        Boolean buildOldInstaller = false,
+        Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1192,7 +1204,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         buildOldInstaller:buildOldInstaller,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        collectTraces: collectTraces
                         ]
         }
 
