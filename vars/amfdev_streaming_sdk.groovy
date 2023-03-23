@@ -42,8 +42,12 @@ Boolean shouldSkipBuild(Map options, String osName) {
 }
 
 
-String getServerLabels(Map options) {
-    return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+String getServerLabels(Map options, Boolean requiresAndroidDevice = false) {
+    if (requiresAndroidDevice) {
+        return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && AndroidDevice && !Disabled"
+    } else {
+        return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+    }
 }
 
 String getClientLabels(Map options) {
@@ -68,7 +72,11 @@ def getReportBuildArgs(String engineName, Map options) {
 Boolean isIdleClient(Map options) {
     Boolean result = false
 
-    def suitableNodes = nodesByLabel label: getServerLabels(options), offline: false
+    // conditions for Windows autotests for additional devices (Android device and Second Windows client machine)
+    Boolean requiresAndroidDevice = options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~"
+    Boolean requiresSecondWinClient = options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~"
+
+    def suitableNodes = nodesByLabel label: getServerLabels(options, requiresAndroidDevice || options["osName"] == "Android"), offline: false
 
     for (node in suitableNodes) {
         if (utils.isNodeIdle(node)) {
@@ -94,7 +102,7 @@ Boolean isIdleClient(Map options) {
 
         println(result)
 
-        if (options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+        if (requiresAndroidDevice) {
             println(options["finishedBuildStages"])
             if (!options["finishedBuildStages"]["Android"] && !options.skipBuild.contains("Android")) {
                 result = false
@@ -103,7 +111,7 @@ Boolean isIdleClient(Map options) {
 
         println(result)
 
-        if (options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~") {
+        if (requiresSecondWinClient) {
             Boolean secondClientReady = false
 
             // wait multiconnection client machine
@@ -914,6 +922,10 @@ def initAndroidDevice() {
         }
     }
 
+    if (androidDeviceIp == "empty") {
+        throw new Exception("Android autotests aren't supported on this server")
+    }
+
     try {
         bat "adb kill-server"
         println "[INFO] ADB server is killed"
@@ -982,9 +994,9 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
             utils.reboot(this, "Windows")
         }
 
-        initAndroidDevice()
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            initAndroidDevice()
+
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     cleanWS(osName)
