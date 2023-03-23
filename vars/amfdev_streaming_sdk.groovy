@@ -212,6 +212,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
         case "Android":
             downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Android.zip", ".")
             unzip(zipFile: "StreamingSDK_Android.zip")
+            utils.removeFile(this, "Windows", "app-arm.apk")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
@@ -732,6 +733,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                                 || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
 
                                 dir("StreamingSDKAndroid") {
+                                    copyAndroidScripts()
                                     prepareTool("Android", options)
                                     installAndroidClient()
                                 }
@@ -942,14 +944,17 @@ def initAndroidDevice() {
 }
 
 
-def installAndroidClient() {
+def copyAndroidScripts() {
     try {
         utils.copyFile(this, "Windows", "%STREAMING_SCRIPTS_LOCATION%\\*", ".")
     } catch(Exception e) {
         println("[ERROR] Failed to copy installation scripts")
         throw e
     }
+}
 
+
+def installAndroidClient() {
     try {
         bat "uninstall.bat"
         println "[INFO] Android client was uninstalled"
@@ -1014,6 +1019,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
                 if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
+                        copyAndroidScripts()
                         prepareTool("Android", options)
                         installAndroidClient()
                     }
