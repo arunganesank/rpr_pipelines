@@ -34,7 +34,7 @@ def doReportGeneration(String qaReportsBranch) {
 def call(String qaReportsBranch) {
     timestamps {
         stage("Report generation") {
-            node("Windows && PreBuild") {
+            node("Windows && Builder") {
                 ws("WS/QA_Report") {
                     doReportGeneration(qaReportsBranch)
                 }
