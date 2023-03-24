@@ -923,7 +923,7 @@ def initAndroidDevice() {
     }
 
     if (androidDeviceIp == "empty") {
-        throw new Exception("Android autotests aren't supported on this server")
+        return
     }
 
     try {
