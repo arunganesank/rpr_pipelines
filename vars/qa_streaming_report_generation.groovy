@@ -12,7 +12,7 @@ def doReportGeneration(String qaReportsBranch) {
         string(credentialsId: 'QAReports_TasksExport', variable: 'CONFLUENCE_TOKEN'),
         [$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkinsCredentials', usernameVariable: 'JENKINS_USERNAME', passwordVariable: 'JENKINS_TOKEN'],
         string(credentialsId: 'QAReports_PRStatusesExport', variable: 'GITHUB_TOKEN'),
-        [$class: 'UsernamePasswordMultiBinding', credentialsId: 'QAReports_BugsListExport', usernameVariable: 'LUXOFT_JIRA_USERNAME', passwordVariable: 'LUXOFT_JIRA_TOKEN'],
+        string(credentialsId: 'QAReports_JiraLuxoftToken', variable: 'LUXOFT_JIRA_TOKEN'),
         string(credentialsId: 'QAReports_StreamingSDKRecipientsTo', variable: 'STREAMING_SDK_EMAIL_RECIPIENTS_TO'),
         string(credentialsId: 'QAReports_StreamingSDKRecipientsCC', variable: 'STREAMING_SDK_EMAIL_RECIPIENTS_CC')
     ]) {
