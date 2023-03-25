@@ -205,6 +205,16 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 newOptions['tests'] = options.splitTestsExecution ? testName.split("-")[0] : options.tests
                                 newOptions["testProfile"] = testProfile
 
+                                // TODO: remove this logic after implementation of multiconnection for Streaming SDK with Android
+                                if (options.containsKey("multiconnectionConfiguration")) {
+                                    String tempTests = testName.split("-")[0]
+                                    Boolean requiresSecondWinClient = options.multiconnectionConfiguration.second_win_client.any { (tempTests.split() as List).contains(it) } || tempTests == "regression.1.json~" || tempTests == "regression.3.json~"
+
+                                    if (requiresSecondWinClient || osName == "Android") {
+                                        testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && AndroidDevice && !Disabled"
+                                    }
+                                }
+
                                 if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
                                     List profileKeys = options["configuration"]["testProfile"].split("_") as List
                                     List profileValues = testProfile.split("_") as List
