@@ -209,9 +209,9 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 String tempTesterLabels
                                 if (options.containsKey("multiconnectionConfiguration")) {
                                     String tempTests = testName.split("-")[0]
-                                    Boolean requiresSecondWinClient = options.multiconnectionConfiguration.second_win_client.any { (tempTests.split() as List).contains(it) } || tempTests == "regression.1.json~" || tempTests == "regression.3.json~"
+                                    Boolean requiresAndroidDevice = options.multiconnectionConfiguration.second_win_client.any { (tempTests.split() as List).contains(it) } || tempTests == "regression.2.json~" || tempTests == "regression.3.json~"
 
-                                    if (requiresSecondWinClient || osName == "Android") {
+                                    if (requiresAndroidDevice || osName == "Android") {
                                         tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && AndroidDevice && !Disabled"
                                     } else {
                                         tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
