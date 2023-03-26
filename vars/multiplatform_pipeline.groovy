@@ -206,13 +206,18 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 newOptions["testProfile"] = testProfile
 
                                 // TODO: remove this logic after implementation of multiconnection for Streaming SDK with Android
+                                String tempTesterLabels
                                 if (options.containsKey("multiconnectionConfiguration")) {
                                     String tempTests = testName.split("-")[0]
                                     Boolean requiresSecondWinClient = options.multiconnectionConfiguration.second_win_client.any { (tempTests.split() as List).contains(it) } || tempTests == "regression.1.json~" || tempTests == "regression.3.json~"
 
                                     if (requiresSecondWinClient || osName == "Android") {
-                                        testerLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && AndroidDevice && !Disabled"
+                                        tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && AndroidDevice && !Disabled"
+                                    } else {
+                                        tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
                                     }
+                                } else {
+                                    tempTesterLabels = testerLabels
                                 }
 
                                 if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
@@ -333,7 +338,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                                 try {
                                     Integer retries_count = options.retriesForTestStage ?: -1
-                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
+                                    run_with_retries(tempTesterLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
                                 } catch(FlowInterruptedException e) {
                                     options.buildWasAborted = true
                                     e.getCauses().each(){
