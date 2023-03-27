@@ -199,7 +199,8 @@ def executePreBuild(Map options) {
         options.updateUnitRefs = true
         options.updatePerfRefs = true
         options.updateSdkRefs = "Update"
-        options.updateMtlxRefs = "Update"
+        // do not update HybridPro MTLX refs automatically
+        options.updateMtlxRefs = "No"
         println("[CIS:GENREF] or [CIS:GENREFALL] have been found in comment")
     }
 
