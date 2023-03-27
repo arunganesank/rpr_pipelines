@@ -1,106 +1,39 @@
 import utils
 
-def call(String project = "")
-{
+def call(String project = "") {
     if (!project) {
         project = getProjectName()
     }
 
-    if (isCisDevelopJob()) {
-        println("BuildDiscarderProperty will use settings for Dev CIS job.")
-        if (isMasterBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '10']]])
+    if (isManualJob()) {
+        println("BuildDiscarderProperty will use settings for manual job.")
 
-        } else if (isDevelopBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '10']]])
+        properties([[$class: 'BuildDiscarderProperty', strategy:
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '40']]])
+    } else if (isWeeklyJob()) {
+        println("BuildDiscarderProperty will use settings for weekly job.")
 
-        } else if (isPR()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '3']]])
+        properties([[$class: 'BuildDiscarderProperty', strategy:
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '20']]])
+    } else if (isAutoJob()) {
+        println("BuildDiscarderProperty will use settings for auto job.")
 
-        } else if (isCustomBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '3']]])
-
-        } else if (isWeeklyJob()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '10']]])
-
-        } else {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '10']]])
-        }
-
-    } else if (project in ["Blender", "Maya", "Max", "Core"]) {
-        println("BuildDiscarderProperty will use settings for plugins job.")
-        if (isMasterBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '180', numToKeepStr: '10']]])
-
-        } else if (isDevelopBranch()) {
+        if (isMasterBranch() && isCustomBranch()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
                 [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '20']]])
-
-        } else if (isPR()) {
+        } else if (isReleaseBranch() || isTag()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '3']]])
-
-        } else if (isCustomBranch()) {
+                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '360', numToKeepStr: '20']]])
+        } else if (env.isPR()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '3']]])
-
-        } else if (isWeeklyJob()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '180', numToKeepStr: '20']]])
-
-        } else {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '20']]])
+                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '5']]])
         }
-    
-    } else if (project == "MaterialLibrary") {
-
-        properties([[$class: 'BuildDiscarderProperty', strategy: 
-            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '5']]])
-
-    
-    } else if (project == "HybridUE") {
-
-        properties([[$class: 'BuildDiscarderProperty', strategy: 
-            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '3']]])
-
     } else {
         println("BuildDiscarderProperty will use default settings.")
-        if (isMasterBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '180', numToKeepStr: '10']]])
 
-        } else if (isDevelopBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '10']]])
-
-        } else if (isPR()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '3']]])
-
-        } else if (isCustomBranch()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '3']]])
-
-        } else if (isWeeklyJob()) {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '10']]])
-
-        } else {
-            properties([[$class: 'BuildDiscarderProperty', strategy:
-                [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '10']]])
-        }
-
+        properties([[$class: 'BuildDiscarderProperty', strategy:
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '20']]])
     }
-
-    
 }
 
 
@@ -126,7 +59,17 @@ def getProjectName(){
 
 
 def isWeeklyJob(){
-    return env.JOB_NAME.contains("Weekly") ? true : false
+    return env.JOB_NAME.contains("-Weekly") ? true : false
+}
+
+
+def isManualJob(){
+    return env.JOB_NAME.contains("-Manual") ? true : false
+}
+
+
+def isAutoJob(){
+    return env.JOB_NAME.contains("-Auto") ? true : false
 }
 
 
@@ -135,18 +78,23 @@ def isMasterBranch(){
 }
 
 
-def isDevelopBranch(){
-    return env.BRANCH_NAME && (env.BRANCH_NAME == "develop" || env.BRANCH_NAME == "1.xx")
+def isReleaseBranch(){
+    return env.BRANCH_NAME && (env.BRANCH_NAME == "release")
 }
 
 
 def isCustomBranch(){
-    return env.BRANCH_NAME && env.BRANCH_NAME != "master" && env.BRANCH_NAME != "develop"
+    return env.BRANCH_NAME && env.BRANCH_NAME != "master" && env.BRANCH_NAME != "main" && env.BRANCH_NAME != "release"
 }
 
 
 def isPR(){
     return env.CHANGE_URL
+}
+
+
+def isTag(){
+    return env.TAG_NAME
 }
 
 
