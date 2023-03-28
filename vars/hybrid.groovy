@@ -198,8 +198,8 @@ def executePreBuild(Map options) {
     if ((commitMessage.contains("[CIS:GENREFALL]") || commitMessage.contains("[CIS:GENREF]")) && env.BRANCH_NAME && env.BRANCH_NAME == "master") {
         options.updateUnitRefs = true
         options.updatePerfRefs = true
-        options.updateSdkRefs = "Update"
-        // do not update HybridPro MTLX refs automatically
+        // do not update HybridPro MTLX and RPR SDK refs automatically
+        options.updateSdkRefs = "No"
         options.updateMtlxRefs = "No"
         println("[CIS:GENREF] or [CIS:GENREFALL] have been found in comment")
     }
