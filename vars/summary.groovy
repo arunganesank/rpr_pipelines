@@ -32,6 +32,7 @@ def call() {
         stage("Building summary") {
             node("Windows && PreBuild") {
                 ws("WS/Summary") {
+                    currentBuild.description = ""
                     for (url in jobUrls) {
                         def parsedJob = doRequest("${url}/api/json")
                         def jobName = parsedJob["name"]
