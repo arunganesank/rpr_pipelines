@@ -1095,6 +1095,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-367") {
+        testsBranch = "inemankov/updated_logs_parsing"
+    }
+
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             withNotifications(options: options, configuration: NotificationConfiguration.ENGINES_PARAM) {
