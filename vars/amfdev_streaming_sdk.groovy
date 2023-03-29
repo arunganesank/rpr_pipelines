@@ -75,7 +75,7 @@ int getNumberOfRequiredAndroidDevices(Map options) {
         } else if (options.multiconnectionConfiguration.android_client.keySet().any { (options.tests.split("-")[0].split() as List).contains(it) }) {
             // find multiconnection test group with max number of required Android devices
             (options.tests.split("-")[0].split() as List).each() {
-                if (options.multiconnectionConfiguration.android_client.contains(it)) {
+                if (options.multiconnectionConfiguration.android_client.containsKey(it)) {
                     int currentDevicesNumber = options.multiconnectionConfiguration.android_client[it]
 
                     if (currentDevicesNumber > androidDevicesNumber) {
@@ -88,7 +88,7 @@ int getNumberOfRequiredAndroidDevices(Map options) {
         if (options.multiconnectionConfiguration.android_client.keySet().any { (options.tests.split("-")[0].split() as List).contains(it) }) {
             // some Android tests can requuire 2+ devices, check it
             (options.tests.split("-")[0].split() as List).each() {
-                if (options.multiconnectionConfiguration.android_client.contains(it)) {
+                if (options.multiconnectionConfiguration.android_client.containsKey(it)) {
                     int currentDevicesNumber = options.multiconnectionConfiguration.android_client[it]
 
                     if (currentDevicesNumber > androidDevicesNumber) {
@@ -143,23 +143,23 @@ Boolean isIdleClient(Map options) {
 
         Boolean devicesAvailable = false
 
-        lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
-            devicesAvailable = true
-        }
+        if (androidDevicesNumber > 0) {
+            lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
+                devicesAvailable = true
+            }
 
-        // wait required number of Android devices
-        result &= devicesAvailable
+            // wait required number of Android devices
+            result &= devicesAvailable
 
-        println(result)
+            println(result)
 
-        if (requiresAndroidDevice) {
             println(options["finishedBuildStages"])
             if (!options["finishedBuildStages"]["Android"] && !options.skipBuild.contains("Android")) {
                 result = false
             }
-        }
 
-        println(result)
+            println(result)
+        }
 
         if (requiresSecondWinClient) {
             Boolean secondClientReady = false
@@ -971,22 +971,24 @@ def initAndroidDevice() {
     }
 
     (env.ANDROID_DEVICES.split(",") as List).each() {
+        String deviceName = it.split("_")[1]
+
         try {
-            bat "adb connect ${it}:5555"
+            bat "adb connect ${deviceName}:5555"
             println "[INFO] Connected to Android device"
         } catch (Exception e) {
             println "[ERROR] Failed to connect to Android device"
         }
 
         try {
-            bat "adb -s ${it} shell rm -rf sdcard/video*"
+            bat "adb -s ${deviceName} shell rm -rf sdcard/video*"
             println "[INFO] Android deviced is cleared"
         } catch (Exception e) {
             println "[ERROR] Failed to clear Android device"
         }
 
         try {
-            bat "adb -s ${it} shell am force-stop com.amd.remotegameclient"
+            bat "adb -s ${deviceName} shell am force-stop com.amd.remotegameclient"
             println "[INFO] Android client is closed"
         } catch (Exception e) {
             println "[ERROR] Failed to close Android client"
@@ -1007,8 +1009,10 @@ def copyAndroidScripts() {
 
 def installAndroidClient() {
     (env.ANDROID_DEVICES.split(",") as List).each() {
+        String deviceName = it.split("_")[1]
+
         try {
-            bat "uninstall.bat ${it}"
+            bat "uninstall.bat ${deviceName}"
             println "[INFO] Android client was uninstalled"
         } catch (Exception e) {
             println "[ERROR] Failed to uninstall Android client"
@@ -1016,7 +1020,7 @@ def installAndroidClient() {
         }
 
         try {
-            bat "install.bat ${it}"
+            bat "install.bat ${deviceName}"
             sleep(15)
             println "[INFO] Android client was installed"
         } catch (Exception e) {
@@ -1167,7 +1171,12 @@ def executeTests(String osName, String asicName, Map options) {
             }
         } else if (osName == "Android") {
             dir(AUTOTESTS_PATH) { 
-                executeTestsAndroid(osName, asicName, options)
+                int androidDevicesNumber = getNumberOfRequiredAndroidDevices(options)
+                options["androidDevicesNumber"] = androidDevicesNumber
+
+                lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
+                    executeTestsAndroid(osName, asicName, options)
+                }
             }
         } else {
             println("Unsupported OS")
@@ -1639,7 +1648,7 @@ def executePreBuild(Map options) {
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {
-                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
+                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.keySet().any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
                     options.platforms = options.platforms + ";Android"
 
                     options.androidBuildConfiguration = ["debug"]
