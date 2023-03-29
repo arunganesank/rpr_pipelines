@@ -49,15 +49,16 @@ def call() {
                         def parsedJob = doRequest("${url}api/json")
                         if ("multibranch" in parsedJob["_class"]) {
                             def multiJobName = parsedJob["name"]
+                            println("${multiJobName}")
                             for (job in parsedJob["jobs"]) {
-                                if (job){
-                                    def multiBuildName = job["name"]
-                                    def buildUrl = job["url"]
-                                    def parsedBuild = doRequest("${buildUrl}api/json")
-                                    def result = parsedBuild["result"]
-                                    def color = getColor(result)
-                                    currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${multiBuildName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
-                                }
+                                println("${job}")
+                                def multiBuildName = job["name"]
+                                println("${multiBuildName}")
+                                def buildUrl = job["url"]
+                                def parsedBuild = doRequest("${buildUrl}api/json")
+                                def result = parsedBuild["result"]
+                                def color = getColor(result)
+                                currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${multiBuildName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
                             }
                         }
                         else {
