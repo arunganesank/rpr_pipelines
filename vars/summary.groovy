@@ -32,8 +32,8 @@ def getColor(String result) {
     def colors = [
         "SUCCESS": "#5fbc34",
         "UNSTABLE": "#b7950b",
-        "FAILURE": "b03a2e",
-        "ABORTED": "14141f"
+        "FAILURE": "#b03a2e",
+        "ABORTED": "#14141f"
     ]
     return colors[result]
 }
