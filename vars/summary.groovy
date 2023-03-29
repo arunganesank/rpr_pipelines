@@ -2,7 +2,7 @@ import groovy.transform.Field
 
 import utils
 
-List jobUrls = [
+@Field final List jobUrls = [
     "https://rpr.cis.luxoft.com/job/RenderStudio-Weekly",
     "https://rpr.cis.luxoft.com/job/RPR-BlenderPlugin-Weekly",
     "https://rpr.cis.luxoft.com/job/RPR-MayaPlugin-Weekly",
