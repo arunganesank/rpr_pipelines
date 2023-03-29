@@ -205,21 +205,6 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 newOptions['tests'] = options.splitTestsExecution ? testName.split("-")[0] : options.tests
                                 newOptions["testProfile"] = testProfile
 
-                                // TODO: remove this logic after implementation of multiconnection for Streaming SDK with Android
-                                String tempTesterLabels
-                                if (options.containsKey("multiconnectionConfiguration")) {
-                                    String tempTests = testName.split("-")[0]
-                                    Boolean requiresAndroidDevice = options.multiconnectionConfiguration.android_client.any { (tempTests.split() as List).contains(it) } || tempTests == "regression.2.json~" || tempTests == "regression.3.json~"
-
-                                    if (requiresAndroidDevice || osName == "Android") {
-                                        tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && AndroidDevice && !Disabled"
-                                    } else {
-                                        tempTesterLabels = "${osName} && ${options.TESTER_TAG} && gpu${asicName} && !Disabled"
-                                    }
-                                } else {
-                                    tempTesterLabels = testerLabels
-                                }
-
                                 if (options.containsKey("configuration") && options["configuration"]["testProfile"]) {
                                     List profileKeys = options["configuration"]["testProfile"].split("_") as List
                                     List profileValues = testProfile.split("_") as List
@@ -338,7 +323,7 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
 
                                 try {
                                     Integer retries_count = options.retriesForTestStage ?: -1
-                                    run_with_retries(tempTesterLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
+                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
                                 } catch(FlowInterruptedException e) {
                                     options.buildWasAborted = true
                                     e.getCauses().each(){
