@@ -51,11 +51,15 @@ def call() {
                             def multiJobName = parsedJob["name"]
                             for (job in parsedJob["jobs"]) {
                                 def multiBuildName = job["name"]
-                                def buildUrl = job["url"]
-                                def parsedBuild = doRequest("${buildUrl}api/json")
-                                def result = parsedBuild["result"]
-                                def color = getColor(result)
-                                currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${multiBuildName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                                try {
+                                    def buildUrl = job["url"]
+                                    def parsedBuild = doRequest("${buildUrl}api/json")
+                                    def result = parsedBuild["result"]
+                                    def color = getColor(result)
+                                    currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${multiBuildName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                                } catch(e) {
+                                    continue
+                                }
                             }
                         }
                         else {
