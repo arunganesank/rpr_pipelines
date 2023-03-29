@@ -47,7 +47,8 @@ def call() {
                     currentBuild.description = ""
                     for (url in jobUrls) {
                         def parsedJob = doRequest("${url}api/json")
-                        if ("multibranch" in parsedJob["_class"]) {
+                        def class = parsedJob["_class"]
+                        if(class.contains("multibranch")) {
                             def multiJobName = parsedJob["name"]
                             println("${multiJobName}")
                             for (job in parsedJob["jobs"]) {
@@ -63,7 +64,6 @@ def call() {
                         }
                         else {
                             def jobName = parsedJob["name"]
-                            println("${jobName}")
                             def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
                             def result = parsedBuild["result"]
                             def buildUrl = parsedBuild["url"]
