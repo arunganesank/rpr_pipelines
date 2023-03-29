@@ -63,6 +63,7 @@ def call() {
                         }
                         else {
                             def jobName = parsedJob["name"]
+                            println("${jobName}")
                             def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
                             def result = parsedBuild["result"]
                             def buildUrl = parsedBuild["url"]
