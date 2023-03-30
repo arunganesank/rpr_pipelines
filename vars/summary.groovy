@@ -66,12 +66,14 @@ def processUrl(String url) {
         }
     } else {
         def jobName = parsedJob["name"]
-        def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
-        def buildUrl = parsedBuild["url"]
-        def result = parsedBuild["result"]
-        if (result == "FAILURE"){
-            def color = getColor(result)
-            currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+        if (parsedJob["lastCompletedBuild"]["url"] != null){
+            def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
+            def buildUrl = parsedBuild["url"]
+            def result = parsedBuild["result"]
+            if (result == "FAILURE"){
+                def color = getColor(result)
+                currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+            }
         }
     }
 }
