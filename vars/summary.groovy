@@ -49,6 +49,7 @@ def getColor(String result) {
 
 
 def processUrl(String url) {
+    boolean wasModified = false
     def parsedJob = doRequest("${url}api/json")
     def jobClass = parsedJob["_class"]
     if (jobClass.contains("multibranch")) {
@@ -63,6 +64,7 @@ def processUrl(String url) {
                 if (result == "FAILURE"){
                     def color = getColor(result)
                     currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                    wasModified = true
                 }
             }
         }
@@ -75,9 +77,11 @@ def processUrl(String url) {
             if (result == "FAILURE"){
                 def color = getColor(result)
                 currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                wasModified = true
             }
         }
     }
+    return wasModified
 }
 
 
@@ -88,8 +92,10 @@ def call() {
                 ws("WS/Summary") {
                     currentBuild.description = ""
                     for (url in jobUrls) {
-                        processUrl(url)
-                        currentBuild.description += "<br/>"
+                        boolean wasModified = processUrl(url)
+                        if (wasModified){
+                            currentBuild.description += "<br/>"
+                        }
                     }
                 }
             }
