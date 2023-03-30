@@ -2046,7 +2046,7 @@ def call(String projectBranch = "",
             }
 
             String firstClientTag = firstClientMachine ? "StreamingSDKClient && (${firstClientMachine})" : "StreamingSDKClient"
-            String secondClientTag = secondClientMachine ? "StreamingSDKClientMulticonnection && (${secondClientMachine})" : "StreamingSDKClientMulticonnection"
+            String secondClientTag = secondClientMachine ? "StreamingSDKClient && (${secondClientMachine})" : "StreamingSDKClient"
 
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
