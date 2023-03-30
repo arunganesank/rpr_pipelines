@@ -56,7 +56,7 @@ def processUrl(String url) {
         for (branch in parsedJob["jobs"]) {
             def branchName = branch["name"]
             def parsedBranch = doRequest("${branch["url"]}api/json")
-            if (parsedBranch["lastCompletedBuild"]["url"] != null){
+            if (parsedBranch["lastCompletedBuild"] != null){
                 def parsedBuild = doRequest("${parsedBranch["lastCompletedBuild"]["url"]}api/json")
                 def buildUrl = parsedBuild["url"]
                 def result = parsedBuild["result"]
@@ -68,7 +68,7 @@ def processUrl(String url) {
         }
     } else {
         def jobName = parsedJob["name"]
-        if (parsedJob["lastCompletedBuild"]["url"] != null){
+        if (parsedJob["lastCompletedBuild"] != null){
             def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
             def buildUrl = parsedBuild["url"]
             def result = parsedBuild["result"]
