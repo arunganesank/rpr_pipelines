@@ -51,11 +51,11 @@ String getServerLabels(Map options, Boolean requiresAndroidDevice = false) {
 }
 
 String getClientLabels(Map options) {
-    return "Windows && ${options.TESTER_TAG} && ${options.CLIENT_TAG} && !Disabled"
+    return "Windows && ${options.CLIENT_TAG} && !Disabled"
 }
 
 String getMulticonnectionClientLabels(Map options) {
-    return "${options.osName} && ${options.TESTER_TAG} && ${options.MULTICONNECTION_CLIENT_TAG} && !Disabled"
+    return "${options.osName} && ${options.MULTICONNECTION_CLIENT_TAG} && !Disabled"
 }
 
 
