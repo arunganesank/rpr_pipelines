@@ -64,8 +64,7 @@ def processUrl(String url) {
                 currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
             }
         }
-    }
-    else {
+    } else {
         def jobName = parsedJob["name"]
         def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
         def buildUrl = parsedBuild["url"]
