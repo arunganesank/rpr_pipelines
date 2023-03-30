@@ -52,9 +52,9 @@ def call() {
                             def multiJobName = parsedJob["name"]
                             for (job in parsedJob["jobs"]) {
                                 def jobName = job["name"]
-                                def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
+                                def parsedBuild = doRequest("${job["lastCompletedBuild"]["url"]}api/json")
                                 def result = parsedBuild["result"]
-                                def buildUrl = job["url"]
+                                def buildUrl = parsedBuild["url"]
                                 def color = getColor(result)
                                 currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
                             }
