@@ -738,6 +738,8 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        killAdbServer()
+
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
         }
@@ -962,6 +964,16 @@ def rebootAndroidDevice() {
 }
 
 
+def killAdbServer() {
+    try {
+        bat "adb kill-server"
+        println "[INFO] ADB server is killed"
+    } catch (Exception e) {
+        println "[ERROR] Failed to kill adb server"
+    }
+}
+
+
 def initAndroidDevice() {
     try {
         bat "adb kill-server"
@@ -1038,6 +1050,8 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, "Windows")
         }
+
+        killAdbServer()
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
