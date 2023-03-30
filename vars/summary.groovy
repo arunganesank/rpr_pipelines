@@ -56,12 +56,14 @@ def processUrl(String url) {
         for (branch in parsedJob["jobs"]) {
             def branchName = branch["name"]
             def parsedBranch = doRequest("${branch["url"]}api/json")
-            def parsedBuild = doRequest("${parsedBranch["lastCompletedBuild"]["url"]}api/json")
-            def buildUrl = parsedBuild["url"]
-            def result = parsedBuild["result"]
-            if (result == "FAILURE"){
-                def color = getColor(result)
-                currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+            if (parsedBranch["lastCompletedBuild"]["url"] != null){
+                def parsedBuild = doRequest("${parsedBranch["lastCompletedBuild"]["url"]}api/json")
+                def buildUrl = parsedBuild["url"]
+                def result = parsedBuild["result"]
+                if (result == "FAILURE"){
+                    def color = getColor(result)
+                    currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                }
             }
         }
     } else {
