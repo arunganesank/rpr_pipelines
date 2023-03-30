@@ -61,6 +61,7 @@ def processUrl(String url) {
         def buildUrl = parsedBuild["url"]
         def color = getColor(result)
         currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+    }
 }
 
 
