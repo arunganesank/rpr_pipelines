@@ -39,6 +39,31 @@ def getColor(String result) {
 }
 
 
+def processUrl(String url) {
+    def parsedJob = doRequest("${url}api/json")
+    def jobClass = parsedJob["_class"]
+    if (jobClass.contains("multibranch")) {
+        def multiJobName = parsedJob["name"]
+        for (branch in parsedJob["jobs"]) {
+            def branchName = branch["name"]
+            def parsedBranch = doRequest("${branch["url"]}api/json")
+            def parsedBuild = doRequest("${parsedBranch["lastCompletedBuild"]["url"]}api/json")
+            def result = parsedBuild["result"]
+            def buildUrl = parsedBuild["url"]
+            def color = getColor(result)
+            currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+        }
+    }
+    else {
+        def jobName = parsedJob["name"]
+        def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
+        def result = parsedBuild["result"]
+        def buildUrl = parsedBuild["url"]
+        def color = getColor(result)
+        currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+}
+
+
 def call() {
     timestamps {
         stage("Building summary") {
@@ -46,27 +71,7 @@ def call() {
                 ws("WS/Summary") {
                     currentBuild.description = ""
                     for (url in jobUrls) {
-                        def parsedJob = doRequest("${url}api/json")
-                        def jobClass = parsedJob["_class"]
-                        if (jobClass.contains("multibranch")) {
-                            def multiJobName = parsedJob["name"]
-                            for (branch in parsedJob["jobs"]) {
-                                def branchName = branch["name"]
-                                def parsedBranch = doRequest("${branch["url"]}api/json")
-                                def parsedBuild = doRequest("${parsedBranch["lastCompletedBuild"]["url"]}api/json")
-                                def result = parsedBuild["result"]
-                                def buildUrl = parsedBuild["url"]
-                                def color = getColor(result)
-                                currentBuild.description += "<span><a href='${buildUrl}'>${multiJobName} ${branchName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
-                            }
-                        }
-                        else {
-                            def jobName = parsedJob["name"]
-                            def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
-                            def result = parsedBuild["result"]
-                            def buildUrl = parsedBuild["url"]
-                            def color = getColor(result)
-                            currentBuild.description += "<span><a href='${buildUrl}'>${jobName}</a> status: <span style='color: ${color}'>${result}</span>.</span><br/><br/>"
+                        processUrl(url)
                         }
                     }
                 }
