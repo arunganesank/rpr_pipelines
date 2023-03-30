@@ -73,7 +73,6 @@ def call() {
                     currentBuild.description = ""
                     for (url in jobUrls) {
                         processUrl(url)
-                        }
                     }
                 }
             }
