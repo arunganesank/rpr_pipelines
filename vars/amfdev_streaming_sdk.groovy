@@ -1948,7 +1948,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 def call(String projectBranch = "",
     String testsBranch = "master",
     String platforms = "Windows:AMD_RX6700XT;Android:AMD_RX6700XT",
-    String clientTag = "PC-TESTER-VILNIUS-WIN10",
+    String clientTags = "PC-TESTER-VILNIUS-WIN10",
     String winBuildConfiguration = "release,debug",
     String winTestingBuildName = "debug_vs2019",
     String testsPackage = "regression.json",
@@ -2037,6 +2037,17 @@ def call(String projectBranch = "",
                 executeBuild = false
             }
 
+            String[] tagParts = clientTags.split(";")
+            String firstClientMachine = tagParts[0]
+            String secondClientMachine = ""
+
+            if (tagParts.size() == 2) {
+                secondClientMachine = tagParts[1]
+            }
+
+            String firstClientTag = firstClientMachine ? "StreamingSDKClient && (${firstClientMachine})" : "StreamingSDKClient"
+            String secondClientTag = secondClientMachine ? "StreamingSDKClient && (${secondClientMachine})" : "StreamingSDKClient"
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
                         projectBranch: projectBranch,
@@ -2053,7 +2064,6 @@ def call(String projectBranch = "",
                         androidTestingBuildName: androidTestingBuildName,
                         nodeRetry: nodeRetry,
                         platforms: platforms,
-                        clientTag: clientTag,
                         BUILD_TIMEOUT: 15,
                         // update timeouts dynamicly based on number of cases + traces are generated or not
                         TEST_TIMEOUT: 180,
@@ -2061,8 +2071,8 @@ def call(String projectBranch = "",
                         ADDITIONAL_XML_TIMEOUT: 15,
                         BUILDER_TAG: "BuilderStreamingSDK",
                         TESTER_TAG: testerTag,
-                        CLIENT_TAG: "StreamingSDKClient && (${clientTag})",
-                        MULTICONNECTION_CLIENT_TAG: "StreamingSDKClientMulticonnection",
+                        CLIENT_TAG: firstClientTag,
+                        MULTICONNECTION_CLIENT_TAG: secondClientTag,
                         testsPreCondition: this.&isIdleClient,
                         testCaseRetries: testCaseRetries,
                         engines: games.split(",") as List,
