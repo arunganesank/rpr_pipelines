@@ -905,6 +905,7 @@ def fillDescription(Map options) {
     currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
     currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
     currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
+    currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
 
     currentBuild.description += "<br/>"
 
@@ -951,7 +952,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+        String url = "${env.JENKINS_URL}/job/Archive/job/RadeonProRender-HybridManual/992/api/json?tree=number,url,description"
 
         def rawInfo = httpRequest(
             url: url,
@@ -963,22 +964,19 @@ def executePreBuild(Map options) {
 
 
         Integer hybridBuildNumber
-        //String hybridBuildUrl
+        String hybridBuildUrl
 
-        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            hybridBuildNumber = 992
-            //hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
-        } else {
-            hybridBuildNumber = 992
-            //hybridBuildUrl = parsedInfo.lastUnstableBuild.url
-        }
+        hybridBuildNumber = 992
+        hybridBuildUrl = parsedInfo.url
+
+        options.hybridProSHA = parsedInfo.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
             options.customHybridWin = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
             options.customHybridLinux = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
-        //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 
         // branch postfix
         options["branchPostfix"] = ""
