@@ -250,6 +250,10 @@ def executePreBuild(Map options) {
             }
         }
     }
+
+
+    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/><br/>"
 }
 
 
@@ -296,6 +300,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 
 def call(String commitSHA = "",
+         String commitMessage = "",
          String originalBuildLink = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan,d3d12",
@@ -324,6 +329,7 @@ def call(String commitSHA = "",
                            [configuration: PIPELINE_CONFIGURATION,
                             platforms:platforms,
                             commitSHA:commitSHA,
+                            commitMessage:commitMessage,
                             originalBuildLink:originalBuildLink,
                             updateRefs:updateRefs,
                             PRJ_NAME:"HybridProUnit",

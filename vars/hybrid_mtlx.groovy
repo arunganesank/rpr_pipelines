@@ -333,6 +333,9 @@ def executePreBuild(Map options) {
             }
         }
     }
+
+    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/><br/>"
 }
 
 
