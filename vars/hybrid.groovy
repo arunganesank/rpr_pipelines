@@ -243,6 +243,9 @@ def executePreBuild(Map options) {
             GithubNotificator.createStatus("Build", osName, "queued", options, "Scheduled", "${env.JOB_URL}")
         }
     }
+
+    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/><br/>"
 }
 
 
@@ -381,6 +384,7 @@ def launchAndWaitTests(Map options) {
                 parameters: [
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
+                    string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "Platforms", value: testPlatforms),
                     string(name: "ApiValues", value: options.apiValues),
@@ -401,6 +405,7 @@ def launchAndWaitTests(Map options) {
                 parameters: [
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
+                    string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "Platforms", value: testPlatforms),
                     string(name: "Scenarios", value: options.scenarios),
