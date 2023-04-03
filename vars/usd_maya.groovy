@@ -467,7 +467,7 @@ def executeBuildWindows(Map options) {
                 """
             }
             dir('installation') {
-                if (toolVersion == "2024") {
+                if (options.toolVersion == "2024") {
                     makeStash(includes: "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
                 } else {
                     makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
@@ -478,7 +478,7 @@ def executeBuildWindows(Map options) {
                         rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                     """
 
-                    if (toolVersion == "2024") {
+                    if (options.toolVersion == "2024") {
                         bat """
                             rename RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                         """
@@ -488,7 +488,7 @@ def executeBuildWindows(Map options) {
                 String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
                 artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-                if (toolVersion == "2024") {
+                if (options.toolVersion == "2024") {
                     ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe"
                     artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
                 }
