@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 
 @Field final String PROJECT_REPO = "https://github.com/Radeon-Pro/RPRHybrid.git"
+@Field final String HTTP_PROJET_REPO = "https://github.com/Radeon-Pro/RPRHybrid"
 @Field final String SDK_REPO = "git@github.com:luxteam/jobs_test_core.git"
 @Field final String MTLX_REPO = "git@github.com:luxteam/jobs_test_hybrid_mtlx.git"
 
@@ -35,10 +36,7 @@ def downloadAgilitySDK() {
 
 
 def makeRelease(Map options) {
-    // TODO: fix archive publishing
-    return
-
-    def releases = options["githubApiProvider"].getReleases(PROJECT_REPO)
+    def releases = options["githubApiProvider"].getReleases(HTTP_PROJET_REPO)
     boolean releaseExists = false
 
     // find and delete existing release if it exists
@@ -50,10 +48,10 @@ def makeRelease(Map options) {
             options["release_id"] = "${release.id}"
 
             // remove existing assets
-            def assets = options["githubApiProvider"].getAssets(PROJECT_REPO, "${release.id}")
+            def assets = options["githubApiProvider"].getAssets(HTTP_PROJET_REPO, "${release.id}")
 
             for (asset in assets) {
-                options["githubApiProvider"].removeAsset(PROJECT_REPO, "${asset.id}")
+                options["githubApiProvider"].removeAsset(HTTP_PROJET_REPO, "${asset.id}")
             }
 
             break
@@ -61,7 +59,7 @@ def makeRelease(Map options) {
     }
 
     if (!releaseExists) {
-        def releaseInfo = options["githubApiProvider"].createRelease(PROJECT_REPO, env.TAG_NAME, "Version ${env.TAG_NAME}")
+        def releaseInfo = options["githubApiProvider"].createRelease(HTTP_PROJET_REPO, env.TAG_NAME, "Version ${env.TAG_NAME}")
         options["release_id"] = "${releaseInfo.id}"
     }
 
@@ -71,28 +69,25 @@ def makeRelease(Map options) {
         mkdir release\\Ubuntu
     """
 
-    for (entry in options["finishedBuildStages"]) {
-        if (entry.value["successfully"]) {
-            makeUnstash(name: "app${entry.key}")
+    if (options["finishedBuildStages"].containsKey("Windows") && options["finishedBuildStages"]["Windows"]["successfully"]) {
+        makeUnstash(name: "appWindows", storeOnNAS: options.storeOnNAS)
+        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " BaikalNext_Build-Windows.zip -aoa")
+        utils.moveFiles(this, "Windows", "BaikalNext/bin/HybridPro.dll", "release/Windows/HybridPro.dll")
+        utils.removeDir(this, "Windows", "BaikalNext")
+    }
 
-            switch(entry.key) {
-                case "Windows":
-                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
-                    utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.dll", "release/Windows/HybridPro.dll")
-                    break
-                default:
-                    sh "tar -xJf ${binaryName}"
-                    utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.so", "release/Ubuntu/HybridPro.so")
-            }
-
-            utils.removeDir(this, "Windows", "BaikalNext")
-        }
+    if (options["finishedBuildStages"].containsKey("Ubuntu20") && options["finishedBuildStages"]["Ubuntu20"]["successfully"]) {
+        makeUnstash(name: "appUbuntu20", storeOnNAS: options.storeOnNAS)
+        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " BaikalNext_Build-Ubuntu20.tar.xz -aoa")
+        bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " BaikalNext_Build-Ubuntu20.tar -aoa")
+        utils.moveFiles(this, "Windows", "BaikalNext/bin/HybridPro.so", "release/Ubuntu/HybridPro.so")
+        utils.removeDir(this, "Windows", "BaikalNext")
     }
 
     dir("release") {
         String archiveName = "HybridPro.zip"
         bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${archiveName}\" .")
-        options["githubApiProvider"].addAsset(PROJECT_REPO, options["release_id"], archiveName)
+        options["githubApiProvider"].addAsset(HTTP_PROJET_REPO, options["release_id"], archiveName)
     }
 }
 
@@ -355,6 +350,8 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
 
 
 def executeDeploy(Map options, List platformList, List testResultList) {
+    cleanWS("Windows")
+
     // set error statuses for PR, except if current build has been superseded by new execution
     if (env.CHANGE_ID && !currentBuild.nextBuild) {
         // if jobs was aborted or crushed remove pending status for unfinished stages
