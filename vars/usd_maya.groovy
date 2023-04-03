@@ -467,16 +467,31 @@ def executeBuildWindows(Map options) {
                 """
             }
             dir('installation') {
-                makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                if (toolVersion == "2024") {
+                    makeStash(includes: "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                } else {
+                    makeStash(includes: "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                }
 
                 if (options.branch_postfix) {
                     bat """
                         rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                     """
+
+                    if ((env.BRANCH_NAME && env.BRANCH_NAME == "PR-60") || options.projectBranch.contains("Maya2024Adoptation")) {
+                        bat """
+                            rename RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
+                        """
+                    }
                 }
 
                 String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
                 artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+                if ((env.BRANCH_NAME && env.BRANCH_NAME == "PR-60") || options.projectBranch.contains("Maya2024Adoptation")) {
+                    String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe"
+                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+                }
             }
 
             if (options.buildOldInstaller) {
@@ -1099,6 +1114,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 if (!enginesNames) {
                     throw new Exception()
                 }
+            }
+
+            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-60") {
+                toolVersion = "2024"
             }
             
             def enginesNamesList = enginesNames.split(',') as List
