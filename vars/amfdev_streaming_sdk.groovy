@@ -2038,8 +2038,12 @@ def call(String projectBranch = "",
             }
 
             String[] tagParts = clientTags.split(";")
-            String firstClientMachine = tagParts[0]
+            String firstClientMachine = ""
             String secondClientMachine = ""
+
+            if (tagParts.size() > 0) {
+                firstClientMachine = tagParts[0]
+            }
 
             if (tagParts.size() == 2) {
                 secondClientMachine = tagParts[1]
