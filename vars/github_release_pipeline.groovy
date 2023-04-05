@@ -23,15 +23,18 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
     String repositoryUploadUrl = repositoryUrl.replace('https://github.com', 'https://uploads.github.com/repos')
 
     cleanWS('Windows')
+
     def buildsList = httpRequest(
         url: "${jenkinsUrl}/job/${jobName}/job/${branch}/api/json?tree=builds[url]",
         authentication: 'jenkinsCredentials',
         httpMode: 'GET'
     )
+
     String targetUrl
     String description
     def buildsListParsed = parseResponse(buildsList.content)
     def buildInfoParsed
+
     for (build in buildsListParsed['builds']) {
         String buildUrl = build['url']
         def buildInfo = httpRequest(
@@ -39,7 +42,9 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
             authentication: 'jenkinsCredentials',
             httpMode: 'GET'
         )
+
         buildInfoParsed = parseResponse(buildInfo.content)
+
         if (buildInfoParsed['result'] == 'SUCCESS' || buildInfoParsed['result'] == 'UNSTABLE') {
             println("[INFO] Success build was found: ${buildUrl}")
             targetUrl = buildUrl
@@ -47,10 +52,36 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
             break
         }
     }
+
     if (targetUrl) {
+        // validate that the found build contains expected number of artifacts
+        String nasArtifactsPath = "/volume1/web/${jobName}/${branch}/${buildInfoParsed.number}/Artifacts/"
+
+        String[] nasFileNames
+
+        withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: 'nasSSHPort', variable: 'SSH_PORT')]) {
+            nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
+        }
+
+        println("[INFO] List of files from NAS: ${nasFileNames}")
+
+        List downloadedFiles = []
+
+        for (fileName in nasFileNames) {
+            for (extension in possibleArtifactsExtensions) {
+                println("[INFO] Process '${fileName}'")
+
+                if (fileName.endsWith(extension)) {
+                    println("[INFO] The '${fileName}' artifact has the '${extension}' extension. It'll be uploaded to the release")
+                    downloadedFiles.add(fileName)
+                }
+            }
+        }
+
         String version = ""
         String commitSha = ""
         String[] descriptionParts = description.split('<br/>')
+
         for (part in descriptionParts) {
             if (part.contains('Version')) {
                 version = parseDescriptionRow(part)
@@ -58,12 +89,14 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
                 commitSha = parseDescriptionRow(part)
             }
         }
+
         if (version) {
             println("[INFO] Plugin version was found: ${version}")
         } else {
             println("[ERROR] Plugin version wan't found")
             throw new Exception("Plugin version wan't found")
         }
+
         if (commitSha) {
             println("[INFO] Commit SHA was found: ${commitSha}")
         } else {
@@ -77,10 +110,12 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
             authentication: 'radeonprorender',
             httpMode: 'GET'
         )
+
         def releasesParsed = parseResponse(releases.content)
         def shouldBeUploaded = false
         def tagIsBusy = false
         def releaseAlreadyPushed = false
+
         for (release in releasesParsed) {
             if (release['tag_name'] == "v${version}" && release['author']['login'] != 'radeonprorender') {
                 println("[INFO] Release with same tag has already published by other user")
@@ -103,6 +138,7 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
                 break
             }
         }
+
         if (!tagIsBusy && !releaseAlreadyPushed) {
             shouldBeUploaded = true
         }
@@ -140,31 +176,8 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
             )
             def releaseInfoParsed = parseResponse(releaseInfo.content)
 
-            // get list of artifacts from NAS and attach them to Github release
+            // download artifacts from NAS and attach them to Github release
             try {
-                String nasArtifactsPath = "/volume1/web/${jobName}/${branch}/${buildInfoParsed.number}/Artifacts/"
-
-                String[] nasFileNames
-
-                withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: 'nasSSHPort', variable: 'SSH_PORT')]) {
-                    nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
-                }
-
-                println("[INFO] List of files from NAS: ${nasFileNames}")
-
-                List downloadedFiles = []
-
-                for (fileName in nasFileNames) {
-                    for (extension in possibleArtifactsExtensions) {
-                        println("[INFO] Process '${fileName}'")
-
-                        if (fileName.endsWith(extension)) {
-                            println("[INFO] The '${fileName}' artifact has the '${extension}' extension. It'll be uploaded to the release")
-                            downloadedFiles.add(fileName)
-                        }
-                    }
-                }
-
                 if (downloadedFiles.size() != artifactsNumber) {
                     throw new Exception("Found ${downloadedFiles.size()} artifacts. Expected ${artifactsNumber}")
                 }
