@@ -279,37 +279,58 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executeBuildWindows(String osName, Map options) {
-    clearBinariesWin()
+    try {
+        clearBinariesWin()
 
-    dir ("RadeonProRenderUSD") {
-        GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
-        
-        String additionalKeys = ""
+        dir ("RadeonProRenderUSD") {
+            GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+            
+            String additionalKeys = ""
 
-        if (options.toolVersion.startsWith("19.0.")) {
-            additionalKeys = "-G 'Visual Studio 16 2019'"
+            if (options.toolVersion.startsWith("19.0.")) {
+                additionalKeys = "-G 'Visual Studio 16 2019'"
+            }
+
+            additionalKeys = additionalKeys ? "--cmake_options \"${additionalKeys}\"" : ""
+
+            options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
+            bat """
+                mkdir build
+                set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+                set HFS=${options.win_tool_path}
+                python --version >> ..\\${STAGE_NAME}.log 2>&1
+                python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys} >> ..\\${STAGE_NAME}.log 2>&1
+            """
+
+            dir("build") {                
+                String ARTIFACT_NAME = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}.tar.gz"
+                bat "rename hdRpr* ${ARTIFACT_NAME}"
+                String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
+
+                bat "rename hdRpr* hdRpr_${osName}.tar.gz"
+                makeStash(includes: "hdRpr_${osName}.tar.gz", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+                GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
+            }
+        }
+    } catch (e) {
+        println("Error during build on Windows")
+        println(e.toString())
+
+        def exception = e
+
+        try {
+            String buildLogContent = readFile("${STAGE_NAME}.log")
+            if (buildLogContent.contains("PDB API call failed")) {
+                exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
+                exception.retry = true
+
+                utils.reboot(this, osName)
+            }
+        } catch (e1) {
+            println("[WARNING] Could not analyze build log")
         }
 
-        additionalKeys = additionalKeys ? "--cmake_options \"${additionalKeys}\"" : ""
-
-        options.win_tool_path = "C:\\Program Files\\Side Effects Software\\Houdini ${options.toolVersion}"
-        bat """
-            mkdir build
-            set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
-            set HFS=${options.win_tool_path}
-            python --version >> ..\\${STAGE_NAME}.log 2>&1
-            python pxr\\imaging\\plugin\\hdRpr\\package\\generatePackage.py -i "." -o "build" ${additionalKeys} >> ..\\${STAGE_NAME}.log 2>&1
-        """
-
-        dir("build") {                
-            String ARTIFACT_NAME = "hdRpr-${options.pluginVersion}-Houdini-${options.toolVersion}-${osName}.tar.gz"
-            bat "rename hdRpr* ${ARTIFACT_NAME}"
-            String artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-
-            bat "rename hdRpr* hdRpr_${osName}.tar.gz"
-            makeStash(includes: "hdRpr_${osName}.tar.gz", name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
-            GithubNotificator.updateStatus("Build", "${osName}-${options.buildProfile}", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, artifactURL)
-        }
+        throw exception
     }
 }
 
