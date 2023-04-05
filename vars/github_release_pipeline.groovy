@@ -166,7 +166,7 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
                 }
 
                 if (downloadedFiles.size() != artifactsNumber) {
-                    throw Exception("Found ${downloadedFiles.size()} artifacts. Expected ${artifactsNumber}")
+                    throw new Exception("Found ${downloadedFiles.size()} artifacts. Expected ${artifactsNumber}")
                 }
 
                 for (fileName in downloadedFiles) {
