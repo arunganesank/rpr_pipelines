@@ -317,6 +317,8 @@ def getProblemsCount(String buildUrl, String testsName) {
 def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
     waitUntil({!checkBuildResult(buildUrl).inProgress}, quiet: true)
 
+    String description = ""
+
     try {
         def buildInfo = checkBuildResult(buildUrl)
         currentBuild.result = buildInfo.result
@@ -333,18 +335,26 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
         }
 
         if (buildInfo.result == "FAILURE") {
-            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
+            description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else if (buildInfo.result == "UNSTABLE") {
-            currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
+            description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else if (buildInfo.result == "SUCCESS") {
-            currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
+            description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         } else {
-            currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
+            description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
         }
     } catch (Exception e) {
         println("[WARNING] Failed to get '${testsName}' build description")
         println(e)
-        currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/><br/>"
+        description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/><br/>"
+    }
+
+    currentBuild.description += description
+
+    withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
+        String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${description}"
+        emailBody += "Original build <span style='font-size: 150%'><a href='${env.BUILD_URL}'>link</a></span>"
+        mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO] release-3.1.0-rc4 autotests results", mimeType: 'text/html', body: emailBody)
     }
 }
 
