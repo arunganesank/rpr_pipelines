@@ -11,7 +11,7 @@ def parseDescriptionRow(String row) {
     return row.split(':')[1].replace('<b>', '').replace('</b>', '').trim()
 }
 
-def createRelease(String jobName, String repositoryUrl, String branch) {
+def createRelease(String jobName, String repositoryUrl, String branch, int artifactsNumber) {
     List possibleArtifactsExtensions = ['.zip', '.msi', '.dmg', '.tar.gz'] 
 
     String jenkinsUrl
@@ -140,32 +140,6 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
             )
             def releaseInfoParsed = parseResponse(releaseInfo.content)
 
-            // get list of artifacts from Jenkins and attach them to Github release
-            def fileNames = httpRequest(
-                url: "${targetUrl}/api/json?tree=artifacts[fileName]",
-                authentication: 'jenkinsCredentials',
-                httpMode: 'GET'
-            )
-
-            def fileNamesParsed = parseResponse(fileNames.content)
-            for (fileName in fileNamesParsed['artifacts']) {
-                for (extension in possibleArtifactsExtensions) {
-                    String assetName = fileName['fileName']
-                    if (assetName.endsWith(extension)) {
-                        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkinsCredentials', usernameVariable: 'JENKINS_USERNAME', passwordVariable: 'JENKINS_PASSWORD']]) {
-                            bat """
-                                curl --retry 5 -L -O -J -u %JENKINS_USERNAME%:%JENKINS_PASSWORD% "${targetUrl}/artifact/${fileName.fileName}"
-                            """
-                        }
-                        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
-                            bat """
-                                curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${assetName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${assetName}"
-                            """
-                        }
-                    }
-                }
-            }
-
             // get list of artifacts from NAS and attach them to Github release
             try {
                 String nasArtifactsPath = "/volume1/web/${jobName}/${branch}/${buildInfoParsed.number}/Artifacts/"
@@ -176,27 +150,48 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
                     nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
                 }
 
-                println(nasFileNames)
+                println("[INFO] List of files from NAS: ${nasFileNames}")
+
+                List downloadedFiles = []
 
                 for (fileName in nasFileNames) {
                     for (extension in possibleArtifactsExtensions) {
-                        println(fileName)
-                        println(extension)
-                        if (fileName.endsWith(extension)) {
-                            downloadFiles("${nasArtifactsPath}/${fileName}", ".")                        
+                        println("[INFO] Process '${fileName}'")
 
-                            withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
-                                bat """
-                                    curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${fileName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${fileName}"
-                                """
-                            }
-                        }
+                        if (fileName.endsWith(extension)) {
+                            println("[INFO] The '${fileName}' artifact has the '${extension}' extension. It'll be uploaded to the release")
+                            downloadedFiles.add(fileName)
+                    }
+                }
+
+                if (downloadedFiles.size() != artifactsNumber) {
+                    throw Exception("Found ${downloadedFiles.size()} artifacts. Expected ${artifactsNumber}")
+                }
+
+                for (fileName in downloadedFiles) {
+                    println("[INFO] Download and upload '${fileName}'")
+
+                    downloadFiles("${nasArtifactsPath}/${fileName}", ".")
+
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
+                        bat """
+                            curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${fileName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${fileName}"
+                        """
                     }
                 }
             } catch (e) {
                 println("[ERROR] Failed to attach files from NAS for ${jobName} job")
                 println(e.toString())
-                println(e.getMessage())
+                println(e.getMessage()) 
+
+                // remove release
+                httpRequest(
+                    url: "${repositoryApiUrl}/releases/${releaseInfoParsed.id}",
+                    authentication: 'radeonprorender',
+                    httpMode: 'DELETE'
+                )
+
+                throw e
             }
         }
     } else {
@@ -219,7 +214,7 @@ def call(List targets) {
                     stage(stageName) {
                         node("Windows && Builder") {
                             ws("WS/${PRJ_NAME}") {
-                                createRelease(target['jobName'], target['repositoryUrl'], target['branch'])
+                                createRelease(target['jobName'], target['repositoryUrl'], target['branch'], target['artifactsNumber'])
                             }
                         }
                     }
