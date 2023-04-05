@@ -161,6 +161,7 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
                         if (fileName.endsWith(extension)) {
                             println("[INFO] The '${fileName}' artifact has the '${extension}' extension. It'll be uploaded to the release")
                             downloadedFiles.add(fileName)
+                        }
                     }
                 }
 
