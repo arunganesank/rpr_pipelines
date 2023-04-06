@@ -93,7 +93,8 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
     switch(osName) {
         case "Windows":
             String defaultUninstallerPath = "C:\\Program Files\\RPRMayaUSD\\unins000.exe"
-            String updatedUninstallerPath = "C:\\Program Files\\RPRMayaUSD_2023\\unins000.exe"
+            String uninstallerPathMaya2023 = "C:\\Program Files\\RPRMayaUSD_2023\\unins000.exe"
+            String uninstallerPathMaya2024 = "C:\\Program Files\\RPRMayaUSD_2024\\unins000.exe"
 
             try {
                 if (fileExists(defaultUninstallerPath)) {
@@ -108,12 +109,18 @@ def uninstallRPRMayaUSDPlugin(String osName, Map options) {
                         envContents.contains("HDRPR_CACHE_PATH_OVERRIDE=C:\\Users\\user\\AppData\\Local\\RadeonProRender\\Maya\\USD\\")){
                             throw new Exception("Failed due to incorrect Maya.env")
                         }*/
-                } else if (fileExists(updatedUninstallerPath)) {
+                }
+
+                if (fileExists(uninstallerPathMaya2023)) {
                     bat """
-                        start "" /wait "${updatedUninstallerPath}" /SILENT
+                        start "" /wait "${uninstallerPathMaya2023}" /SILENT
                     """
-                } else {
-                    println "[INFO] USD Maya plugin not found"
+                }
+
+                if (fileExists(uninstallerPathMaya2024)) {
+                    bat """
+                        start "" /wait "${uninstallerPathMaya2024}" /SILENT
+                    """
                 }
             } catch (e) {
                 throw new Exception("Failed to uninstall USD Maya plugin")
@@ -478,20 +485,16 @@ def executeBuildWindows(Map options) {
                         rename RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
                     """
 
-                    if (options.toolVersion == "2024" || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-60")) {
-                        bat """
-                            rename RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
-                        """
-                    }
+                    bat """
+                        rename RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe
+                    """
                 }
 
                 String ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2023_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2023_${options.pluginVersion}_Setup.exe"
                 artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-                if (options.toolVersion == "2024" || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-60")) {
-                    ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe"
-                    artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
-                }
+                ARTIFACT_NAME = options.branch_postfix ? "RPRMayaUSD_2024_${options.pluginVersion}_(${options.branch_postfix})_Setup.exe" : "RPRMayaUSD_2024_${options.pluginVersion}_Setup.exe"
+                artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
             }
 
             if (options.buildOldInstaller) {
@@ -1078,7 +1081,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String renderDevice = "gpu",
         String testsPackage = "",
         String tests = "",
-        String toolVersion = "2023",
+        String toolVersion = "2024",
         Boolean forceBuild = false,
         Boolean splitTestsExecution = true,
         String resX = '0',
