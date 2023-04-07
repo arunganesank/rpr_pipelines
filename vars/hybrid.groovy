@@ -314,7 +314,7 @@ def getProblemsCount(String buildUrl, String testsName) {
 }
 
 
-def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
+def awaitBuildFinishing(String buildUrl, String testsName, String reportLink, Boolean sendEmail = false) {
     waitUntil({!checkBuildResult(buildUrl).inProgress}, quiet: true)
 
     String description = ""
@@ -351,7 +351,7 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink) {
 
     currentBuild.description += description
 
-    if (env.TAG_NAME) {
+    if (env.TAG_NAME && sendEmail) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${description}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
@@ -489,7 +489,7 @@ def launchAndWaitTests(Map options) {
     }
     if (options["mtlxLink"]) {
         String reportLink = "${options.mtlxLink}/Test_20Report"
-        awaitBuildFinishing(options["mtlxLink"], "MaterialX", reportLink)
+        awaitBuildFinishing(options["mtlxLink"], "MaterialX", reportLink, true)
     }
 
     return true
