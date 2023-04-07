@@ -42,12 +42,8 @@ Boolean shouldSkipBuild(Map options, String osName) {
 }
 
 
-String getServerLabels(Map options, Boolean requiresAndroidDevice = false) {
-    if (requiresAndroidDevice) {
-        return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && AndroidDevice && !Disabled"
-    } else {
-        return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
-    }
+String getServerLabels(Map options) {
+    return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
 }
 
 String getClientLabels(Map options) {
@@ -69,14 +65,57 @@ def getReportBuildArgs(String engineName, Map options) {
 }
 
 
+int getNumberOfRequiredAndroidDevices(Map options) {
+    int androidDevicesNumber = 0
+
+    if (options["osName"] == "Windows") {
+        if (options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
+            // some part of Windows regression contains multiconnection test groups
+            androidDevicesNumber = 1
+        } else if (options.multiconnectionConfiguration.android_client.keySet().any { (options.tests.split("-")[0].split() as List).contains(it) }) {
+            // find multiconnection test group with max number of required Android devices
+            (options.tests.split("-")[0].split() as List).each() {
+                if (options.multiconnectionConfiguration.android_client.containsKey(it)) {
+                    int currentDevicesNumber = options.multiconnectionConfiguration.android_client[it]
+
+                    if (currentDevicesNumber > androidDevicesNumber) {
+                        androidDevicesNumber = currentDevicesNumber
+                    }
+                }
+            }
+        }
+    } else if (options["osName"] == "Android") {
+        if (options.multiconnectionConfiguration.android_client.keySet().any { (options.tests.split("-")[0].split() as List).contains(it) }) {
+            // some Android tests can requuire 2+ devices, check it
+            (options.tests.split("-")[0].split() as List).each() {
+                if (options.multiconnectionConfiguration.android_client.containsKey(it)) {
+                    int currentDevicesNumber = options.multiconnectionConfiguration.android_client[it]
+
+                    if (currentDevicesNumber > androidDevicesNumber) {
+                        androidDevicesNumber = currentDevicesNumber
+                    }
+                }
+            }
+        } else {
+            // at least 1 Android device is required for Android autotests
+            androidDevicesNumber = 1
+        }
+    }
+
+    return androidDevicesNumber
+}
+
+
 Boolean isIdleClient(Map options) {
     Boolean result = false
 
     // conditions for Windows autotests for additional devices (Android device and Second Windows client machine)
-    Boolean requiresAndroidDevice = options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.2.json~" || options.tests == "regression.3.json~"
+    int androidDevicesNumber = getNumberOfRequiredAndroidDevices(options)
     Boolean requiresSecondWinClient = options.multiconnectionConfiguration.second_win_client.any { (options.tests.split("-")[0].split() as List).contains(it) } || options.tests == "regression.1.json~" || options.tests == "regression.3.json~"
 
-    def suitableNodes = nodesByLabel label: getServerLabels(options, requiresAndroidDevice || options["osName"] == "Android"), offline: false
+    println("Required ${androidDevicesNumber} Android device(s)")
+
+    def suitableNodes = nodesByLabel label: getServerLabels(options), offline: false
 
     for (node in suitableNodes) {
         if (utils.isNodeIdle(node)) {
@@ -102,14 +141,25 @@ Boolean isIdleClient(Map options) {
 
         println(result)
 
-        if (requiresAndroidDevice) {
+        Boolean devicesAvailable = false
+
+        if (androidDevicesNumber > 0) {
+            lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
+                devicesAvailable = true
+            }
+
+            // wait required number of Android devices
+            result &= devicesAvailable
+
+            println(result)
+
             println(options["finishedBuildStages"])
             if (!options["finishedBuildStages"]["Android"] && !options.skipBuild.contains("Android")) {
                 result = false
             }
-        }
 
-        println(result)
+            println(result)
+        }
 
         if (requiresSecondWinClient) {
             Boolean secondClientReady = false
@@ -130,6 +180,14 @@ Boolean isIdleClient(Map options) {
 
         return result
     } else if (options["osName"] == "Android") {
+        Boolean devicesAvailable = false
+
+        lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
+            devicesAvailable = true
+        }
+
+        // wait required number of Android devices
+        result &= devicesAvailable
         // wait when Windows artifact will be built
         return result && (options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows"))
     } else if (options["osName"] == "Ubuntu20") {
@@ -680,6 +738,8 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        killAdbServer()
+
         if (options.tests.contains("AMD_Link")) {
             utils.reboot(this, osName)
         }
@@ -724,23 +784,16 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 }
 
                 if (options.projectBranch) {
-                    if (options.skipBuild.contains(osName)) {
-                        if (osName == "Windows") {
-                            initAndroidDevice()
-                        }
-                    } else {
+                    if (!options.skipBuild.contains(osName)) {
                         dir("StreamingSDK") {
                             prepareTool(osName, options, "server")
                         }
 
                         // Android autotests support only Windows server machines
                         if (osName == "Windows") {
-                            initAndroidDevice()
-
-                            if (!options.skipBuild.contains("Android") && options.multiconnectionConfiguration.android_client.any { (options.tests.split("-")[0].split() as List).contains(it) } 
-                                || options.tests == "regression.2.json~" || options.tests == "regression.3.json~") {
-
+                            if (options["androidDevicesNumber"] > 0) {
                                 dir("StreamingSDKAndroid") {
+                                    initAndroidDevice()
                                     copyAndroidScripts()
                                     prepareTool("Android", options)
                                     installAndroidClient()
@@ -911,21 +964,17 @@ def rebootAndroidDevice() {
 }
 
 
+def killAdbServer() {
+    try {
+        bat "adb kill-server"
+        println "[INFO] ADB server is killed"
+    } catch (Exception e) {
+        println "[ERROR] Failed to kill adb server"
+    }
+}
+
+
 def initAndroidDevice() {
-    String androidDeviceIp = bat(script: "if \"%ANDROID_DEVICE_IP%\"==\"\" (echo empty) else (echo %ANDROID_DEVICE_IP%)",returnStdout: true).split('\r\n')[2].trim()
-
-    if (androidDeviceIp == "empty") {
-        println("[INFO] ANDROID_DEVICE_IP env variable didn't found on the current server machine. Use IP address from androidDeviceIp Jenkins credential")
-
-        withCredentials([string(credentialsId: "androidDeviceIp", variable: "ANDROID_DEVICE_IP")]) {
-            androidDeviceIp = ANDROID_DEVICE_IP
-        }
-    }
-
-    if (androidDeviceIp == "empty") {
-        return
-    }
-
     try {
         bat "adb kill-server"
         println "[INFO] ADB server is killed"
@@ -933,25 +982,29 @@ def initAndroidDevice() {
         println "[ERROR] Failed to kill adb server"
     }
 
-    try {
-        bat "adb connect " + androidDeviceIp + ":5555"
-        println "[INFO] Connected to Android device"
-    } catch (Exception e) {
-        println "[ERROR] Failed to connect to Android device"
-    }
+    (env.ANDROID_DEVICES.split(",") as List).each() {
+        String deviceName = it.split("_")[1]
 
-    try {
-        bat "adb shell rm -rf sdcard/video*"
-        println "[INFO] Android deviced is cleared"
-    } catch (Exception e) {
-        println "[ERROR] Failed to clear Android device"
-    }
+        try {
+            bat "adb connect ${deviceName}:5555"
+            println "[INFO] Connected to Android device"
+        } catch (Exception e) {
+            println "[ERROR] Failed to connect to Android device"
+        }
 
-    try {
-        bat "adb shell am force-stop com.amd.remotegameclient"
-        println "[INFO] Android client is closed"
-    } catch (Exception e) {
-        println "[ERROR] Failed to close Android client"
+        try {
+            bat "adb -s ${deviceName} shell rm -rf sdcard/video*"
+            println "[INFO] Android deviced is cleared"
+        } catch (Exception e) {
+            println "[ERROR] Failed to clear Android device"
+        }
+
+        try {
+            bat "adb -s ${deviceName} shell am force-stop com.amd.remotegameclient"
+            println "[INFO] Android client is closed"
+        } catch (Exception e) {
+            println "[ERROR] Failed to close Android client"
+        }
     }
 }
 
@@ -967,21 +1020,25 @@ def copyAndroidScripts() {
 
 
 def installAndroidClient() {
-    try {
-        bat "uninstall.bat"
-        println "[INFO] Android client was uninstalled"
-    } catch (Exception e) {
-        println "[ERROR] Failed to uninstall Android client"
-        println(e)
-    }
+    (env.ANDROID_DEVICES.split(",") as List).each() {
+        String deviceName = it.split("_")[1]
 
-    try {
-        bat "install.bat"
-        sleep(15)
-        println "[INFO] Android client was installed"
-    } catch (Exception e) {
-        println "[ERROR] Failed to install Android client"
-        throw e
+        try {
+            bat "uninstall.bat ${deviceName}"
+            println "[INFO] Android client was uninstalled"
+        } catch (Exception e) {
+            println "[ERROR] Failed to uninstall Android client"
+            println(e)
+        }
+
+        try {
+            bat "install.bat ${deviceName}"
+            sleep(15)
+            println "[INFO] Android client was installed"
+        } catch (Exception e) {
+            println "[ERROR] Failed to install Android client"
+            throw e
+        }
     }
 }
 
@@ -994,9 +1051,9 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
             utils.reboot(this, "Windows")
         }
 
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            initAndroidDevice()
+        killAdbServer()
 
+        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     cleanWS(osName)
@@ -1031,6 +1088,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
                 if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
+                        initAndroidDevice()
                         copyAndroidScripts()
                         prepareTool("Android", options)
                         installAndroidClient()
@@ -1102,8 +1160,17 @@ def executeTests(String osName, String asicName, Map options) {
             }
 
             threads["${options.stageName}-server"] = { 
-                dir(AUTOTESTS_PATH) { 
-                    executeTestsServer(osName, asicName, options) 
+                dir(AUTOTESTS_PATH) {
+                    int androidDevicesNumber = getNumberOfRequiredAndroidDevices(options)
+                    options["androidDevicesNumber"] = androidDevicesNumber
+
+                    if (androidDevicesNumber > 0) {
+                        lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
+                            executeTestsServer(osName, asicName, options)
+                        }
+                    } else {
+                        executeTestsServer(osName, asicName, options)
+                    }
                 } 
             }
 
@@ -1118,7 +1185,12 @@ def executeTests(String osName, String asicName, Map options) {
             }
         } else if (osName == "Android") {
             dir(AUTOTESTS_PATH) { 
-                executeTestsAndroid(osName, asicName, options)
+                int androidDevicesNumber = getNumberOfRequiredAndroidDevices(options)
+                options["androidDevicesNumber"] = androidDevicesNumber
+
+                lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
+                    executeTestsAndroid(osName, asicName, options)
+                }
             }
         } else {
             println("Unsupported OS")
@@ -1590,7 +1662,7 @@ def executePreBuild(Map options) {
 
             // Multiconnection group required Android client
             for (testsList in options.testsList) {
-                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
+                if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.keySet().any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
                     options.platforms = options.platforms + ";Android"
 
                     options.androidBuildConfiguration = ["debug"]
