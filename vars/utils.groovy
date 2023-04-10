@@ -701,8 +701,8 @@ class utils {
                         if (options.storeOnNAS) {
                             self.withCredentials([self.string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
                                 locations = locations ?
-                                    "${locations}::${REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
-                                    "${REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
+                                    "${locations}::${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
+                                    "${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
                             }
                         } else {
                             locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
