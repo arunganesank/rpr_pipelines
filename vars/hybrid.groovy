@@ -352,11 +352,12 @@ def awaitBuildFinishing(String buildUrl, String testsName, String reportLink, Bo
     currentBuild.description += description
     options.resultsDescription += description
 
-    if (env.TAG_NAME && sendEmail) {
+    if (env.TAG_NAME && sendEmail && !options.emailSent) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
             mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
+            options.emailSent = true
         }
     }
 }
