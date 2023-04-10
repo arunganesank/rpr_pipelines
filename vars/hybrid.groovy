@@ -314,7 +314,7 @@ def getProblemsCount(String buildUrl, String testsName) {
 }
 
 
-def awaitBuildFinishing(String buildUrl, String testsName, String reportLink, Boolean sendEmail = false) {
+def awaitBuildFinishing(Map options, String buildUrl, String testsName, String reportLink, Boolean sendEmail = false) {
     waitUntil({!checkBuildResult(buildUrl).inProgress}, quiet: true)
 
     String description = ""
@@ -479,19 +479,19 @@ def launchAndWaitTests(Map options) {
 
     if (options["unitLink"]) {
         String reportLink = "${options.unitLink}/testReport"
-        awaitBuildFinishing(options["unitLink"], "Unit", reportLink)
+        awaitBuildFinishing(options, options["unitLink"], "Unit", reportLink)
     }
     if (options["perfLink"]) {
         String reportLink = "${options.perfLink}/Performance_20Tests_20Report"
-        awaitBuildFinishing(options["perfLink"], "Performance", reportLink)
+        awaitBuildFinishing(options, options["perfLink"], "Performance", reportLink)
     }
     if (options["rprSdkLink"]) {
         String reportLink = "${options.rprSdkLink}/Test_20Report_20HybridPro"
-        awaitBuildFinishing(options["rprSdkLink"], "RPR SDK", reportLink)
+        awaitBuildFinishing(options, options["rprSdkLink"], "RPR SDK", reportLink)
     }
     if (options["mtlxLink"]) {
         String reportLink = "${options.mtlxLink}/Test_20Report"
-        awaitBuildFinishing(options["mtlxLink"], "MaterialX", reportLink, true)
+        awaitBuildFinishing(options, options["mtlxLink"], "MaterialX", reportLink, true)
     }
 
     return true
