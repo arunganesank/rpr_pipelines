@@ -582,10 +582,20 @@ def executeBuild(String osName, Map options) {
 def getReportBuildArgs(String engineName, Map options) {
     boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
 
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
+
     if (options["isPreBuilt"]) {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
     } else {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
     }
 }
 
@@ -898,8 +908,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-            boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json") || env.BRANCH_NAME)
+            boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main"))
             String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
 
             if (useTrackedMetrics) {

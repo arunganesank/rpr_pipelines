@@ -464,10 +464,20 @@ def executeBuild(String osName, Map options) {
 def getReportBuildArgs(String toolName, Map options, String title = "USD") {
     boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
 
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
+
     if (options["isPreBuilt"]) {
-        return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
     } else {
-        return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
     }
 }
 
@@ -693,8 +703,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
+                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")) || env.BRANCH_NAME)
+                boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main"))
                 String[] toolVersionParts = toolVersion.split("\\.")
                 String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
