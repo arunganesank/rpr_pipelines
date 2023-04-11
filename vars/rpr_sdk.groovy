@@ -375,7 +375,7 @@ def getReportBuildArgs(String engineName, Map options) {
     if (options["isPreBuilt"]) {
         return """Core "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
     } else {
-        return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
+        return """Core \"${options.commitSHA}\" \"${options.projectBranchName}\" \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
     }
 }
 
