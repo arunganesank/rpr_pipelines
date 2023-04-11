@@ -144,7 +144,7 @@ Boolean isIdleClient(Map options) {
         Boolean devicesAvailable = false
 
         if (androidDevicesNumber > 0) {
-            lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
+            lock(label: options.ANDROID_TAG, quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
                 devicesAvailable = true
             }
 
@@ -182,7 +182,7 @@ Boolean isIdleClient(Map options) {
     } else if (options["osName"] == "Android") {
         Boolean devicesAvailable = false
 
-        lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
+        lock(label: options.ANDROID_TAG, quantity: androidDevicesNumber, resource : null, skipIfLocked: true, variable: "ANDROID_DEVICES") {
             devicesAvailable = true
         }
 
@@ -1165,7 +1165,7 @@ def executeTests(String osName, String asicName, Map options) {
                     options["androidDevicesNumber"] = androidDevicesNumber
 
                     if (androidDevicesNumber > 0) {
-                        lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
+                        lock(label: options.ANDROID_TAG, quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
                             executeTestsServer(osName, asicName, options)
                         }
                     } else {
@@ -1188,7 +1188,7 @@ def executeTests(String osName, String asicName, Map options) {
                 int androidDevicesNumber = getNumberOfRequiredAndroidDevices(options)
                 options["androidDevicesNumber"] = androidDevicesNumber
 
-                lock(label: "AndroidDevice", quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
+                lock(label: options.ANDROID_TAG, quantity: androidDevicesNumber, resource : null, variable: "ANDROID_DEVICES") {
                     executeTestsAndroid(osName, asicName, options)
                 }
             }
@@ -2025,7 +2025,8 @@ def call(String projectBranch = "",
     String winTestingBuildName = "debug_vs2019",
     String testsPackage = "regression.json",
     String tests = "",
-    String testerTag = "StreamingSDK",
+    String desktopTesterTag = "StreamingSDK",
+    String androidTesterTag = "Smartphone",
     Integer testCaseRetries = 2,
     Boolean clientCollectTraces = false,
     Boolean serverCollectTraces = false,
@@ -2146,8 +2147,9 @@ def call(String projectBranch = "",
                         DEPLOY_TIMEOUT: 240,
                         ADDITIONAL_XML_TIMEOUT: 15,
                         BUILDER_TAG: "BuilderStreamingSDK",
-                        TESTER_TAG: "(${testerTag})",
+                        TESTER_TAG: "(${desktopTesterTag})",
                         CLIENT_TAG: firstClientTag,
+                        ANDROID_TAG: androidTesterTag,
                         MULTICONNECTION_CLIENT_TAG: secondClientTag,
                         testsPreCondition: this.&isIdleClient,
                         testCaseRetries: testCaseRetries,
