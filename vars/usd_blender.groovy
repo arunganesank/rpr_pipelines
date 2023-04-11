@@ -580,10 +580,10 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    String buildNumber = ""
 
     if (options.useTrackedMetrics) {
-        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
             // use any large build number in case of PRs and other branches in auto job
             // it's required to display build as last one
             buildNumber = "10000"
@@ -593,9 +593,9 @@ def getReportBuildArgs(String engineName, Map options) {
     }
 
     if (options["isPreBuilt"]) {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     } else {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     }
 }
 
@@ -908,11 +908,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json") || env.BRANCH_NAME)
-            boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main"))
             String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
 
-            if (useTrackedMetrics) {
+            if (options.useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
             }
             
@@ -960,7 +958,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         }
                     }
                 }
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
@@ -1121,6 +1119,9 @@ def call(String projectRepo = PROJECT_REPO,
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json") || env.BRANCH_NAME)
+    boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
+
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             withNotifications(options: options, configuration: NotificationConfiguration.DELEGATES_PARAM) {
@@ -1245,7 +1246,9 @@ def call(String projectRepo = PROJECT_REPO,
                         skipCallback: this.&filterTests,
                         forceReinstall: true,
                         testsPackageOriginal: testsPackage,
-                        collectTraces: collectTraces
+                        collectTraces: collectTraces,
+                        useTrackedMetrics:useTrackedMetrics,
+                        saveTrackedMetrics:saveTrackedMetrics
                         ]
         }
 

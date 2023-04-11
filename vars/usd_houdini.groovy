@@ -462,10 +462,10 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String toolName, Map options, String title = "USD") {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")))
+    String buildNumber = ""
 
     if (options.useTrackedMetrics) {
-        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
             // use any large build number in case of PRs and other branches in auto job
             // it's required to display build as last one
             buildNumber = "10000"
@@ -475,9 +475,9 @@ def getReportBuildArgs(String toolName, Map options, String title = "USD") {
     }
 
     if (options["isPreBuilt"]) {
-        return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
+        return """${title} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(toolName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     } else {
-        return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""} ${buildNumber}"""
+        return """${title} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(toolName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     }
 }
 
@@ -703,14 +703,12 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual")) || env.BRANCH_NAME)
-                boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main"))
                 String[] toolVersionParts = toolVersion.split("\\.")
                 String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${testProfile}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
-                if (useTrackedMetrics) {
+                if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
@@ -733,7 +731,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                     }
                 }
 
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch (e) {
@@ -873,6 +871,9 @@ def call(String projectRepo = PROJECT_REPO,
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
 
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json") || env.BRANCH_NAME)
+    boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
+
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             Integer gpusCount = platforms.split(";").sum {
@@ -976,7 +977,9 @@ def call(String projectRepo = PROJECT_REPO,
                         isPreBuilt:isPreBuilt,
                         prRepoName:prRepoName,
                         prBranchName:prBranchName,
-                        notificationsTitlePrefix: "HOUDINI"
+                        notificationsTitlePrefix: "HOUDINI",
+                        useTrackedMetrics:useTrackedMetrics,
+                        saveTrackedMetrics:saveTrackedMetrics
                         ]
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
