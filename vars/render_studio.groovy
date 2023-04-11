@@ -503,7 +503,7 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 }
 
 
-def syncLMClients(String osName, Map options, int clientNumber) {
+def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
     String key = getLiveModeKey(clientType, clientNumber)
     options["liveModeInfo"][key]["ready"] = true
 
@@ -596,11 +596,11 @@ def executeTests(String osName, String asicName, Map options) {
             Map threads = [:]
 
             threads["${options.stageName}-primary"] = { 
-                executeLMTestsPrimary(osName, asicName, options)
                 options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
+                executeLMTestsPrimary(osName, asicName, options)
             }
 
-            println("[INFO] Take ${node} ${asicName}-${osName} node as the primary client")
+            println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the primary client")
 
             // one of required clients is the primary client
             options["secondaryClientsNumber"] = requiredClientsNumber - 1
@@ -610,7 +610,7 @@ def executeTests(String osName, String asicName, Map options) {
                     node(getLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                println("[INFO] Take ${node} ${asicName}-${osName} node as the secondary client #${i}")
+                                println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${i}")
                                 options["liveModeInfo"]["secondary-${i}"] = new ConcurrentHashMap()
                                 executeLMTestsSecondary(osName, asicName, options, i)
                             }
