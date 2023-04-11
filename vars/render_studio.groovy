@@ -306,7 +306,9 @@ def checkoutAutotests(Map options) {
 }
 
 
-def prepareAMDRenderStudio(String osName, Map options) {
+def prepareAMDRenderStudio(String osName, Map options, String clientType, int clientNumber = -1) {
+    // TODO: use clientType variable
+    // TODO: do specific steps for Live Mode activation
     if (osName == "Windows") {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
             timeout(time: "10", unit: "MINUTES") {
@@ -356,7 +358,7 @@ def prepareAMDRenderStudio(String osName, Map options) {
 }
 
 
-def executeTestsOnClient(String osName, String asicName, Map options, String clientType) {
+def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
     // TODO: use clientType variable
     options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
 
@@ -391,24 +393,37 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
 }
 
 
-def processClientException(Map options) {
+String getLiveModeKey(String clientType, int clientNumber = -1) {
+    return clientType == "secondary" ? "secondary-${clientNumber}" : "primary"
+}
+
+
+def processClientException(def exception, Map options, String clientType, int clientNumber = -1) {
+    if (clientType != "offline") {
+        String key = getLiveModeKey(clientType, clientNumber)
+
+        options["liveModeInfo"][key]["ready"] = false
+        options["liveModeInfo"][key]["exception"] = exception
+    }
+
     if (options.currentTry < options.nodeReallocateTries - 1) {
         options["stashResults"] = false
     } else {
         currentBuild.result = "FAILURE"
     }
-    println e.toString()
-    if (e instanceof ExpectedExceptionWrapper) {
-        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
-        throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
+    println exception.toString()
+    if (exception instanceof ExpectedExceptionWrapper) {
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${exception.getMessage()}", "${BUILD_URL}")
+        throw new ExpectedExceptionWrapper("${exception.getMessage()}", exception.getCause())
     } else {
         GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
-        throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
+        throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", exception)
     }
 }
 
 
-def saveTestResults(String osName, Map options) {
+def saveTestResults(String osName, Map options, String clientType, int clientNumber = -1) {
+    // TODO: use clientType variable
     try {
         dir(options.stageName) {
             utils.moveFiles(this, "Windows", "../*.log", ".")
@@ -471,18 +486,88 @@ def saveTestResults(String osName, Map options) {
 def executeOfflineTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
+
     try {
         checkoutAutotests(options)
-        prepareAMDRenderStudio(osName, options)
+        prepareAMDRenderStudio(osName, options, "offline")
         executeTestsOnClient(osName, asicName, options, "offline")
 
         options.executeTestsFinished = true
 
         utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
     } catch (e) {
-        processClientException(options)
+        processClientException(e, options, "offline")
     } finally {
-        saveTestResults(osName, options)
+        saveTestResults(osName, options, "offline")
+    }
+}
+
+
+def syncLMClients(String osName, Map options, int clientNumber) {
+    String key = getLiveModeKey(clientType, clientNumber)
+    options["liveModeInfo"][key]["ready"] = true
+
+    for (entry in options["liveModeInfo"]) {
+        if (entry.key == key) {
+            // skip the current client
+            continue
+        }
+
+        while (!entry.value["ready"]) {
+            if (entry.value["exception"]) {
+                throw new Exception("${entry.key} was failed")
+            }
+
+            sleep(5)
+        }
+    }
+}
+
+
+def getCommunicationPort(Map options) {
+    // always use port 10000 to synchronize autotests
+    return "10000"
+}
+
+
+def executeLMTestsPrimary(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "primary")
+        syncLMClients(osName, options, "primary")
+        executeTestsOnClient(osName, asicName, options, "primary")
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "primary")
+    } finally {
+        saveTestResults(osName, options, "primary")
+    }
+}
+
+
+def executeLMTestsSecondary(String osName, String asicName, Map options, int clientNumber) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "secondary", clientNumber)
+        syncLMClients(osName, options, "secondary", clientNumber)
+        executeTestsOnClient(osName, asicName, options, "secondary", clientNumber)
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "secondary", clientNumber)
+    } finally {
+        saveTestResults(osName, options, "secondary", clientNumber)
     }
 }
 
@@ -506,14 +591,13 @@ def executeTests(String osName, String asicName, Map options) {
             // take one client as primary client, and other clients as secondary clients
 
             options["liveModeInfo"] = [:]
-            options["liveModeInfo"]["clients"] = []
 
             // create threads for the primary client and the secondary clients and run them parallel
             Map threads = [:]
 
             threads["${options.stageName}-primary"] = { 
                 executeLMTestsPrimary(osName, asicName, options)
-                options["liveModeInfo"]["server"] = new ConcurrentHashMap()
+                options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
             }
 
             println("[INFO] Take ${node} ${asicName}-${osName} node as the primary client")
@@ -527,8 +611,8 @@ def executeTests(String osName, String asicName, Map options) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
                                 println("[INFO] Take ${node} ${asicName}-${osName} node as the secondary client #${i}")
-                                options["liveModeInfo"]["clients"][i] = new ConcurrentHashMap()
-                                executeLMTestsSecondary(osName, asicName, options)
+                                options["liveModeInfo"]["secondary-${i}"] = new ConcurrentHashMap()
+                                executeLMTestsSecondary(osName, asicName, options, i)
                             }
                         }
                     }
@@ -537,15 +621,10 @@ def executeTests(String osName, String asicName, Map options) {
 
             parallel threads
 
-            if (options["liveModeInfo"]["server"]["status"] == "failed") {
-                def exception = options["liveModeInfo"]["server"]["exception"]
-                throw new ExpectedExceptionWrapper("Server side tests got an error: ${exception.getMessage()}", exception)
-            } else {
-                for (int i = 0; i < options["secondaryClientsNumber"]; i++) {
-                    if (options["liveModeInfo"]["clients"][i]["status"] == "failed") {
-                        def exception = options["liveModeInfo"]["clients"][i]["exception"]
-                        throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
-                    }
+            for (entry in options["liveModeInfo"]) {
+                if (entry.value["exception"]) {
+                    def exception = entry.value["exception"]
+                    throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
                 }
             }
         }
