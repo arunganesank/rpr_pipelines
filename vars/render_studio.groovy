@@ -40,10 +40,10 @@ int getNumberOfRequiredClients(Map options) {
         testGroups = options.tests.split("-")[0].split() as List
     }
 
-    if (options.liveModeConfiguration.clients_number.keySet().any { testGroups.contains(it) }) {
+    if (options["liveModeConfiguration"].clients_number.keySet().any { testGroups.contains(it) }) {
         testGroups.each() {
-            if (options.liveModeConfiguration.clients_number.containsKey(it)) {
-                int currentClientsNumber = options.liveModeConfiguration.clients_number[it]
+            if (options["liveModeConfiguration"].clients_number.containsKey(it)) {
+                int currentClientsNumber = options["liveModeConfiguration"].clients_number[it]
 
                 if (currentClientsNumber > clientsNumber) {
                     clientsNumber = currentClientsNumber
@@ -62,10 +62,8 @@ String getLabels(Map options) {
 
 
 Boolean hasIdleClients(Map options) {
-    Boolean result = false
-
     int requiredClientsNumber = getNumberOfRequiredClients(options)
-    println("Required ${clientsNumber} client(s)")
+    println("Required ${requiredClientsNumber} client(s)")
 
     def suitableNodes = nodesByLabel(label: getLabels(options), offline: false)
 
@@ -395,7 +393,7 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
 
 def processClientException(Map options) {
     if (options.currentTry < options.nodeReallocateTries - 1) {
-        stashResults = false
+        options["stashResults"] = false
     } else {
         currentBuild.result = "FAILURE"
     }
@@ -418,7 +416,7 @@ def saveTestResults(String osName, Map options) {
             utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}_${options.currentTry}.log")
         }
         archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
-        if (stashResults) {
+        if (options["stashResults"]) {
             dir('Work') {
                 if (fileExists("Results/RenderStudio/session_report.json")) {
 
@@ -472,7 +470,7 @@ def saveTestResults(String osName, Map options) {
 
 def executeOfflineTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
-    Boolean stashResults = true
+    options["stashResults"] = true
     try {
         checkoutAutotests(options)
         prepareAMDRenderStudio(osName, options)
@@ -491,7 +489,7 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 
 def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
-    Boolean stashResults = true
+    options["stashResults"] = true
 
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
@@ -502,7 +500,7 @@ def executeTests(String osName, String asicName, Map options) {
         } else if (requiredClientsNumber == 1) {
             // run Live Mode autotests
             // take one client as primary-client, and other clients as secondary-clients
-            executeOfflineTests(String osName, String asicName, Map options)
+            executeOfflineTests(osName, asicName, options)
         } else if (requiredClientsNumber > 1) {
             // run Live Mode autotests
             // take one client as primary client, and other clients as secondary clients
@@ -1320,7 +1318,7 @@ def executePreBuild(Map options) {
             }
             options.tests = tests
 
-            options.liveModeConfiguration = readJSON(file: "jobs/live_mode_configuration.json")
+            options["liveModeConfiguration"] = readJSON(file: "jobs/live_mode_configuration.json")
         }
         
         options.testsList = options.tests
@@ -1661,7 +1659,6 @@ def call(
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
-                                testsPreCondition: this.&isWebDeployed,
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
                                 saveTrackedMetrics:saveTrackedMetrics
