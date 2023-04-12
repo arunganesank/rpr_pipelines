@@ -401,8 +401,6 @@ String getLiveModeKey(String clientType, int clientNumber = -1) {
 def processClientException(def exception, Map options, String clientType, int clientNumber = -1) {
     if (clientType != "offline") {
         String key = getLiveModeKey(clientType, clientNumber)
-
-        options["liveModeInfo"][key]["ready"] = false
         options["liveModeInfo"][key]["exception"] = exception
     }
 
@@ -423,47 +421,84 @@ def processClientException(def exception, Map options, String clientType, int cl
 
 
 def saveTestResults(String osName, Map options, String clientType, int clientNumber = -1) {
-    // TODO: use clientType variable
+    String stashPostfix = ""
+    String modeKey = ""
+
+    if (clientType != "offline") {
+        // if the client type isn't offline - add the postfix with the client type
+        modeKey = getLiveModeKey(clientType, clientNumber)
+        stashPostfix = "_${modeKey}"
+    }
+
+    // TODO: implement merging on the side of the primary client
+    if (clientType == "primary") {
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            while (!options["liveModeInfo"][key]["stashed"]) {
+                if (options["liveModeInfo"][key]["exception"]) {
+                    throw new Exception("${key} was failed")
+                }
+
+                sleep(5)
+            }
+        }
+
+        return
+    }
+
     try {
         dir(options.stageName) {
+            println("Here1")
             utils.moveFiles(this, "Windows", "../*.log", ".")
+            println("Here2")
             utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
-            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}_${options.currentTry}.log")
+            println("Here3")
+            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_${options.currentTry}.log")
+            println("Here4")
         }
         archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
         if (options["stashResults"]) {
             dir('Work') {
                 if (fileExists("Results/RenderStudio/session_report.json")) {
-
-                    def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
-
-                    if (sessionReport.summary.error > 0) {
-                        GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
-
-                        dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
-                            utils.removeDir(this, osName, "AMDRenderStudio")
-                        }
-                    } else if (sessionReport.summary.failed > 0) {
-                        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
-                    } else {
-                        GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
-                    }
-
                     println "Stashing test results to : ${options.testResultsName}"
 
-                    utils.stashTestData(this, options, options.storeOnNAS)
-                    // reallocate node if there are still attempts
-                    if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                        if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-                            removeInstaller(osName: "Windows", options: options, extension: "msi")
-                            String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                        }
-                    }
+                    if (clientType == "secondary") {
+                        // save results to merge them on the primary client
+                        makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
+                        options["liveModeInfo"][modeKey]["stashed"] = true
+                    } else {
+                        utils.stashTestData(this, options, options.storeOnNAS)
 
-                    if (options.reportUpdater) {
-                        options.reportUpdater.updateReport(options.mode)
+                        def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
+
+                        if (sessionReport.summary.error > 0) {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+
+                            dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
+                                utils.removeDir(this, osName, "AMDRenderStudio")
+                            }
+                        } else if (sessionReport.summary.failed > 0) {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                        } else {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                        }
+
+                        // reallocate node if there are still attempts
+                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
+                                uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+                                removeInstaller(osName: "Windows", options: options, extension: "msi")
+                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
+                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                            }
+                        }
+
+                        if (options.reportUpdater) {
+                            options.reportUpdater.updateReport(options.mode)
+                        }
                     }
                 }
             }
@@ -504,23 +539,20 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 
 
 def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
-    String key = getLiveModeKey(clientType, clientNumber)
-    options["liveModeInfo"][key]["ready"] = true
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+    options["liveModeInfo"][modeKey]["ready"] = true
 
-    for (entry in options["liveModeInfo"]) {
-        if (entry.key == key) {
-            // skip the current client
-            continue
-        }
-
-        while (!entry.value["ready"]) {
-            if (entry.value["exception"]) {
-                throw new Exception("${entry.key} was failed")
+    for (key in options["liveModeInfo"].keySet()) {
+        while (!options["liveModeInfo"][key]["ready"]) {
+            if (options["liveModeInfo"][key]["exception"]) {
+                throw new Exception("${key} was failed")
             }
 
             sleep(5)
         }
     }
+
+    println("[INFO] ${env.NODE_NAME} (${modeKey} client) is ready")
 }
 
 
@@ -553,8 +585,6 @@ def executeLMTestsPrimary(String osName, String asicName, Map options) {
 
 def executeLMTestsSecondary(String osName, String asicName, Map options, int clientNumber) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
-    options["stashResults"] = true
-
     try {
         checkoutAutotests(options)
         prepareAMDRenderStudio(osName, options, "secondary", clientNumber)
@@ -577,7 +607,8 @@ def executeTests(String osName, String asicName, Map options) {
     options["stashResults"] = true
 
     try {
-        int requiredClientsNumber = getNumberOfRequiredClients(options)
+        //int requiredClientsNumber = getNumberOfRequiredClients(options)
+        int requiredClientsNumber = 3
 
         if (requiredClientsNumber == 0) {
             // run offline autotests
@@ -606,13 +637,14 @@ def executeTests(String osName, String asicName, Map options) {
             options["secondaryClientsNumber"] = requiredClientsNumber - 1
 
             for (int i = 0; i < options["secondaryClientsNumber"]; i++) {
-                threads["${options.stageName}-secondary-${i}"] = { 
+                int clientNumber = i
+                options["liveModeInfo"]["secondary-${clientNumber}"] = new ConcurrentHashMap()
+                threads["${options.stageName}-secondary-${i}"] = {
                     node(getLabels(options)) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
-                                println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${i}")
-                                options["liveModeInfo"]["secondary-${i}"] = new ConcurrentHashMap()
-                                executeLMTestsSecondary(osName, asicName, options, i)
+                                println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${clientNumber}")
+                                executeLMTestsSecondary(osName, asicName, options, clientNumber)
                             }
                         }
                     }
