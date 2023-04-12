@@ -25,6 +25,62 @@ import TestsExecutionType
 )
 
 
+int getNumberOfRequiredClients(Map options) {
+    // at least one client is required for offline autotests
+    int clientsNumber = 1
+
+    List testGroups
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        // some parts of regression contain live mode tests
+        int partNumber = options.tests.split("\\.") as int
+
+        testGroups = options.packageInfo["groups"][partNumber].keySet() as List
+    } else {
+        testGroups = options.tests.split("-")[0].split() as List
+    }
+
+    if (options["liveModeConfiguration"].clients_number.keySet().any { testGroups.contains(it) }) {
+        testGroups.each() {
+            if (options["liveModeConfiguration"].clients_number.containsKey(it)) {
+                int currentClientsNumber = options["liveModeConfiguration"].clients_number[it]
+
+                if (currentClientsNumber > clientsNumber) {
+                    clientsNumber = currentClientsNumber
+                }
+            }
+        }
+    }
+
+    return clientsNumber
+}
+
+
+String getLabels(Map options) {
+    return "${options.osName} && Tester && gpu${options.asicName} && !Disabled"
+}
+
+
+Boolean hasIdleClients(Map options) {
+    int requiredClientsNumber = getNumberOfRequiredClients(options)
+    println("Required ${requiredClientsNumber} client(s)")
+
+    def suitableNodes = nodesByLabel(label: getLabels(options), offline: false)
+
+    int idleNodesNumber = 0
+
+    for (node in suitableNodes) {
+        if (utils.isNodeIdle(node)) {
+            idleNodesNumber++
+        }
+    }
+
+    println("Found ${idleNodesNumber} suitable idle client(s)")
+
+    return requiredClientsNumber <= idleNodesNumber
+}
+
+
 Boolean filter(Map options, String asicName, String osName, String testName, String mode) {
     if ((osName == "Windows" && mode == "Desktop") || (osName == "Web" && mode == "Web")) {
         return false
@@ -240,132 +296,177 @@ def executeTestCommand(String osName, String asicName, Map options) {
 }
 
 
-def executeTests(String osName, String asicName, Map options) {
-    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
-    Boolean stashResults = true
-    try {
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
-                cleanWS("Windows")
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+def checkoutAutotests(Map options) {
+    withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        timeout(time: "5", unit: "MINUTES") {
+            cleanWS("Windows")
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+        }
+    }
+}
 
-                dir("driver") {
-                    if (osName == "Windows") {
-                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_desktop.exe", ".")
-                        bat("rename chromedriver_desktop.exe chromedriver.exe")
-                    } else {
-                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_web.exe", ".")
-                        bat("rename chromedriver_web.exe chromedriver.exe")
+
+def prepareAMDRenderStudio(String osName, Map options, String clientType, int clientNumber = -1) {
+    // TODO: use clientType variable
+    // TODO: do specific steps for Live Mode activation
+    if (osName == "Windows") {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
+            timeout(time: "10", unit: "MINUTES") {
+                try {
+                    getProduct("Windows", options)
+                    runApplicationTests(osName, options)
+                } catch (e) {
+                    if (e instanceof ExpectedExceptionWrapper) {
+                        options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
                     }
+                    throw e
                 }
             }
         }
 
-        if (osName == "Windows") {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
-                timeout(time: "10", unit: "MINUTES") {
-                    try {
-                        getProduct("Windows", options)
-                        runApplicationTests(osName, options)
-                    } catch (e) {
-                        if (e instanceof ExpectedExceptionWrapper) {
-                            options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
-                        }
-                        throw e
-                    }
-                }
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
+            timeout(time: "10", unit: "MINUTES") {
+                uninstallAMDRenderStudio(osName, options)
+                installAMDRenderStudio(osName, options)
+
+                // open application once to generate Storage files
+                String appLink = getDesktopLink(osName, options)
+                runApplication(appLink, osName, options)
+                sleep(10)
+                utils.closeProcess(this, "AMD RenderStudio", osName, options)
+            }
+        }
+
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_assets" : "/mnt/c/TestResources/render_studio_autotests_assets"
+            downloadFiles("/volume1/web/Assets/render_studio_autotests/", assetsDir)
+        }
+    } else {
+        withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+            String url
+
+            if (options.deployEnvironment == "prod") {
+                url = TEMPLATE.replace("<instance>.", "")
+            } else {
+                url = TEMPLATE.replace("<instance>", options.deployEnvironment)
             }
 
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
-                timeout(time: "10", unit: "MINUTES") {
-                    uninstallAMDRenderStudio(osName, options)
-                    installAMDRenderStudio(osName, options)
+            String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
+            writeFile(file: "local_config.py", text: localConfigContent)
+        }
+    }
+}
 
-                    // open application once to generate Storage files
-                    String appLink = getDesktopLink(osName, options)
-                    runApplication(appLink, osName, options)
-                    sleep(10)
-                    utils.closeProcess(this, "AMD RenderStudio", osName, options)
-                }
-            }
 
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-                String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_assets" : "/mnt/c/TestResources/render_studio_autotests_assets"
-                downloadFiles("/volume1/web/Assets/render_studio_autotests/", assetsDir)
-            }
-        } else {
-            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                String url
+def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
+    // TODO: use clientType variable
+    options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
 
-                if (options.deployEnvironment == "prod") {
-                    url = TEMPLATE.replace("<instance>.", "")
+    outputEnvironmentInfo("Windows", "", options.currentTry)
+
+    if (options["updateRefs"].contains("Update")) {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            executeTestCommand("Windows", asicName, options)
+            executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
+            uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
+            // delete generated baselines when they're sent 
+            bat """
+                if exist Work\\GeneratedBaselines rmdir /Q /S Work\\GeneratedBaselines
+            """
+        }
+    } else {
+        withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
+            String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
+            println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
+            options.tests.split(" ").each() {
+                if (it.contains(".json")) {
+                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
                 } else {
-                    url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
+                }
+            }
+        }
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            executeTestCommand("Windows", asicName, options)
+        }
+    }
+}
+
+
+String getLiveModeKey(String clientType, int clientNumber = -1) {
+    return clientType == "secondary" ? "secondary-${clientNumber}" : "primary"
+}
+
+
+def processClientException(def exception, Map options, String clientType, int clientNumber = -1) {
+    if (clientType != "offline") {
+        String key = getLiveModeKey(clientType, clientNumber)
+        options["liveModeInfo"][key]["exception"] = exception
+    }
+
+    if (options.currentTry < options.nodeReallocateTries - 1) {
+        options["stashResults"] = false
+    } else {
+        currentBuild.result = "FAILURE"
+    }
+    println exception.toString()
+    if (exception instanceof ExpectedExceptionWrapper) {
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${exception.getMessage()}", "${BUILD_URL}")
+        throw new ExpectedExceptionWrapper("${exception.getMessage()}", exception.getCause())
+    } else {
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+        throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", exception)
+    }
+}
+
+
+def saveTestResults(String osName, Map options, String clientType, int clientNumber = -1) {
+    String stashPostfix = ""
+    String modeKey = ""
+
+    if (clientType != "offline") {
+        // if the client type isn't offline - add the postfix with the client type
+        modeKey = getLiveModeKey(clientType, clientNumber)
+        stashPostfix = "_${modeKey}"
+    }
+
+    // TODO: implement merging on the side of the primary client
+    if (clientType == "primary") {
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            while (!options["liveModeInfo"][key]["stashed"]) {
+                if (options["liveModeInfo"][key]["exception"]) {
+                    throw new Exception("${key} was failed")
                 }
 
-                String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
-                writeFile(file: "local_config.py", text: localConfigContent)
+                sleep(5)
             }
         }
 
-        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+        return
+    }
 
-        outputEnvironmentInfo("Windows", "", options.currentTry)
+    try {
+        dir(options.stageName) {
+            utils.moveFiles(this, "Windows", "../*.log", ".")
+            utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
+            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_${options.currentTry}.log")
+        }
+        archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
+        if (options["stashResults"]) {
+            dir('Work') {
+                if (fileExists("Results/RenderStudio/session_report.json")) {
+                    println "Stashing test results to : ${options.testResultsName}"
 
-        if (options["updateRefs"].contains("Update")) {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-                executeTestCommand("Windows", asicName, options)
-                executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
-                uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
-                // delete generated baselines when they're sent 
-                bat """
-                    if exist Work\\GeneratedBaselines rmdir /Q /S Work\\GeneratedBaselines
-                """
-            }
-        } else {
-            withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
-                String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
-                println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
-                options.tests.split(" ").each() {
-                    if (it.contains(".json")) {
-                        downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
+                    if (clientType == "secondary") {
+                        // save results to merge them on the primary client
+                        makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
+                        options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
-                        downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
-                    }
-                }
-            }
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-                executeTestCommand("Windows", asicName, options)
-            }
-        }
-        options.executeTestsFinished = true
-
-        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
-    } catch (e) {
-        if (options.currentTry < options.nodeReallocateTries - 1) {
-            stashResults = false
-        } else {
-            currentBuild.result = "FAILURE"
-        }
-        println e.toString()
-        if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
-            throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
-        } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
-            throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
-        }
-    } finally {
-        try {
-            dir(options.stageName) {
-                utils.moveFiles(this, "Windows", "../*.log", ".")
-                utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
-                utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}_${options.currentTry}.log")
-            }
-            archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
-            if (stashResults) {
-                dir('Work') {
-                    if (fileExists("Results/RenderStudio/session_report.json")) {
+                        utils.stashTestData(this, options, options.storeOnNAS)
 
                         def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
 
@@ -381,9 +482,6 @@ def executeTests(String osName, String asicName, Map options) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
-                        println "Stashing test results to : ${options.testResultsName}"
-
-                        utils.stashTestData(this, options, options.storeOnNAS)
                         // reallocate node if there are still attempts
                         if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
                             if (sessionReport.summary.total != sessionReport.summary.skipped) {
@@ -400,17 +498,170 @@ def executeTests(String osName, String asicName, Map options) {
                     }
                 }
             }
-        } catch(e) {
-            // throw exception in finally block only if test stage was finished
-            if (options.executeTestsFinished) {
-                if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
-                    throw e
-                } else {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
-                    throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
+        }
+    } catch(e) {
+        // throw exception in finally block only if test stage was finished
+        if (options.executeTestsFinished) {
+            if (e instanceof ExpectedExceptionWrapper) {
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                throw e
+            } else {
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
+            }
+        }
+    }
+}
+
+
+def executeOfflineTests(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "offline")
+        executeTestsOnClient(osName, asicName, options, "offline")
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "offline")
+    } finally {
+        saveTestResults(osName, options, "offline")
+    }
+}
+
+
+def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+    options["liveModeInfo"][modeKey]["ready"] = true
+
+    for (key in options["liveModeInfo"].keySet()) {
+        while (!options["liveModeInfo"][key]["ready"]) {
+            if (options["liveModeInfo"][key]["exception"]) {
+                throw new Exception("${key} was failed")
+            }
+
+            sleep(5)
+        }
+    }
+
+    println("[INFO] ${env.NODE_NAME} (${modeKey} client) is ready")
+}
+
+
+def getCommunicationPort(Map options) {
+    // always use port 10000 to synchronize autotests
+    return "10000"
+}
+
+
+def executeLMTestsPrimary(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "primary")
+        syncLMClients(osName, options, "primary")
+        executeTestsOnClient(osName, asicName, options, "primary")
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "primary")
+    } finally {
+        saveTestResults(osName, options, "primary")
+    }
+}
+
+
+def executeLMTestsSecondary(String osName, String asicName, Map options, int clientNumber) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "secondary", clientNumber)
+        syncLMClients(osName, options, "secondary", clientNumber)
+        executeTestsOnClient(osName, asicName, options, "secondary", clientNumber)
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "secondary", clientNumber)
+    } finally {
+        saveTestResults(osName, options, "secondary", clientNumber)
+    }
+}
+
+
+def executeTests(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        int requiredClientsNumber = getNumberOfRequiredClients(options)
+
+        if (requiredClientsNumber == 0) {
+            // run offline autotests
+            throw new Exception("Required 0 clients. Unexpected situation")
+        } else if (requiredClientsNumber == 1) {
+            // run Live Mode autotests
+            // take one client as primary-client, and other clients as secondary-clients
+            executeOfflineTests(osName, asicName, options)
+        } else if (requiredClientsNumber > 1) {
+            // run Live Mode autotests
+            // take one client as primary client, and other clients as secondary clients
+
+            options["liveModeInfo"] = [:]
+
+            // create threads for the primary client and the secondary clients and run them parallel
+            Map threads = [:]
+
+            threads["${options.stageName}-primary"] = { 
+                options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
+                executeLMTestsPrimary(osName, asicName, options)
+            }
+
+            println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the primary client")
+
+            // one of required clients is the primary client
+            options["secondaryClientsNumber"] = requiredClientsNumber - 1
+
+            for (int i = 0; i < options["secondaryClientsNumber"]; i++) {
+                int clientNumber = i
+                options["liveModeInfo"]["secondary-${clientNumber}"] = new ConcurrentHashMap()
+                threads["${options.stageName}-secondary-${i}"] = {
+                    node(getLabels(options)) {
+                        timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
+                            ws("WS/${options.PRJ_NAME}_Test") {
+                                println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${clientNumber}")
+                                executeLMTestsSecondary(osName, asicName, options, clientNumber)
+                            }
+                        }
+                    }
                 }
             }
+
+            parallel threads
+
+            for (entry in options["liveModeInfo"]) {
+                if (entry.value["exception"]) {
+                    def exception = entry.value["exception"]
+                    throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
+                }
+            }
+        }
+    } catch (e) {
+        if (e instanceof ExpectedExceptionWrapper) {
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
+        } else {
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     }
 }
@@ -1066,16 +1317,15 @@ def executePreBuild(Map options) {
                 options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
             }
             println "[INFO] Test branch hash: ${options['testsBranch']}"
-            def packageInfo
 
             if (options.testsPackage != "none") {
                 if (fileExists("jobs/${options.testsPackage}")) {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                    options.packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 } else {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-desktop.json')}"
+                    options.packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-desktop.json')}"
                 }
 
-                options.isPackageSplitted = packageInfo["split"]
+                options.isPackageSplitted = options.packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
                 if (options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
@@ -1101,11 +1351,11 @@ def executePreBuild(Map options) {
                 // receive list of group names from package
                 List groupsFromPackage = []
 
-                if (packageInfo["groups"] instanceof Map) {
-                    groupsFromPackage = packageInfo["groups"].keySet() as List
+                if (options.packageInfo["groups"] instanceof Map) {
+                    groupsFromPackage = options.packageInfo["groups"].keySet() as List
                 } else {
                     // iterate through all parts of package
-                    packageInfo["groups"].each() {
+                    options.packageInfo["groups"].each() {
                         groupsFromPackage.addAll(it.keySet() as List)
                     }
                 }
@@ -1140,7 +1390,7 @@ def executePreBuild(Map options) {
                 } else {
                     options.testsPackage = modifiedPackageName
                     // check that package is splitted to parts or not
-                    if (packageInfo["groups"] instanceof Map) {
+                    if (options.packageInfo["groups"] instanceof Map) {
                         options.modes.each { mode ->
                             tests << "${modifiedPackageName}-${mode}"
                         } 
@@ -1148,12 +1398,12 @@ def executePreBuild(Map options) {
                     } else {
                         // add group stub for each part of package
                         options.modes.each { mode ->
-                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            for (int i = 0; i < options.packageInfo["groups"].size(); i++) {
                                 tests << "${modifiedPackageName}-${mode}".replace(".json", ".${i}.json")
                             }
                         }
 
-                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                        for (int i = 0; i < options.packageInfo["groups"].size(); i++) {
                             options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
                         }
                     }
@@ -1173,6 +1423,8 @@ def executePreBuild(Map options) {
                 options.executeTests = false
             }
             options.tests = tests
+
+            options["liveModeConfiguration"] = readJSON(file: "jobs/live_mode_configuration.json")
         }
         
         options.testsList = options.tests
@@ -1504,6 +1756,7 @@ def call(
                                 testsPackage:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
+                                testsPreCondition: this.&hasIdleClients,
                                 testCaseRetries:testCaseRetries,
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,
@@ -1512,7 +1765,6 @@ def call(
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
-                                testsPreCondition: this.&isWebDeployed,
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
                                 saveTrackedMetrics:saveTrackedMetrics

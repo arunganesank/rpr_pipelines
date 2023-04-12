@@ -849,4 +849,27 @@ class utils {
     static def createDir(Object self, String dirName) {
         self.dir(dirName) { self.isUnix() ? self.sh("") : self.bat("") }
     }
+
+    static def getIpAddress(Object self) {
+        if (self.isUnix()) {
+            throw new Exception("Not supported")
+        } else {
+            String output = self.utils.getBatOutput(self, "ipconfig")
+
+            String necessaryAdapterName = "Ethernet adapter Ethernet:"
+            boolean necessaryAdapterFound = false
+
+            for (line in output.split("\n")) {
+                if (line.contains(necessaryAdapterName)) {
+                    necessaryAdapterFound = true
+                }
+
+                if (necessaryAdapterFound && line.contains("IPv4 Address")) {
+                    return line.split(":")[1].trim()
+                }
+            }
+        }
+
+        throw new Exception("Could not determine Ip adress")
+    }
 }
