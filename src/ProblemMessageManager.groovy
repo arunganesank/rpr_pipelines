@@ -196,9 +196,9 @@ public class ProblemMessageManager {
         } else if (unstableReasons.size() != 0) {
             messages = "Build Unstable Reason: \n${unstableReasons.join('\n')}"
         } else if (currentBuild.result == "FAILURE") {
-            messages = "Build Failure Reason: \nUnknown"
+            messages = "Build Failure Reason: \nUnknown. Please, contact support"
         } else if (currentBuild.result == "UNSTABLE") {
-            messages = "Build Unstable Reason: \nUnknown"
+            messages = "Build Unstable Reason: \nUnknown. Please, contact support"
         }
 
         return messages

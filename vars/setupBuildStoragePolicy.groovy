@@ -24,7 +24,7 @@ def call(String project = "") {
         } else if (isReleaseBranch() || isTag()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
                 [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '360', numToKeepStr: '20']]])
-        } else if (env.isPR()) {
+        } else if (isPR()) {
             properties([[$class: 'BuildDiscarderProperty', strategy:
                 [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '5']]])
         }
