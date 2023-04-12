@@ -607,8 +607,7 @@ def executeTests(String osName, String asicName, Map options) {
     options["stashResults"] = true
 
     try {
-        //int requiredClientsNumber = getNumberOfRequiredClients(options)
-        int requiredClientsNumber = 3
+        int requiredClientsNumber = getNumberOfRequiredClients(options)
 
         if (requiredClientsNumber == 0) {
             // run offline autotests
