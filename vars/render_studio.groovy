@@ -451,13 +451,9 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
 
     try {
         dir(options.stageName) {
-            println("Here1")
             utils.moveFiles(this, "Windows", "../*.log", ".")
-            println("Here2")
             utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
-            println("Here3")
             utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_${options.currentTry}.log")
-            println("Here4")
         }
         archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
         if (options["stashResults"]) {
