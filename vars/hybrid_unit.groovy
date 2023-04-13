@@ -342,6 +342,8 @@ def call(String commitSHA = "",
                             storeOnNAS: true,
                             finishedBuildStages: new ConcurrentHashMap(),
                             splitTestsExecution: false,
+                            retriesForTestStage:2,
+                            TEST_TIMEOUT:45,
                             skipCallback: this.&filter,
                             customStageName: "Test-Unit"])
 }
