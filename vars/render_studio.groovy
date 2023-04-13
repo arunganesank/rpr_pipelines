@@ -77,7 +77,8 @@ Boolean hasIdleClients(Map options) {
 
     println("Found ${idleNodesNumber} suitable idle client(s)")
 
-    return requiredClientsNumber <= idleNodesNumber
+    // do not wait idle clients in case of only 1 required clients
+    return (requiredClientsNumber == 1) || (requiredClientsNumber <= idleNodesNumber)
 }
 
 
