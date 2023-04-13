@@ -382,30 +382,37 @@ def launchAndWaitTests(Map options) {
     String testPlatforms = getTestPlatforms(options)
     String testPlatformsMtlx = getTestPlatformsMtlx(testPlatforms)
 
-    if (!options["unitLink"]) {
+    if (!options["ueLaunched"]) {
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
 
-        if (options.apiValues) {
-            build(
-                job: env.JOB_NAME.replace("Build", "Unit"),
-                parameters: [
-                    string(name: "PipelineBranch", value: options.pipelineBranch),
-                    string(name: "CommitSHA", value: options.commitSHA),
-                    string(name: "CommitMessage", value: options.commitMessage),
-                    string(name: "OriginalBuildLink", value: env.BUILD_URL),
-                    string(name: "Platforms", value: testPlatforms),
-                    string(name: "ApiValues", value: options.apiValues),
-                    booleanParam(name: "UpdateRefs", value: options.updateUnitRefs)
-                ],
-                wait: false,
-                quietPeriod : 0
-            )
+        options["ueLaunched"] == true
+    }
 
-            options["unitLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
+    if (!options["unitLink"]) {
+        // check that the platforms variable contains any GPU
+        if (testPlatforms.contains(":")) {
+            if (options.apiValues) {
+                build(
+                    job: env.JOB_NAME.replace("Build", "Unit"),
+                    parameters: [
+                        string(name: "PipelineBranch", value: options.pipelineBranch),
+                        string(name: "CommitSHA", value: options.commitSHA),
+                        string(name: "CommitMessage", value: options.commitMessage),
+                        string(name: "OriginalBuildLink", value: env.BUILD_URL),
+                        string(name: "Platforms", value: testPlatforms),
+                        string(name: "ApiValues", value: options.apiValues),
+                        booleanParam(name: "UpdateRefs", value: options.updateUnitRefs)
+                    ],
+                    wait: false,
+                    quietPeriod : 0
+                )
+
+                options["unitLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
+            }
         }
     }
 
