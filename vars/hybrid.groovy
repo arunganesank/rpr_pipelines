@@ -526,15 +526,18 @@ def getTestPlatformsMtlx(String testPlatforms) {
     for (platforms in platformsByOS) {
         if (platforms.startsWith("Windows")) {
             List suitablePlafroms = []
-            List platformsList = platforms.split(":")[1].split(",") as List
 
-            platformsList.each() { platform ->
-                if (platform.contains("RTX") || platform.contains("AMD_RX6") || platform.contains("AMD_RX7")) {
-                    suitablePlafroms.add(platform)
+            if (platforms.split(":").length == 2) {
+                List platformsList = platforms.split(":")[1].split(",") as List
+
+                platformsList.each() { platform ->
+                    if (platform.contains("RTX") || platform.contains("AMD_RX6") || platform.contains("AMD_RX7")) {
+                        suitablePlafroms.add(platform)
+                    }
                 }
-            }
 
-            return "Windows:" + suitablePlafroms.join(",")
+                return "Windows:" + suitablePlafroms.join(",")
+            }
         }
     }
 

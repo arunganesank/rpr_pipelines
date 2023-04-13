@@ -33,7 +33,7 @@ int getNumberOfRequiredClients(Map options) {
 
     if (options.testsPackage != "none" && !options.isPackageSplitted) {
         // some parts of regression contain live mode tests
-        int partNumber = options.tests.split("\\.") as int
+        int partNumber = options.tests.split("\\.")[1] as int
 
         testGroups = options.packageInfo["groups"][partNumber].keySet() as List
     } else {
