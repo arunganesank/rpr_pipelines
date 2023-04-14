@@ -914,7 +914,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/${engine}"
+                String metricsRemoteDir
+
+                if (env.BRANCH_NAME) {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/auto/main/${engine}"
+                } else {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/weekly/${engine}"
+                }
 
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
                 

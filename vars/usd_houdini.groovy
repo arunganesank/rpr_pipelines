@@ -705,7 +705,15 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
             try {
                 String[] toolVersionParts = toolVersion.split("\\.")
                 String metricsProfileDir = "${toolVersionParts[0]}.${toolVersionParts[1]}_${engine}"
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/${metricsProfileDir}"
+
+                String metricsRemoteDir
+
+                if (env.BRANCH_NAME) {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/auto/main/${metricsProfileDir}"
+                } else {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-Houdini/weekly/${metricsProfileDir}"
+                }
+
                 GithubNotificator.updateStatus("Deploy", "Building test report for ${testProfile}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
 
                 if (options.useTrackedMetrics) {

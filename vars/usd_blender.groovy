@@ -908,7 +908,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
+            String metricsRemoteDir
+
+            if (env.BRANCH_NAME) {
+                metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/auto/main/${engine}"
+            } else {
+                metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/weekly/${engine}"
+            }
 
             if (options.useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
