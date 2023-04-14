@@ -824,28 +824,28 @@ def executePreBuild(Map options)
         options.testsList = options.tests
 
         println "timeouts: ${options.timeouts}"
-    }
 
-    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
-    multiplatform_pipeline.initProfiles(options)
+        // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+        multiplatform_pipeline.initProfiles(options)
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
-    }
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
 
-    if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, "${BUILD_URL}")
-    }
+        if (env.BRANCH_NAME && options.githubNotificator) {
+            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+        }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        // if something was merged into master branch it could trigger build in master branch of autojob
-        hybrid_to_blender_workflow.clearOldBranches("BlenderUSDHydraAddon", PROJECT_REPO, options)
-    }
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+            // if something was merged into master branch it could trigger build in master branch of autojob
+            hybrid_to_blender_workflow.clearOldBranches("BlenderUSDHydraAddon", PROJECT_REPO, options)
+        }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
-        // rebuild deps if new HybridPro is being tested
-        options["rebuildDeps"] = true
+        if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
+            // rebuild deps if new HybridPro is being tested
+            options["rebuildDeps"] = true
+        }
     }
 }
 
