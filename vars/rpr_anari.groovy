@@ -572,11 +572,11 @@ def executePreBuild(Map options) {
         if (env.BRANCH_NAME && options.githubNotificator) {
             options.githubNotificator.initChecks(options, "${BUILD_URL}")
         }
-    }
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
     }
 }
 

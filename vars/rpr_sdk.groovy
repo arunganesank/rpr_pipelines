@@ -463,18 +463,18 @@ def executePreBuild(Map options) {
                 options.testsList << "${engine}"
             }
         }
-    }
 
-    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
-    multiplatform_pipeline.initProfiles(options)
+        // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+        multiplatform_pipeline.initProfiles(options)
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
-    }
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
 
-    if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, "${BUILD_URL}")
+        if (env.BRANCH_NAME && options.githubNotificator) {
+            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+        }
     }
 }
 

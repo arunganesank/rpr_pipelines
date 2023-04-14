@@ -203,8 +203,9 @@ public class NotificationConfiguration {
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to configurate tests.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
-                "githubNotification": ["status": "action_required"]
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
+                "githubNotification": ["status": "action_required"],
+                "retry": true
             ]
         ]
     ]
