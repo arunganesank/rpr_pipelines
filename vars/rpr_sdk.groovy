@@ -665,7 +665,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX6700XT',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String renderDevice = "gpu",
