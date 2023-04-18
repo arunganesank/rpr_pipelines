@@ -529,7 +529,14 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
             def buildNumber = env.BUILD_NUMBER as int
             if (buildNumber > 1) milestone(buildNumber - 1)
             milestone(buildNumber) 
-        } 
+        }
+
+        try {
+            SlackUtils.publishSubscriptionRedirectPage(this)
+        } catch (e) {
+            println("[ERROR] Failed to publish Slack subscription page")
+            println(e.toString())
+        }
 
         def date = new Date()
         dateFormatter = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss")
