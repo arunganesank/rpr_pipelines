@@ -24,9 +24,9 @@ def doReportGeneration(String qaReportsBranch) {
     String REPORT_NAME = "report.docx"
     makeArchiveArtifacts(name: REPORT_NAME, storeOnNAS: true)
 
-    String LETTER_1_NAME = "Letter_1.oft"
+    String LETTER_1_NAME = "Letter_1.html"
     makeArchiveArtifacts(name: LETTER_1_NAME, storeOnNAS: true)
-    String LETTER_2_NAME = "Letter_2.oft"
+    String LETTER_2_NAME = "Letter_2.html"
     makeArchiveArtifacts(name: LETTER_2_NAME, storeOnNAS: true)
 }
 
