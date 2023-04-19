@@ -32,6 +32,7 @@ def getJobsUrls(){
 
 def generateInfo(){
     def jobUrls = getJobsUrls()
+    println("URLs: ${jobUrls}")
     for (jobUrl in jobUrls){
         def parsedJob = doRequest("${jobUrl}api/json")
         def jobName = parsedJob["name"]
@@ -39,11 +40,12 @@ def generateInfo(){
         def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
         def buildResult = parsedBuild["result"]
 
+        println("Job: ${jobName}. Result: ${buildResult}")
+
         try{
             def parsedSummary = doRequest("${parsedJob["lastCompletedBuild"]["url"]}artifact/summary_status.json")
-            return ["failed": parsedSummary["failed"], "error": parsedSummary["error"]]
+            problems = ["failed": parsedSummary["failed"], "error": parsedSummary["error"]]
 
-            Map problems = getProblemsCount(jobUrl)
             String problemsDescription = ""
 
             if (problems["failed"] > 0 && problems["error"] > 0) {
