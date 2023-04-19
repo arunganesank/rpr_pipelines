@@ -70,7 +70,7 @@ def call() {
                 ws("WS/WeeklyResults") {
                     currentBuild.description = ""
                     generateInfo()
-                    }
+                    
                 }
             }
         }
