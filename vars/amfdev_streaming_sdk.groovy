@@ -1901,7 +1901,7 @@ def call(String projectBranch = "",
     String platforms = "Windows:AMD_RX6700XT;Android:AMD_RX6700XT",
     String clientTag = "PC-TESTER-VILNIUS-WIN10",
     String winBuildConfiguration = "release,debug",
-    String winTestingBuildName = "debug_vs2019",
+    String winTestingBuildName = "release_vs2019",
     String testsPackage = "regression.json",
     String tests = "",
     String testerTag = "StreamingSDK",
@@ -1940,8 +1940,8 @@ def call(String projectBranch = "",
                 if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
                     platforms = platforms + ";Windows"
 
-                    winBuildConfiguration = "debug"
-                    winTestingBuildName = "debug_vs2019"
+                    winBuildConfiguration = "release"
+                    winTestingBuildName = "release_vs2019"
                 }
 
                 winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
