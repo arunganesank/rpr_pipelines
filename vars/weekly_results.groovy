@@ -2,6 +2,13 @@ import groovy.transform.Field
 
 import utils
 
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
+
+
 def doRequest(String url) {
     def rawInfo = httpRequest(
         url: url,
