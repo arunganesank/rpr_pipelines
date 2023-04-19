@@ -947,13 +947,9 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
             utils.reboot(this, "Windows")
         }
 
-        initAndroidDevice()
-
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
-                if (!options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
-                    cleanWS(osName)
-                } else {
+                if (options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     utils.removeDir(this, "Windows", options.stageName)
 
                     if (!fileExists("StreamingSDK/RemoteGameServer.exe")) {
@@ -967,6 +963,8 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
                 }
             }
         }
+
+        initAndroidDevice()
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
