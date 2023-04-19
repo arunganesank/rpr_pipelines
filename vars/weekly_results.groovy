@@ -59,7 +59,7 @@ def generateInfo(){
             } else if (buildResult == "UNSTABLE") {
                 currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable. ${problemsDescription}</span><br/><br/>"
             } else if (buildResult == "SUCCESS") {
-                currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success. ${problemsDescription}</span><br/><br/>"
+                currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success.</span><br/><br/>"
             } else {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status. ${problemsDescription}</span><br/><br/>"
             }
