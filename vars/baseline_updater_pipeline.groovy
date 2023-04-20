@@ -89,15 +89,13 @@ import groovy.json.JsonSlurperClassic
 
 
 String getBaselinesUpdateInitiator() {
-    String cause = "Unknown"
-
     for (def cause in currentBuild.rawBuild.getCauses()) {
         if (cause.getClass().toString().contains("UserIdCause")) {
             return cause.getUserId()
         }
     }
 
-    return cause
+    return "Unknown"
 }
 
 def getBaselinesOriginalBuild(String jobName = null, String buildID = null) {
