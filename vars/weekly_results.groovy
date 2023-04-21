@@ -58,10 +58,10 @@ def getProblemsCount(String jobName, String buildUrl){
         if (jobName == "WML-Weekly"){
             println("First")
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
+            def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"]
             def failed = 0
 
-            for (caseInfo in parsedReport["children"]["children"]["children"]["children"][0]){
-                println(caseInfo)
+            for (caseInfo in parsedCases){
                 if (caseInfo["status"] == "failed"){
                     failed += 1
                 }
