@@ -54,9 +54,11 @@ def getProblemsCount(String jobName, String buildUrl){
         "USD-MayaPlugin-Weekly"
         ]
 
+    def preparedUrl = buildUrl.replaceAll("rpr.cis", "cis.nas")
+
     try{
         if (jobName == "WML-Weekly"){
-            def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
+            def parsedReport = doRequest("${preparedUrl}allure/data/suites.json")
             def failed = 0
 
             for (caseInfo in parsedReport["children"]["children"]["children"]["children"]){
@@ -67,7 +69,7 @@ def getProblemsCount(String jobName, String buildUrl){
             return ["_": ["failed": failed, "error": 0]]
 
         } else if (overviewList.contains(jobName)){
-            def parsedReport = doRequest("${buildUrl}Test_Report/overview_report.json")
+            def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
             def problems = []
 
             for (engine in parsedReport){
@@ -84,7 +86,7 @@ def getProblemsCount(String jobName, String buildUrl){
 
             return problems
         } else if (summaryList.contains(jobName)){
-            def parsedReport = doRequest("${buildUrl}Test_Report/summary_report.json")
+            def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
             def failed = 0
             def error = 0
 
@@ -146,6 +148,7 @@ def generateInfo(){
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
+                println(e)
             }
         }
     }
