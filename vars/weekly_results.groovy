@@ -61,7 +61,7 @@ def getProblemsCount(String jobName, String buildUrl){
 
             for (caseInfo in parsedReport["children"]["children"]["children"]["children"]){
                 if (caseInfo["status"] == "failed"){
-                    failed++
+                    failed += 1
                 }
             }
             return ["_": ["failed": failed, "error": 0]]
