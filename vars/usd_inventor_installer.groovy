@@ -149,7 +149,7 @@ def buildRenderCache(String osName, String toolVersion, Map options, Boolean cle
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
     withEnv([
             "BASELINES_UPDATE_INITIATOR=${baseline_update_pipeline.getBaselinesUpdateInitiator()}",
-            "BASELINES_ORIGINAL_BUILD=${baseline_update_pipeline.getBaselinesOriginalBuild()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_update_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
             "BASELINES_UPDATING_BUILD=${baseline_update_pipeline.getBaselinesUpdatingBuild()}"
     ]) {
         dir("scripts") {
