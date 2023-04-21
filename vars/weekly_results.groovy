@@ -66,11 +66,12 @@ def getProblemsCount(String jobName, String buildUrl){
                     failed += 1
                 }
             }
+            println(["_": ["failed": failed, "error": 0]])
             return ["_": ["failed": failed, "error": 0]]
 
         } else if (overviewList.contains(jobName)){
             println("Second")
-            def preparedUrl = buildUrl.replaceAll("rpr.cis", "cis.nas")
+            def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
 
             def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
             def problems = []
@@ -91,7 +92,7 @@ def getProblemsCount(String jobName, String buildUrl){
             return problems
         } else if (summaryList.contains(jobName)){
             println("Third")
-            def preparedUrl = buildUrl.replaceAll("rpr.cis", "cis.nas")
+            def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
 
             def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
             def failed = 0
