@@ -56,9 +56,11 @@ def getProblemsCount(String jobName, String buildUrl){
 
     try{
         if (jobName == "WML-Weekly"){
+            println("First")
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
             def failed = 0
 
+            println(parsedReport["children"]["children"]["children"]["children"])
             for (caseInfo in parsedReport["children"]["children"]["children"]["children"]){
                 if (caseInfo["status"] == "failed"){
                     failed += 1
@@ -67,6 +69,7 @@ def getProblemsCount(String jobName, String buildUrl){
             return ["_": ["failed": failed, "error": 0]]
 
         } else if (overviewList.contains(jobName)){
+            println("Second")
             def preparedUrl = buildUrl.replaceAll("rpr.cis", "cis.nas")
 
             def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
@@ -77,6 +80,7 @@ def getProblemsCount(String jobName, String buildUrl){
                 def error = 0
 
                 for (platform in engine["platforms"]){
+                    println(platform["summary"])
                     failed += platform["summary"]["failed"]
                     error += platform["summary"]["error"]
                 }
@@ -86,6 +90,7 @@ def getProblemsCount(String jobName, String buildUrl){
 
             return problems
         } else if (summaryList.contains(jobName)){
+            println("Third")
             def preparedUrl = buildUrl.replaceAll("rpr.cis", "cis.nas")
 
             def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
@@ -93,6 +98,7 @@ def getProblemsCount(String jobName, String buildUrl){
             def error = 0
 
             for (gpu in parsedReport){
+                println(parsedReport["gpu"]["summary"])
                 failed += parsedReport[gpu]["summary"]["failed"]
                 error += parsedReport[gpu]["summary"]["error"]
             }
