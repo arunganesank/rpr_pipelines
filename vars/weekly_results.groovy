@@ -66,8 +66,8 @@ def getProblemsCount(String jobName, String buildUrl){
                     failed += 1
                 }
             }
-            println(["_": ["failed": failed, "error": 0]])
-            return ["_": ["failed": failed, "error": 0]]
+            println(["0": ["failed": failed, "error": 0]])
+            return ["0": ["failed": failed, "error": 0]]
 
         } else if (overviewList.contains(jobName)){
             println("Second")
@@ -94,7 +94,11 @@ def getProblemsCount(String jobName, String buildUrl){
             println("Third")
             def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
 
-            def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
+            if (jobName == "RenderStudio-Weekly"){
+                def parsedReport = doRequest("${preparedUrl}Test_Report_Desktop/summary_report.json")
+            } else {
+                def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
+            }
             def failed = 0
             def error = 0
 
@@ -104,7 +108,7 @@ def getProblemsCount(String jobName, String buildUrl){
                 error += parsedReport[gpu]["summary"]["error"]
             }
 
-            return ["_": ["failed": failed, "error": error]]
+            return ["0": ["failed": failed, "error": error]]
         }
     } catch (Exception e){
         println("Can't get report for ${jobName}")
@@ -136,7 +140,7 @@ def generateInfo(){
                 String problemsDescription = ""
 
                 for (engine in problems){
-                    if (engine != "_"){
+                    if (engine != 0){
                         problemsDescription += "${engine}:<br/>"
                     }
                     if (problems[engine]["failed"] > 0 && problems[engine]["error"] > 0) {
