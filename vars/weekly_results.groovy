@@ -20,25 +20,98 @@ def doRequest(String url) {
 }
 
 
-def getJobsUrls(){
+def getJobs(){
     def parsedJobs = doRequest("https://rpr.cis.luxoft.com/view/Weekly%20Jobs/api/json")
-    def jobUrls = []
+    def jobs = []
     for (job in parsedJobs["jobs"]){
-        jobUrls.add(job["url"])
+        if (!(job["name"].contains("StreamingSDK")) && !(job["name"].contains("QA"))){
+            jobs.add(job)
+        }
     }
-    return jobUrls
+    return jobs
+}
+
+
+def getProblemsCount(String jobName, String buildUrl){
+    summaryList = [
+        "BlenderHIP-WeeklyCUDA_CPU",
+        "BlenderHIP-WeeklyHIP_CPU",
+        "BlenderHIP-WeeklyHIP_CUDA",
+        "HybridPro-MTLX-Weekly",
+        "MaterialXvsHdRPR-Weekly",
+        "RenderStudio-Weekly",
+        "RPR-Anari-Weekly",
+        "USD-InventorPlugin-Weekly",
+        "USD-Viewer-Weekly"
+        ]
+
+    overviewList = [
+        "HdRPR-Weekly",
+        "RPR-BlenderPlugin-Weekly",
+        "RPR-MayaPlugin-Weekly",
+        "USD-BlenderPlugin-Weekly",
+        "USD-HoudiniPlugin-Weekly",
+        "USD-MayaPlugin-Weekly"
+        ]
+
+    try{
+        if (jobName == "WML-Weekly"){
+            def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
+            def parsedReport = parsedReport["children"]["children"]["children"]["children"]
+            def failed = 0
+
+            for (caseInfo in parsedReport){
+                if (caseInfo["status"] == "failed"){
+                    failed++
+                }
+            }
+            return ["_": ["failed": failed, "error": 0]]
+
+        } else if (overviewList.contains(jobName)){
+            def parsedReport = doRequest("${buildUrl}Test_Report/overview_report.json")
+            def problems = []
+
+            for (engine in parsedReport){
+                def failed = 0
+                def error = 0
+
+                for (platform in engine["platforms"]){
+                    failed += platform["summary"]["failed"]
+                    error += platform["summary"]["error"]
+                }
+
+                problems.add([engine: ["failed": failed, "error": error]])
+            }
+
+            return problems
+        } else if (summaryList.contains(jobName)){
+            def parsedReport = doRequest("${buildUrl}Test_Report/summary_report.json")
+            def failed = 0
+            def error = 0
+
+            for (gpu in parsedReport){
+                failed += parsedReport[gpu]["summary"]["failed"]
+                error += parsedReport[gpu]["summary"]["error"]
+            }
+
+            return ["_": ["failed": failed, "error": error]]
+        }
+    } catch (Exception e){
+        println("Can't get report for ${jobName}")
+    }
 }
 
 
 def generateInfo(){
-    def jobUrls = getJobsUrls()
-    println("URLs: ${jobUrls}")
-    for (jobUrl in jobUrls){
-        def parsedJob = doRequest("${jobUrl}api/json")
+    def jobs = getJobs()
+    println("Jobs: ${jobs}")
+    for (job in jobs){
+        def parsedJob = doRequest("${job["url"]}api/json")
 
         if (parsedJob["lastCompletedBuild"] != null){
             def jobName = parsedJob["name"]
-            def parsedBuild = doRequest("${parsedJob["lastCompletedBuild"]["url"]}api/json")
+            def buildUrl = parsedJob["lastCompletedBuild"]["url"]
+            def parsedBuild = doRequest("${buildUrl}api/json")
             def buildResult = parsedBuild["result"]
 
             println("Job: ${jobName}. Result: ${buildResult}")
@@ -48,28 +121,32 @@ def generateInfo(){
             }
 
             try{
-                def parsedSummary = doRequest("${parsedJob["lastCompletedBuild"]["url"]}artifact/summary_status.json")
-                problems = ["failed": parsedSummary["failed"], "error": parsedSummary["error"]]
+                problems = getProblemsCount(jobName, buildUrl)
 
                 String problemsDescription = ""
 
-                if (problems["failed"] > 0 && problems["error"] > 0) {
-                    problemsDescription = "(${problems.failed} failed / ${problems.error} error)"
-                } else if (problems["failed"] > 0) {
-                    problemsDescription = "(${problems.failed} failed)"
-                } else if (problems["error"] > 0) {
-                    problemsDescription = "(${problems.error} error)"
+                for (problem in problems){
+                    if (problem != "_"){
+                        problemsDescription += "${problem}:<br/>"
+                    }
+                    if (problems[problem]["failed"] > 0 && problems[problem]["error"] > 0) {
+                        problemsDescription += "(${problems.failed} failed / ${problems.error} error)"
+                    } else if (problems["failed"] > 0) {
+                        problemsDescription += "(${problems.failed} failed)"
+                    } else if (problems["error"] > 0) {
+                        problemsDescription += "(${problems.error} error)"
+                    }
                 }
 
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed. ${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.<br/>${problemsDescription}</span><br/><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable. ${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.<br/>${problemsDescription}</span><br/><br/>"
                 } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status. ${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.<br/>${problemsDescription}</span><br/><br/>"
                 }
             } catch (Exception e) {
-                currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} summary_status.json.</span><br/><br/>"
+                currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
             }
         }
     }
