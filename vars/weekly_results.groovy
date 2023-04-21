@@ -134,16 +134,16 @@ def generateInfo(){
 
                 String problemsDescription = ""
 
-                for (problem in problems){
-                    if (problem != "_"){
-                        problemsDescription += "${problem}:<br/>"
+                for (engine in problems){
+                    if (engine != "_"){
+                        problemsDescription += "${engine}:<br/>"
                     }
-                    if (problems[problem]["failed"] > 0 && problems[problem]["error"] > 0) {
-                        problemsDescription += "(${problems.failed} failed / ${problems.error} error)"
-                    } else if (problems["failed"] > 0) {
-                        problemsDescription += "(${problems.failed} failed)"
-                    } else if (problems["error"] > 0) {
-                        problemsDescription += "(${problems.error} error)"
+                    if (problems[engine]["failed"] > 0 && problems[engine]["error"] > 0) {
+                        problemsDescription += "(${engine.failed} failed / ${engine.error} error)"
+                    } else if (problems[engine]["failed"] > 0) {
+                        problemsDescription += "(${engine.failed} failed)"
+                    } else if (problems[engine]["error"] > 0) {
+                        problemsDescription += "(${engine.error} error)"
                     }
                 }
 
