@@ -2036,7 +2036,8 @@ def call(String projectBranch = "",
     String androidTestingBuildName = "debug",
     Boolean storeOnNAS = false,
     Boolean collectInternalDriverVersion = false,
-    String skipBuild = ""
+    String skipBuild = "",
+    String inGameResolution = "1920x1080"
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2164,6 +2165,7 @@ def call(String projectBranch = "",
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
+                        inGameResolution: inGameResolution,
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
