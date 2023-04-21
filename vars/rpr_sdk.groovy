@@ -50,21 +50,27 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) 
 {
     dir('scripts') {
-        switch(osName) {
-            case 'Windows':
-                bat """
-                    make_results_baseline.bat ${delete}
-                """
-                break
-            case 'OSX':
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
-                break
-            default:
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
+        withEnv([
+                "BASELINES_UPDATE_INITIATOR=${baseline_update_pipeline.getBaselinesUpdateInitiator()}",
+                "BASELINES_ORIGINAL_BUILD=${baseline_update_pipeline.getBaselinesOriginalBuild()}",
+                "BASELINES_UPDATING_BUILD=${baseline_update_pipeline.getBaselinesUpdatingBuild()}"
+        ]) {
+            switch(osName) {
+                case 'Windows':
+                    bat """
+                        make_results_baseline.bat ${delete}
+                    """
+                    break
+                case 'OSX':
+                    sh """
+                        ./make_results_baseline.sh ${delete}
+                    """
+                    break
+                default:
+                    sh """
+                        ./make_results_baseline.sh ${delete}
+                    """
+            }
         }
     }
 }

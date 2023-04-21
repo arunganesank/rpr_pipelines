@@ -147,20 +147,26 @@ def buildRenderCache(String osName, String toolVersion, Map options, Boolean cle
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete} Inventor
-                """
-                break
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_update_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_update_pipeline.getBaselinesOriginalBuild()}",
+            "BASELINES_UPDATING_BUILD=${baseline_update_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete} Inventor
+                    """
+                    break
 
-            case "OSX":
-                println "OSX isn't supported"
-                break
+                case "OSX":
+                    println "OSX isn't supported"
+                    break
 
-            default:
-                println "Linux isn't supported"
+                default:
+                    println "Linux isn't supported"
+            }
         }
     }
 }
