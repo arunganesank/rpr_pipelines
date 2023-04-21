@@ -89,6 +89,7 @@ def getProblemsCount(String jobName, String buildUrl){
                 problems.add([engine: ["failed": failed, "error": error]])
             }
 
+            println(problems)
             return problems
         } else if (summaryList.contains(jobName)){
             println("Third")
@@ -108,6 +109,7 @@ def getProblemsCount(String jobName, String buildUrl){
                 error += parsedReport[gpu]["summary"]["error"]
             }
 
+            println(["0": ["failed": failed, "error": error]])
             return ["0": ["failed": failed, "error": error]]
         }
     } catch (Exception e){
@@ -141,8 +143,10 @@ def generateInfo(){
 
                 for (engine in problems){
                     if (engine != 0){
-                        problemsDescription += "${engine}:<br/>"
+                        println("Engine: ${engine}")
+                        problemsDescription += "${engine}:"
                     }
+                    println(problems[engine])
                     if (problems[engine]["failed"] > 0 && problems[engine]["error"] > 0) {
                         problemsDescription += "(${engine.failed} failed / ${engine.error} error)"
                     } else if (problems[engine]["failed"] > 0) {
@@ -152,12 +156,14 @@ def generateInfo(){
                     }
                 }
 
+                println("Problems: ${problemsDescription}")
+
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.${problemsDescription}</span><br/><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.${problemsDescription}</span><br/><br/>"
                 } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.${problemsDescription}</span><br/><br/>"
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
