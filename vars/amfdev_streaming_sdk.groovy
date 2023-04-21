@@ -505,7 +505,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} ${options.inGameResolution} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
