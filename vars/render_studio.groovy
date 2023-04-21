@@ -245,9 +245,9 @@ def runApplicationTests(String osName, Map options) {
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
     withEnv([
-            "BASELINES_UPDATE_INITIATOR=${baseline_update_pipeline.getBaselinesUpdateInitiator()}",
-            "BASELINES_ORIGINAL_BUILD=${baseline_update_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
-            "BASELINES_UPDATING_BUILD=${baseline_update_pipeline.getBaselinesUpdatingBuild()}"
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
     ]) {
         dir('scripts') {
             bat """
