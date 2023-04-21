@@ -60,8 +60,8 @@ def getProblemsCount(String jobName, String buildUrl){
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
             def failed = 0
 
-            println(parsedReport["children"]["children"]["children"])
-            for (caseInfo in parsedReport["children"]["children"]["children"]["children"]){
+            println(parsedReport)
+            for (caseInfo in parsedReport){
                 if (caseInfo["status"] == "failed"){
                     failed += 1
                 }
