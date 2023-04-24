@@ -1674,7 +1674,7 @@ def call(
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    String testsPackage = "regression.json",
+    String testsPackage = "none",
     String tests = '',
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
@@ -1696,7 +1696,7 @@ def call(
         }
     }
 
-    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows:")) {
+    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows")) {
         skipBuild = false
     } else if (customBuildLinkWindows && !skipBuild) {
         skipBuild = true
