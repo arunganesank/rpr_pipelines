@@ -154,7 +154,7 @@ def executeTestCommand(String osName, String asicName, Map options)
                     dir('scripts') {
                         bat """
                             ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                            run.bat gpu \"${testsPackageName}\" \"${testsNames}\" 0 0 25 50 0.05 ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                         """
                     }
                     break
@@ -162,7 +162,7 @@ def executeTestCommand(String osName, String asicName, Map options)
                     dir('scripts') {
                         sh """
                             ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                            ./run.sh ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                            ./run.sh gpu \"${testsPackageName}\" \"${testsNames}\" 0 0 25 50 0.05 ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
                         """
                     }
                     break
@@ -598,7 +598,7 @@ def executePreBuild(Map options)
         options.executeBuild = false
         options.executeTests = true
     // manual job
-    } else if (options.forceBuild) {
+    } else if (!env.BRANCH_NAME) {
         println "[INFO] Manual job launch detected"
         options['executeBuild'] = true
         options['executeTests'] = true
@@ -655,7 +655,7 @@ def executePreBuild(Map options)
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
 
-                if (options['incrementVersion']) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -731,7 +731,7 @@ def executePreBuild(Map options)
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -1060,19 +1060,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String testsBranch = "master",
         String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT',
         String updateRefs = 'No',
-        Boolean enableNotifications = true,
-        Boolean incrementVersion = true,
-        String renderDevice = "gpu",
         String testsPackage = "",
         String tests = "",
         String toolVersion = "2023",
-        Boolean forceBuild = false,
-        Boolean splitTestsExecution = true,
-        String resX = '0',
-        String resY = '0',
-        String SPU = '25',
-        String iter = '50',
-        String theshold = '0.05',
         String customBuildLinkWindows = "",
         String customBuildLinkOSX = "",
         String enginesNames = "Northstar,HybridPro",
@@ -1087,11 +1077,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    resX = (resX == 'Default') ? '0' : resX
-    resY = (resY == 'Default') ? '0' : resY
-    SPU = (SPU == 'Default') ? '25' : SPU
-    iter = (iter == 'Default') ? '50' : iter
-    theshold = (theshold == 'Default') ? '0.05' : theshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
@@ -1160,7 +1145,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
             println "Platforms: ${platforms}"
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
-            println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
 
             String prRepoName = ""
@@ -1177,10 +1161,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testRepo:"git@github.com:luxteam/jobs_test_maya.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
-                        enableNotifications:enableNotifications,
                         PRJ_NAME:"RadeonProRenderMayaPlugin",
                         PRJ_ROOT:"rpr-plugins",
-                        incrementVersion:incrementVersion,
                         renderDevice:renderDevice,
                         testsPackage:testsPackage,
                         testsPackageOriginal:testsPackage,
@@ -1189,9 +1171,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         executeBuild:false,
                         executeTests:isPreBuilt,
                         isPreBuilt:isPreBuilt,
-                        forceBuild:forceBuild,
                         reportName:'Test_20Report',
-                        splitTestsExecution:splitTestsExecution,
+                        splitTestsExecution:true,
                         gpusCount:gpusCount,
                         BUILDER_TAG:'BuilderRPRMaya',
                         TEST_TIMEOUT:120,
@@ -1199,11 +1180,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         NON_SPLITTED_PACKAGE_TIMEOUT:75,
                         DEPLOY_TIMEOUT:180,
                         TESTER_TAG:tester_tag,
-                        resX: resX,
-                        resY: resY,
-                        SPU: SPU,
-                        iter: iter,
-                        theshold: theshold,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkOSX: customBuildLinkOSX,
                         engines: formattedEngines,
