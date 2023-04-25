@@ -1163,7 +1163,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         updateRefs:updateRefs,
                         PRJ_NAME:"RadeonProRenderMayaPlugin",
                         PRJ_ROOT:"rpr-plugins",
-                        renderDevice:renderDevice,
                         testsPackage:testsPackage,
                         testsPackageOriginal:testsPackage,
                         tests:tests,
