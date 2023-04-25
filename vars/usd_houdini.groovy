@@ -115,14 +115,14 @@ def executeTestCommand(String osName, String asicName, Map options) {
             switch(osName) {
                 case 'Windows':
                     bat """
-                        run.bat ${options.testsPackage} \"${options.tests}\" \"${options.win_tool_path}\\bin\\husk.exe\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        run.bat ${options.testsPackage} \"${options.tests}\" \"${options.win_tool_path}\\bin\\husk.exe\" ${options.updateRefs} ${options.engine} 0 0 30 50 0.05 \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                     break
 
                 case 'OSX':
                     sh """
                         chmod +x run.sh
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" \"${options.osx_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\"  >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" \"${options.osx_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} 0 0 30 50 0.05 \"${rprTracesRoot}\" \"${rifTracesRoot}\"  >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                     break
 
@@ -483,7 +483,7 @@ def executePreBuild(Map options) {
         options.osx_tool_path = "/Applications/Houdini/Houdini${options.houdiniVersions[0]}/Frameworks/Houdini.framework/Versions/Current/Resources"
         options.unix_tool_path = "Houdini/hfs${options.houdiniVersions[0]}"
     // manual job
-    } else if (options.forceBuild) {
+    } else if (!env.BRANCH_NAME) {
         options.executeBuild = true
         options.executeTests = true
     // auto job
@@ -527,7 +527,7 @@ def executePreBuild(Map options) {
                 options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
                 options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
-                if (options['incrementVersion']) {
+                if (!env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -842,18 +842,10 @@ def call(String projectRepo = PROJECT_REPO,
         String testsPackage = "Smoke.json",
         String tests = "",
         String enginesNames = "Northstar",
-        String width = "0",
-        String height = "0",
-        String minSamples = "30",
-        String maxSamples = "50",
-        String threshold = "0.05",
         Boolean enableRIFTracing = false,
         Boolean enableRPRTracing = false,
         String tester_tag = "Houdini",
-        Boolean splitTestsExecution = true,
-        Boolean incrementVersion = true,
         String parallelExecutionTypeString = "TakeOneNodePerGPU",
-        Boolean forceBuild = false,
         String customBuildLinkWindows = "",
         String customBuildLinkUbuntu20 = "",
         String customBuildLinkMacOS = "",
@@ -931,23 +923,16 @@ def call(String projectRepo = PROJECT_REPO,
                         PRJ_ROOT: "rpr-plugins",
                         BUILDER_TAG: 'BuilderHoudini',
                         TESTER_TAG: tester_tag,
-                        incrementVersion: incrementVersion,
                         testsPackage: testsPackage,
                         tests: tests.replace(',', ' '),
-                        forceBuild: forceBuild,
                         reportName: 'Test_20Report',
-                        splitTestsExecution: splitTestsExecution,
+                        splitTestsExecution: true,
                         BUILD_TIMEOUT: 45,
                         TEST_TIMEOUT: 180,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:180,
                         houdiniVersions: houdiniVersions.split(",") as List,
                         gpusCount: gpusCount,
-                        width: width,
-                        height: height,
-                        minSamples: minSamples,
-                        maxSamples: maxSamples,
-                        threshold: threshold,
                         engines: enginesNamesList,
                         enableRIFTracing:enableRIFTracing,
                         enableRPRTracing:enableRPRTracing,
