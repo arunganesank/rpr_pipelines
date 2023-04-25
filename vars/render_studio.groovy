@@ -1668,7 +1668,6 @@ def call(
     String projectBranch = "",
     String testsBranch = "master",
     String platforms = 'Windows',
-    Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
