@@ -992,6 +992,14 @@ def initAndroidDevice() {
             println "[ERROR] Failed to connect to Android device"
         }
 
+        if (options.ANDROID_TAG == "Chromecase") {
+            // screensave can't be turned off, reboot the device to avoid it
+            println "[INFO] Reboot chromecast device"
+            bat "adb shell reboot"
+            bat "adb connect ${deviceName}:5555"
+            sleep(60)
+        }
+
         try {
             bat "adb -s ${deviceName} shell rm -rf sdcard/video*"
             println "[INFO] Android deviced is cleared"
