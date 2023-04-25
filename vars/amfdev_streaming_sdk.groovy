@@ -478,7 +478,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
         collectTraces = options.collectTracesType
     }
 
-    if options.collectStreamingTraces {
+    if (options.collectStreamingTraces) {
         collectStreamingTraces = "True"
     }
     else {
