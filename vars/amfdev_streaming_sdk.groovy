@@ -624,7 +624,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        if (options.tests.contains("AMD_Link")) {
+        if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
 
@@ -740,7 +740,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         killAdbServer()
 
-        if (options.tests.contains("AMD_Link")) {
+        if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
 
