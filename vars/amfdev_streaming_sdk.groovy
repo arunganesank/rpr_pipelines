@@ -793,7 +793,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             if (options["androidDevicesNumber"] > 0) {
                                 dir("StreamingSDKAndroid") {
-                                    initAndroidDevice()
+                                    initAndroidDevice(options)
                                     copyAndroidScripts()
                                     prepareTool("Android", options)
                                     installAndroidClient()
@@ -974,7 +974,7 @@ def killAdbServer() {
 }
 
 
-def initAndroidDevice() {
+def initAndroidDevice(Map options) {
     try {
         bat "adb kill-server"
         println "[INFO] ADB server is killed"
@@ -992,7 +992,7 @@ def initAndroidDevice() {
             println "[ERROR] Failed to connect to Android device"
         }
 
-        if (options.ANDROID_TAG == "Chromecase") {
+        if (options.ANDROID_TAG == "Chromecast") {
             // screensave can't be turned off, reboot the device to avoid it
             println "[INFO] Reboot chromecast device"
             bat "adb shell reboot"
@@ -1096,7 +1096,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
                 if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
-                        initAndroidDevice()
+                        initAndroidDevice(options)
                         copyAndroidScripts()
                         prepareTool("Android", options)
                         installAndroidClient()
