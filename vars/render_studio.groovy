@@ -1733,7 +1733,6 @@ def call(
                                 projectRepo:PROJECT_REPO,
                                 testRepo:TEST_REPO,
                                 testsBranch:testsBranch,
-                                enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,
