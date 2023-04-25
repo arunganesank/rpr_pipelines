@@ -526,7 +526,6 @@ def call(String projectBranch = "",
          String testsBranch = "master",
          String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
-         Boolean enableNotifications = true,
          Boolean executeFT = true) {
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -543,7 +542,6 @@ def call(String projectBranch = "",
                     projectBranch:projectBranch,
                     testRepo:"git@github.com:luxteam/rml_ft.git",
                     testsBranch:testsBranch,
-                    enableNotifications:enableNotifications,
                     PRJ_NAME:'RadeonML',
                     PRJ_ROOT:'rpr-ml',
                     BUILDER_TAG:'BuilderML',
