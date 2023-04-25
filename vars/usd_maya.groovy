@@ -198,7 +198,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                 case 'Windows':
                     dir('scripts') {
                         bat """
-                            run.bat ${options.renderDevice} \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.SPU} ${options.iter} ${options.theshold} ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                            run.bat gpu \"${testsPackageName}\" \"${testsNames}\" 0 0 25 50 0.05 ${options.toolVersion} ${options.engine} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                         """
                     }
                     break
@@ -594,7 +594,7 @@ def executePreBuild(Map options) {
         options.executeBuild = false
         options.executeTests = true
     // manual job
-    } else if (options.forceBuild) {
+    } else if (!env.BRANCH_NAME) {
         println "[INFO] Manual job launch detected"
         options['executeBuild'] = true
         options['executeTests'] = true
@@ -648,7 +648,7 @@ def executePreBuild(Map options) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
                 options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
-                if (options['incrementVersion']) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -743,7 +743,7 @@ def executePreBuild(Map options) {
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -1076,19 +1076,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String testsBranch = "master",
         String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M',
         String updateRefs = 'No',
-        Boolean enableNotifications = true,
-        Boolean incrementVersion = true,
-        String renderDevice = "gpu",
         String testsPackage = "",
         String tests = "",
         String toolVersion = "2024",
-        Boolean forceBuild = false,
-        Boolean splitTestsExecution = true,
-        String resX = '0',
-        String resY = '0',
-        String SPU = '25',
-        String iter = '50',
-        String theshold = '0.05',
         String customBuildLinkWindows = "",
         String enginesNames = "Northstar,HybridPro",
         String tester_tag = 'Maya',
@@ -1103,11 +1093,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    resX = (resX == 'Default') ? '0' : resX
-    resY = (resY == 'Default') ? '0' : resY
-    SPU = (SPU == 'Default') ? '25' : SPU
-    iter = (iter == 'Default') ? '50' : iter
-    theshold = (theshold == 'Default') ? '0.05' : theshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
@@ -1163,7 +1148,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
             println "Platforms: ${platforms}"
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
-            println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
 
             String prRepoName = ""
@@ -1180,11 +1164,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         testRepo:"git@github.com:luxteam/jobs_test_usdmaya.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
-                        enableNotifications:enableNotifications,
                         PRJ_NAME:"RPRMayaUSD",
                         PRJ_ROOT:"rpr-plugins",
-                        incrementVersion:incrementVersion,
-                        renderDevice:renderDevice,
                         testsPackage:testsPackage,
                         testsPackageOriginal:testsPackage,
                         tests:tests,
@@ -1192,9 +1173,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         executeBuild:false,
                         executeTests:isPreBuilt,
                         isPreBuilt:isPreBuilt,
-                        forceBuild:forceBuild,
                         reportName:'Test_20Report',
-                        splitTestsExecution:splitTestsExecution,
+                        splitTestsExecution:true,
                         gpusCount:gpusCount,
                         BUILD_TIMEOUT: 180,
                         TEST_TIMEOUT:150,
@@ -1203,11 +1183,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         DEPLOY_TIMEOUT:180,
                         BUILDER_TAG:"MayaUSDBuilder",
                         TESTER_TAG:tester_tag,
-                        resX: resX,
-                        resY: resY,
-                        SPU: SPU,
-                        iter: iter,
-                        theshold: theshold,
                         customBuildLinkWindows: customBuildLinkWindows,
                         engines: formattedEngines,
                         nodeRetry: nodeRetry,
