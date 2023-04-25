@@ -1542,8 +1542,8 @@ def executePreBuild(Map options) {
                 if (!options.platforms.contains("Android") && (options.multiconnectionConfiguration.android_client.any { (testsList.split("-")[0].split() as List).contains(it) } || options.testsPackage == "regression.json~")) {
                     options.platforms = options.platforms + ";Android"
 
-                    options.androidBuildConfiguration = ["debug"]
-                    options.androidTestingBuildName = "debug"
+                    options.androidBuildConfiguration = ["debugRuntime"]
+                    options.androidTestingBuildName = "debugRuntime"
 
                     println """
                         Android build configuration was updated: ${options.androidBuildConfiguration}
