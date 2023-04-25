@@ -478,12 +478,12 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
         collectTraces = options.collectTracesType
     }
 
-    if (options.collectStreamingTraces) {
+    /* if (options.collectStreamingTraces) {
         collectStreamingTraces = "True"
     }
     else {
         collectStreamingTraces = "False"
-    }
+    } */
 
     dir("scripts") {
         switch (osName) {
@@ -1887,7 +1887,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                     Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
 
                     GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}"]) {
+                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}", "SHOW_STREAMING_TRACES=${options.collectStreamingTraces}"]) {
                         dir("jobs_launcher") {
                             List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                             retryInfoList.each{ gpu ->
