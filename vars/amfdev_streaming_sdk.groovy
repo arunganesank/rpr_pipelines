@@ -478,13 +478,6 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
         collectTraces = options.collectTracesType
     }
 
-    /* if (options.collectStreamingTraces) {
-        collectStreamingTraces = "True"
-    }
-    else {
-        collectStreamingTraces = "False"
-    } */
-
     dir("scripts") {
         switch (osName) {
             case "Windows":
@@ -497,7 +490,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                     if (options.serverInfo.osName.contains("Windows")) {
                         bat """
                             set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
                     } else if (options.serverInfo.osName.contains("Ubuntu")) {
                         bat """
@@ -512,7 +505,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} ${collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -521,7 +514,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Android":
                 bat """
                     set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                 """
 
                 break
