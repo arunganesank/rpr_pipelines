@@ -772,7 +772,7 @@ def executeBuildWindows(Map options) {
     options["stage"] = "Build"
 
     withEnv(["PATH=C:\\Cmake326\\bin;${PATH}"]) {
-        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
             utils.reboot(this, "Windows")
 
             String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
@@ -943,7 +943,7 @@ def executeBuildLinux(Map options) {
 
     options["stage"] = "Build"
 
-    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
