@@ -601,7 +601,7 @@ def executePreBuild(Map options)
         options['executeBuild'] = false
         options['executeTests'] = true
     // manual job
-    } else if (env.BRANCH_NAME) {
+    } else if (!env.BRANCH_NAME) {
         println "[INFO] Manual job launch detected"
         options['executeBuild'] = true
         options['executeTests'] = true
@@ -742,7 +742,7 @@ def executePreBuild(Map options)
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
+                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
