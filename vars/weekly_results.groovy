@@ -57,7 +57,7 @@ def getProblemsCount(String jobName, String buildUrl){
     try{
         if (jobName == "WML-Weekly"){
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
-            def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"]
+            def parsedCases = parsedReport["children"][0]
             def failed = 0
 
             for (caseInfo in parsedCases){
@@ -79,23 +79,26 @@ def getProblemsCount(String jobName, String buildUrl){
                 def error = 0
                 def parsedEngine = parsedReport[engine]
 
-                for (platform in parsedEngine["platforms"]){
-                    failed += parsedEngine["platforms"][platform]["summary"]["failed"]
-                    error += parsedEngine["platforms"][platform]["summary"]["error"]
-                }
+                if (parsedEngine != null){
+                    for (platform in parsedEngine["platforms"]){
+                        failed += parsedEngine["platforms"][platform]["summary"]["failed"]
+                        error += parsedEngine["platforms"][platform]["summary"]["error"]
+                    }
 
-                problems.add([engine: ["failed": failed, "error": error]])
+                    problems.add([engine: ["failed": failed, "error": error]])
+                }
             }
 
             println(problems)
             return problems
         } else if (summaryList.contains(jobName)){
             def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
+            def parsedReport = null
 
             if (jobName == "RenderStudio-Weekly"){
-                def parsedReport = doRequest("${preparedUrl}Test_Report_Desktop/summary_report.json")
+                parsedReport = doRequest("${preparedUrl}Test_Report_Desktop/summary_report.json")
             } else {
-                def parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
+                parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
             }
             def failed = 0
             def error = 0
