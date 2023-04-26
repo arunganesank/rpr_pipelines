@@ -2,6 +2,11 @@ import java.lang.IllegalStateException
 
 
 def call(Map options) {
+    if (env.BRANCH_NAME) {
+        // do not validate auto jobs
+        return
+    }
+
     Boolean validationPassed = true
 
     if (options.containsKey("projectRepo") && !options["projectRepo"]) {
