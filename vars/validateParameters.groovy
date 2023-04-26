@@ -1,3 +1,6 @@
+import java.net.MalformedURLException
+
+
 def call(Map options) {
     Boolean validationPassed = true
 
@@ -11,7 +14,62 @@ def call(Map options) {
         validationPassed = false
     }
 
+    List customLinkParams = [
+        "customBuildLinkWindows",
+        "customBuildLinkOSX",
+        "customBuildLinkMacOS",
+        "customBuildLinkMacOSARM",
+        "customBuildLinkLinux",
+        "customBuildLinkUbuntu18",
+        "customBuildLinkUbuntu20"
+    ]
+
+    for (paramName in customLinkParams) {
+        if (options.containsKey(paramName) && options[paramName]) {
+            // check only that URL is valid (ignore status code and timeout exceptions)
+            try {
+                def response = httpRequest(
+                    url: "https://cis.nas.luxoft.com:5001/",
+                    httpMode: 'GET',
+                    validResponseCodes: '0:500',
+                    timeout: 5
+                )
+            } catch (MalformedURLException e) {
+                options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.INVALID_PREBUILD_LINK.replace("<paramName>", paramName), "Init")
+                validationPassed = false
+            } catch (Exception e) {
+                // ignore any other exception
+            }
+        }
+    }
+
+    if (options.containsKey("engines") && !options["engines"]) {
+        if (env.JOB_NAME.contains("USD-Blender")) {
+            options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_DELEGATES, "Init")
+        } else {
+            options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_ENGINES, "Init")
+        }
+
+        validationPassed = false
+    }
+
+    if (options.containsKey("houdiniVersions") && !options["houdiniVersions"]) {
+        options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_HOUDINI_VERSIONS, "Init")
+        validationPassed = false
+    }
+
+    if (options.containsKey("rebuildDeps") && options.containsKey("updateDeps") && !options["rebuildDeps"] && options["updateDeps"]) {
+        options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.UPDATE_DEPS_WITHOUT_REBUILD, "Init")
+        validationPassed = false
+    }
+
+    if (options.containsKey("rebuildUSD") && options.containsKey("saveUSD") && !options["rebuildUSD"] && options["saveUSD"]) {
+        options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.UPDATE_USD_WITHOUT_REBUILD, "Init")
+        validationPassed = false
+    }
+
     if (!validationPassed) {
         throw new Exception("Validation failed")
     }
 }
+

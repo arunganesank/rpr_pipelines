@@ -114,7 +114,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
             case 'Windows':
                 dir('scripts') {
                     bat """
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" 0 0 50 0.05 ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
                 break
@@ -122,7 +122,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
             default:
                 dir("scripts") {
                     sh """
-                        ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                        ./run.sh \"${testsPackageName}\" \"${testsNames}\" 0 0 50 0.05 ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
                     """
                 }
             }
@@ -1101,12 +1101,6 @@ def call(String projectRepo = PROJECT_REPO,
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.DELEGATES_PARAM) {
-                if (!enginesNames) {
-                    throw new Exception()
-                }
-            }
-
             if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
                 enginesNames = "Hybrid"
             }
@@ -1217,6 +1211,10 @@ def call(String projectRepo = PROJECT_REPO,
                         testsPackageOriginal: testsPackage,
                         collectTraces: collectTraces
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
