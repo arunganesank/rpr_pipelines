@@ -10,10 +10,10 @@ public class NotificationConfiguration {
 
     def static NO_OUTPUT_IMAGE_SANITY_CHECK = "No output image after sanity check."
     
-    def static ENGINES_PARAM = [
+    def static VALIDATION_FAILED = [
         "exceptions": [
             [
-                "class": Exception, "problemMessage": "Engines parameter is required.", 
+                "class": Exception, "problemMessage": "Parameters validation isn't passed.", 
                 "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
             ]
         ]
@@ -787,4 +787,9 @@ public class NotificationConfiguration {
 
     def static FAILED_UNIT_TESTS = "Some unit tests were marked as failed"
 
+
+    // messages for validation problems
+    def static EMPTY_PROJECT_REPO = "<b>The projectRepo parameter is empty</b>. Please, check the correctness of the selected values"
+
+    def static EMPTY_PROJECT_BRANCH = "<b>The projectBranch parameter is empty</b>. Please, check the correctness of the selected values"
 }

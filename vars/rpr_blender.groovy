@@ -1102,12 +1102,6 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.ENGINES_PARAM) {
-                if (!enginesNames) {
-                    throw new Exception()
-                }
-            }
-
             def enginesNamesList = enginesNames.split(',') as List
             def formattedEngines = []
             enginesNamesList.each {
@@ -1224,6 +1218,10 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         skipCallback: this.&filter,
                         collectTraces: collectTraces
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
