@@ -1727,54 +1727,50 @@ def call(
 
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
 
-    try {
-        withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            def options = [configuration: PIPELINE_CONFIGURATION,
-                                        platforms: platforms,
-                                        projectBranch:projectBranch,
-                                        projectRepo:PROJECT_REPO,
-                                        testRepo:TEST_REPO,
-                                        testsBranch:testsBranch,
-                                        deployEnvironment: deployEnvironment,
-                                        customDomain: customDomain,
-                                        disableSsl: disableSsl,
-                                        deploy:deploy, 
-                                        PRJ_NAME:'RS',
-                                        PRJ_ROOT:'radeon-pro',
-                                        BUILDER_TAG:'BuilderWebUsdViewer',
-                                        executeBuild:!isPreBuilt,
-                                        executeTests:true,
-                                        BUILD_TIMEOUT:120,
-                                        TEST_TIMEOUT:240,
-                                        NON_SPLITTED_PACKAGE_TIMEOUT: 240,
-                                        problemMessageManager:problemMessageManager,
-                                        isPreBuilt:isPreBuilt,
-                                        splitTestsExecution: true,
-                                        storeOnNAS: true,
-                                        flexibleUpdates: true,
-                                        skipCallback: this.&filter,
-                                        modes: modes,
-                                        testsPackage:testsPackage,
-                                        tests:tests,
-                                        updateRefs:updateRefs,
-                                        testsPreCondition: this.&hasIdleClients,
-                                        testCaseRetries:testCaseRetries,
-                                        executeBuild: !skipBuild,
-                                        customBuildLinkWindows:customBuildLinkWindows,
-                                        ADDITIONAL_XML_TIMEOUT:15,
-                                        nodeRetry: [],
-                                        rebuildUSD: rebuildUSD,
-                                        saveUSD: saveUSD,
-                                        finishedBuildStages: new ConcurrentHashMap(),
-                                        parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
-                                        useTrackedMetrics:useTrackedMetrics,
-                                        saveTrackedMetrics:saveTrackedMetrics
-                                        ]
+    def options = [configuration: PIPELINE_CONFIGURATION,
+                                platforms: platforms,
+                                projectBranch:projectBranch,
+                                projectRepo:PROJECT_REPO,
+                                testRepo:TEST_REPO,
+                                testsBranch:testsBranch,
+                                deployEnvironment: deployEnvironment,
+                                customDomain: customDomain,
+                                disableSsl: disableSsl,
+                                deploy:deploy, 
+                                PRJ_NAME:'RS',
+                                PRJ_ROOT:'radeon-pro',
+                                BUILDER_TAG:'BuilderWebUsdViewer',
+                                executeBuild:!isPreBuilt,
+                                executeTests:true,
+                                BUILD_TIMEOUT:120,
+                                TEST_TIMEOUT:240,
+                                NON_SPLITTED_PACKAGE_TIMEOUT: 240,
+                                problemMessageManager:problemMessageManager,
+                                isPreBuilt:isPreBuilt,
+                                splitTestsExecution: true,
+                                storeOnNAS: true,
+                                flexibleUpdates: true,
+                                skipCallback: this.&filter,
+                                modes: modes,
+                                testsPackage:testsPackage,
+                                tests:tests,
+                                updateRefs:updateRefs,
+                                testsPreCondition: this.&hasIdleClients,
+                                testCaseRetries:testCaseRetries,
+                                executeBuild: !skipBuild,
+                                customBuildLinkWindows:customBuildLinkWindows,
+                                ADDITIONAL_XML_TIMEOUT:15,
+                                nodeRetry: [],
+                                rebuildUSD: rebuildUSD,
+                                saveUSD: saveUSD,
+                                finishedBuildStages: new ConcurrentHashMap(),
+                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                                useTrackedMetrics:useTrackedMetrics,
+                                saveTrackedMetrics:saveTrackedMetrics
+                                ]
 
-            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
-                validateParameters(options)
-            }
-        }
+    withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+        validateParameters(options)
     }
 
     try {
