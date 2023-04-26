@@ -131,7 +131,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
                         export HOUDINI_USER_PREF_DIR=/home/\$(eval whoami)/houdini${options.toolVersion.tokenize('.')[0]}.${options.toolVersion.tokenize('.')[1]}
                         export LD_LIBRARY_PATH="/home/\$(eval whoami)/Houdini/hfs${options.toolVersion}/dsolib"
                         chmod +x run.sh
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" \"/home/\$(eval whoami)/${options.unix_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} ${options.width} ${options.height} ${options.minSamples} ${options.maxSamples} ${options.threshold} \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" \"/home/\$(eval whoami)/${options.unix_tool_path}/bin/husk\" ${options.updateRefs} ${options.engine} 0 0 30 50 0.05 \"${rprTracesRoot}\" \"${rifTracesRoot}\" >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
             }
         }
