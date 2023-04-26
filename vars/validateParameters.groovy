@@ -43,7 +43,7 @@ def call(Map options) {
         }
     }
 
-    if (options.containsKey("engines") && (options["engines"].size() == 0 || options["engines"][0] != "")) {
+    if (options.containsKey("engines") && (options["engines"].size() == 0 || options["engines"][0] == "")) {
         if (env.JOB_NAME.contains("USD-Blender")) {
             options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_DELEGATES, "Init")
         } else {
@@ -53,7 +53,7 @@ def call(Map options) {
         validationPassed = false
     }
 
-    if (options.containsKey("houdiniVersions") && (options["houdiniVersions"].size() == 0 || options["houdiniVersions"][0] != "")) {
+    if (options.containsKey("houdiniVersions") && (options["houdiniVersions"].size() == 0 || options["houdiniVersions"][0] == "")) {
         options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_HOUDINI_VERSIONS, "Init")
         validationPassed = false
     }
