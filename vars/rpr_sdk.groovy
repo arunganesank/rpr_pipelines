@@ -689,12 +689,6 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.ENGINES_PARAM) {
-                if (!enginesNames) {
-                    throw new Exception()
-                }
-            }
-
             enginesNamesList = enginesNames.split(',') as List
 
             Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkUbuntu18 || customBuildLinkUbuntu20
@@ -796,6 +790,10 @@ def call(String projectBranch = "",
                         flexibleUpdates: true,
                         skipCallback: this.&filter
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)

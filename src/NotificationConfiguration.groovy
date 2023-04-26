@@ -10,28 +10,10 @@ public class NotificationConfiguration {
 
     def static NO_OUTPUT_IMAGE_SANITY_CHECK = "No output image after sanity check."
     
-    def static ENGINES_PARAM = [
+    def static VALIDATION_FAILED = [
         "exceptions": [
             [
-                "class": Exception, "problemMessage": "Engines parameter is required.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
-            ]
-        ]
-    ]
-
-    def static HOUDINI_VERSIONS_PARAM = [
-        "exceptions": [
-            [
-                "class": Exception, "problemMessage": "Only one Houdini version for build can be selected in case of Pre Built plugin.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
-            ]
-        ]
-    ]
-
-    def static DELEGATES_PARAM = [
-        "exceptions": [
-            [
-                "class": Exception, "problemMessage": "Delegates parameter is required.", 
+                "class": Exception, "problemMessage": "Parameters validation isn't passed.", 
                 "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
             ]
         ]
@@ -787,4 +769,21 @@ public class NotificationConfiguration {
 
     def static FAILED_UNIT_TESTS = "Some unit tests were marked as failed"
 
+
+    // messages for validation problems
+    def static EMPTY_PROJECT_REPO = "<b>The projectRepo parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_PROJECT_BRANCH = "<b>The projectBranch parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static INVALID_PREBUILD_LINK = "<b>The link in the <paramName> parameter is invalid.</b> Please, check the correctness of the provided data and restart the build."
+
+    def static EMPTY_ENGINES = "<b>The engines parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_DELEGATES = "<b>The delegates parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_HOUDINI_VERSIONS = "<b>The houdiniVersions parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static UPDATE_DEPS_WITHOUT_REBUILD = "<b>The updateDeps parameter is selected, but the rebuildDeps parameter is unselected.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static UPDATE_USD_WITHOUT_REBUILD = "<b>The saveUSD parameter is selected, but the rebuildUSD parameter is unselected.</b> Please, check the correctness of the selected values and restart the build."
 }

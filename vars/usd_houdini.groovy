@@ -896,12 +896,6 @@ def call(String projectRepo = PROJECT_REPO,
                 platforms = filteredPlatforms
             }
 
-            withNotifications(options: options, configuration: NotificationConfiguration.HOUDINI_VERSIONS_PARAM) {
-                if (isPreBuilt && (houdiniVersions.split(",") as List).size() > 1) {
-                    throw new Exception()
-                }
-            }
-
             def parallelExecutionType = TestsExecutionType.valueOf(parallelExecutionTypeString)
 
             String prRepoName = ""
@@ -952,6 +946,10 @@ def call(String projectRepo = PROJECT_REPO,
                         prBranchName:prBranchName,
                         notificationsTitlePrefix: "HOUDINI"
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
     } catch(e) {

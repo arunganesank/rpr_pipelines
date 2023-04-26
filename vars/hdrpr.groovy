@@ -914,6 +914,10 @@ def call(String projectRepo = PROJECT_REPO,
                         reportType: ReportType.DEFAULT,
                         buildArgsFunc: this.&getReportBuildArgs
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
     } catch(e) {
