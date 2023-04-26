@@ -35,8 +35,10 @@ def call(Map options) {
                     timeout: 5
                 )
             } catch (IllegalStateException e) {
-                options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.INVALID_PREBUILD_LINK.replace("<paramName>", paramName), "Init")
-                validationPassed = false
+                if (e.getCause().getClass().toString().contains("MalformedURLException")) {
+                    options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.INVALID_PREBUILD_LINK.replace("<paramName>", paramName), "Init")
+                    validationPassed = false
+                }
             } catch (Exception e) {
                 // ignore any other exception
             }
