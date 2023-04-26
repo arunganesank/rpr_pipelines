@@ -1,4 +1,4 @@
-import java.net.MalformedURLException
+import java.lang.IllegalStateException
 
 
 def call(Map options) {
@@ -29,12 +29,12 @@ def call(Map options) {
             // check only that URL is valid (ignore status code and timeout exceptions)
             try {
                 def response = httpRequest(
-                    url: "https://cis.nas.luxoft.com:5001/",
+                    url: options[paramName],
                     httpMode: 'GET',
                     validResponseCodes: '0:500',
                     timeout: 5
                 )
-            } catch (MalformedURLException e) {
+            } catch (IllegalStateException e) {
                 options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.INVALID_PREBUILD_LINK.replace("<paramName>", paramName), "Init")
                 validationPassed = false
             } catch (Exception e) {
@@ -43,7 +43,7 @@ def call(Map options) {
         }
     }
 
-    if (options.containsKey("engines") && !options["engines"]) {
+    if (options.containsKey("engines") && (options["engines"].size() == 0 || options["engines"][0] != "")) {
         if (env.JOB_NAME.contains("USD-Blender")) {
             options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_DELEGATES, "Init")
         } else {
@@ -53,7 +53,7 @@ def call(Map options) {
         validationPassed = false
     }
 
-    if (options.containsKey("houdiniVersions") && !options["houdiniVersions"]) {
+    if (options.containsKey("houdiniVersions") && (options["houdiniVersions"].size() == 0 || options["houdiniVersions"][0] != "")) {
         options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_HOUDINI_VERSIONS, "Init")
         validationPassed = false
     }
