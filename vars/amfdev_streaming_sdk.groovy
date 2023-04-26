@@ -514,11 +514,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Android":
                 bat """
                     set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-<<<<<<< HEAD
                     run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
-=======
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\"  1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
->>>>>>> origin/master
                 """
 
                 break
