@@ -505,7 +505,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -514,7 +514,11 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Android":
                 bat """
                     set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+<<<<<<< HEAD
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
+=======
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\"  1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+>>>>>>> origin/master
                 """
 
                 break
@@ -2045,6 +2049,7 @@ def call(String projectBranch = "",
     Boolean storeOnNAS = false,
     Boolean collectInternalDriverVersion = false,
     String skipBuild = "",
+    String inGameResolution = "1920x1080",
     Boolean collectStreamingTraces = false
     )
 {
@@ -2173,6 +2178,7 @@ def call(String projectBranch = "",
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
                         executeBuild: executeBuild,
                         skipBuild: skipBuild,
+                        inGameResolution: inGameResolution,
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
