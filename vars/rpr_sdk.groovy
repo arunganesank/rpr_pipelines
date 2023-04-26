@@ -76,7 +76,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             dir('scripts') {
                 bat """
                     ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                    run.bat ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                    run.bat ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                 """
             }
             break
@@ -85,7 +85,7 @@ def executeTestCommand(String osName, String asicName, Map options)
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
                         ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
             }
@@ -95,7 +95,7 @@ def executeTestCommand(String osName, String asicName, Map options)
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
                         ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" ${options.width} ${options.height} ${options.iterations} ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
             }
@@ -667,13 +667,8 @@ def call(String projectBranch = "",
          String testsBranch = "master",
          String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT,AppleM1;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String updateRefs = 'No',
-         Boolean enableNotifications = true,
-         String renderDevice = "gpu",
          String testsPackage = "Full.json",
          String tests = "",
-         String width = "0",
-         String height = "0",
-         String iterations = "0",
          String customBuildLinkWindows = "",
          String customBuildLinkUbuntu18 = "",
          String customBuildLinkUbuntu20 = "",
@@ -681,8 +676,7 @@ def call(String projectBranch = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
-         String enginesNames = "Northstar64,HybridPro",
-         Boolean collectTrackedMetrics = false)
+         String enginesNames = "Northstar64,HybridPro")
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -770,12 +764,10 @@ def call(String projectBranch = "",
                         testRepo:"git@github.com:luxteam/jobs_test_core.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
-                        enableNotifications:enableNotifications,
                         PRJ_NAME:"RadeonProRenderCore",
                         PRJ_ROOT:"rpr-core",
                         TESTER_TAG:tester_tag,
                         slackChannel:"cis_core",
-                        renderDevice:renderDevice,
                         testsPackage:testsPackage,
                         tests:tests.replace(',', ' '),
                         executeBuild:true,
@@ -784,10 +776,7 @@ def call(String projectBranch = "",
                         engines:enginesNamesList,
                         TEST_TIMEOUT:180,
                         DEPLOY_TIMEOUT:30,
-                        width:width,
                         gpusCount:gpusCount,
-                        height:height,
-                        iterations:iterations,
                         nodeRetry: nodeRetry,
                         errorsInSuccession: errorsInSuccession,
                         problemMessageManager: problemMessageManager,
@@ -796,7 +785,7 @@ def call(String projectBranch = "",
                         prBranchName:prBranchName,
                         parallelExecutionType:parallelExecutionType,
                         parallelExecutionTypeString: parallelExecutionTypeString,
-                        collectTrackedMetrics:collectTrackedMetrics,
+                        collectTrackedMetrics:false,
                         isPreBuilt:isPreBuilt,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu18: customBuildLinkUbuntu18,

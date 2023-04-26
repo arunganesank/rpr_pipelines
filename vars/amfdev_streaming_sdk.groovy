@@ -490,7 +490,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                     if (options.serverInfo.osName.contains("Windows")) {
                         bat """
                             set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
                     } else if (options.serverInfo.osName.contains("Ubuntu")) {
                         bat """
@@ -505,7 +505,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -514,7 +514,11 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Android":
                 bat """
                     set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" \"${options.inGameResolution}\" 2>&1
+<<<<<<< HEAD
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
+=======
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\"  1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+>>>>>>> origin/master
                 """
 
                 break
@@ -624,7 +628,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        if (options.tests.contains("AMD_Link")) {
+        if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
 
@@ -740,7 +744,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         killAdbServer()
 
-        if (options.tests.contains("AMD_Link")) {
+        if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
 
@@ -793,7 +797,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         if (osName == "Windows") {
                             if (options["androidDevicesNumber"] > 0) {
                                 dir("StreamingSDKAndroid") {
-                                    initAndroidDevice()
+                                    initAndroidDevice(options)
                                     copyAndroidScripts()
                                     prepareTool("Android", options)
                                     installAndroidClient()
@@ -974,7 +978,7 @@ def killAdbServer() {
 }
 
 
-def initAndroidDevice() {
+def initAndroidDevice(Map options) {
     try {
         bat "adb kill-server"
         println "[INFO] ADB server is killed"
@@ -990,6 +994,14 @@ def initAndroidDevice() {
             println "[INFO] Connected to Android device"
         } catch (Exception e) {
             println "[ERROR] Failed to connect to Android device"
+        }
+
+        if (options.ANDROID_TAG == "Chromecast") {
+            // screensave can't be turned off, reboot the device to avoid it
+            println "[INFO] Reboot chromecast device"
+            bat "adb shell reboot"
+            bat "adb connect ${deviceName}:5555"
+            sleep(60)
         }
 
         try {
@@ -1088,7 +1100,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
                 if (!options.skipBuild.contains("Android")) {
                     dir("StreamingSDKAndroid") {
-                        initAndroidDevice()
+                        initAndroidDevice(options)
                         copyAndroidScripts()
                         prepareTool("Android", options)
                         installAndroidClient()
@@ -1880,7 +1892,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                     Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
 
                     GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}"]) {
+                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}", "SHOW_STREAMING_TRACES=${options.collectStreamingTraces}"]) {
                         dir("jobs_launcher") {
                             List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                             retryInfoList.each{ gpu ->
@@ -2037,7 +2049,8 @@ def call(String projectBranch = "",
     Boolean storeOnNAS = false,
     Boolean collectInternalDriverVersion = false,
     String skipBuild = "",
-    String inGameResolution = "1920x1080"
+    String inGameResolution = "1920x1080",
+    Boolean collectStreamingTraces = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2169,7 +2182,8 @@ def call(String projectBranch = "",
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
-                        retriesForTestStage:2
+                        retriesForTestStage:2,
+                        collectStreamingTraces:collectStreamingTraces
                         ]
         }
 

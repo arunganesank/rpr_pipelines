@@ -598,7 +598,7 @@ def executePreBuild(Map options)
         options.executeBuild = false
         options.executeTests = true
     // manual job
-    } else if (options.forceBuild) {
+    } else if (!env.BRANCH_NAME) {
         println "[INFO] Manual job launch detected"
         options['executeBuild'] = true
         options['executeTests'] = true
@@ -650,7 +650,7 @@ def executePreBuild(Map options)
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
-                if (options['incrementVersion']) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -751,7 +751,7 @@ def executePreBuild(Map options)
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -1077,16 +1077,8 @@ def call(String projectRepo = PROJECT_REPO,
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',
-    Boolean enableNotifications = true,
-    Boolean incrementVersion = true,
     String testsPackage = "",
     String tests = "",
-    Boolean forceBuild = false,
-    Boolean splitTestsExecution = true,
-    String resX = '0',
-    String resY = '0',
-    String iter = '50',
-    String threshold = '0.05',
     String customBuildLinkWindows = "",
     String customBuildLinkUbuntu20 = "",
     String customBuildLinkOSX = "",
@@ -1104,10 +1096,6 @@ def call(String projectRepo = PROJECT_REPO,
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    resX = (resX == 'Default') ? '0' : resX
-    resY = (resY == 'Default') ? '0' : resY
-    iter = (iter == 'Default') ? '50' : iter
-    threshold = (threshold == 'Default') ? '0.05' : threshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
@@ -1176,7 +1164,6 @@ def call(String projectRepo = PROJECT_REPO,
             println "Platforms: ${platforms}"
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
-            println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
 
             String prRepoName = ""
@@ -1194,30 +1181,23 @@ def call(String projectRepo = PROJECT_REPO,
                         testRepo:"git@github.com:luxteam/jobs_test_usdblender.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
-                        enableNotifications:enableNotifications,
                         PRJ_NAME:"BlenderUSDHydraPlugin",
                         PRJ_ROOT:"rpr-plugins",
-                        incrementVersion:incrementVersion,
                         rebuildDeps:rebuildDeps,
                         updateDeps:updateDeps,
                         testsPackage:testsPackage,
                         tests:tests,
                         toolVersion:toolVersion,
                         isPreBuilt:isPreBuilt,
-                        forceBuild:forceBuild,
                         reportName:'Test_20Report',
-                        splitTestsExecution:splitTestsExecution,
+                        splitTestsExecution:true,
                         gpusCount:gpusCount,
                         TEST_TIMEOUT:240,
                         ADDITIONAL_XML_TIMEOUT:30,
                         NON_SPLITTED_PACKAGE_TIMEOUT:90,
                         DEPLOY_TIMEOUT:30,
                         BUILDER_TAG:'BuilderHydra',
-                        TESTER_TAG:tester_tag,
-                        resX: resX,
-                        resY: resY,
-                        iter: iter,
-                        threshold: threshold,
+                        TESTER_TAG:tester_tag,,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
                         customBuildLinkOSX: customBuildLinkOSX,

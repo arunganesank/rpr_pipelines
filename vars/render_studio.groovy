@@ -772,7 +772,7 @@ def executeBuildWindows(Map options) {
     options["stage"] = "Build"
 
     withEnv(["PATH=C:\\Cmake326\\bin;${PATH}"]) {
-        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
             utils.reboot(this, "Windows")
 
             String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
@@ -943,7 +943,7 @@ def executeBuildLinux(Map options) {
 
     options["stage"] = "Build"
 
-    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
@@ -1667,14 +1667,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RX6800XT,AMD_RX7900XT',
-    Boolean enableNotifications = false,
+    String platforms = 'Windows',
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    String testsPackage = "regression.json",
+    String testsPackage = "none",
     String tests = '',
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
@@ -1696,7 +1695,7 @@ def call(
         }
     }
 
-    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows:")) {
+    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows")) {
         skipBuild = false
     } else if (customBuildLinkWindows && !skipBuild) {
         skipBuild = true
@@ -1734,7 +1733,6 @@ def call(
                                 projectRepo:PROJECT_REPO,
                                 testRepo:TEST_REPO,
                                 testsBranch:testsBranch,
-                                enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,

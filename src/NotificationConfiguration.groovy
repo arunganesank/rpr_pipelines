@@ -252,9 +252,9 @@ public class NotificationConfiguration {
         ]
     ]
 
-    def static BUILD_SOURCE_CODE_WEBUSD = [
-        "begin": ["message": "WebUSD build started."],
-        "end": ["message": "WebUSD build finished."],
+    def static BUILD_SOURCE_CODE_RENDER_STUDIO = [
+        "begin": ["message": "Render Studio build started."],
+        "end": ["message": "Render Studio build finished."],
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to build the project.", 

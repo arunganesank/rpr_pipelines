@@ -718,7 +718,9 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", options.storeOnNAS)
+                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", \
+                            "Test Report", "Summary Report (Overview)", options.storeOnNAS, \
+                            ["jenkinsBuildUrl": self.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
                     }
                 }
             }
