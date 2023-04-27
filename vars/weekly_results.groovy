@@ -57,7 +57,7 @@ def getProblemsCount(String jobName, String buildUrl){
     try{
         if (jobName == "WML-Weekly"){
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
-            def parsedCases = parsedReport["children"][0]
+            def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"][0]
             def failed = 0
 
             for (caseInfo in parsedCases){
@@ -75,18 +75,20 @@ def getProblemsCount(String jobName, String buildUrl){
             def problems = []
 
             for (engine in parsedReport){
+                println("Engine: ${engine}")
                 def failed = 0
                 def error = 0
                 def parsedEngine = parsedReport[engine]
 
-                if (parsedEngine != null){
-                    for (platform in parsedEngine["platforms"]){
-                        failed += parsedEngine["platforms"][platform]["summary"]["failed"]
-                        error += parsedEngine["platforms"][platform]["summary"]["error"]
-                    }
 
-                    problems.add([engine: ["failed": failed, "error": error]])
+                for (platform in parsedEngine["platforms"]){
+                    failed += parsedEngine["platforms"][platform]["summary"]["failed"]
+                    error += parsedEngine["platforms"][platform]["summary"]["error"]
                 }
+
+                println([engine: ["failed": failed, "error": error]])
+                problems.add([engine: ["failed": failed, "error": error]])
+                
             }
 
             println(problems)
@@ -104,11 +106,8 @@ def getProblemsCount(String jobName, String buildUrl){
             def error = 0
 
             for (gpu in parsedReport){
-                for (engine in parsedReport[gpu]["summary"]){
-                    // if (engine != "MaterialX")?
-                    failed += parsedReport[gpu]["summary"][engine]["failed"]
-                    error += parsedReport[gpu]["summary"][engine]["error"]
-                }
+                failed += parsedReport[gpu]["summary"]["failed"]
+                error += parsedReport[gpu]["summary"]["error"]
             }
 
             println(["Results": ["failed": failed, "error": error]])
