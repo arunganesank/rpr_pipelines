@@ -2,7 +2,7 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
 
 def getStoragesCredentials(Boolean replicate) {
-    if (env.NODE_LABELS.split().contains("MacOS")) {
+    if (env.NODE_LABELS.split().contains("OldNAS")) {
         return [
                    ["url": "nasURL", "port": "nasSSHPort"],
                    ["url": "nasURLOld", "port": "nasSSHPort"]
