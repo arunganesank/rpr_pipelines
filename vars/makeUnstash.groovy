@@ -2,7 +2,7 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
 
 String getSuitableStorageURL() {
-    if (env.NODE_LABELS.split().contains("MacOS")) {
+    if (env.NODE_LABELS.split().contains("OldNAS")) {
         return "nasURLOld"
     } else {
         return "nasURL"
