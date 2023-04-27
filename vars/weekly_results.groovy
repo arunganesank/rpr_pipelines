@@ -75,15 +75,12 @@ def getProblemsCount(String jobName, String buildUrl){
             def problems = []
 
             for (engine in parsedReport){
-                println("Engine: ${engine}")
                 def failed = 0
                 def error = 0
-                def parsedEngine = parsedReport[engine]
 
-
-                for (platform in parsedEngine["platforms"]){
-                    failed += parsedEngine["platforms"][platform]["summary"]["failed"]
-                    error += parsedEngine["platforms"][platform]["summary"]["error"]
+                for (platform in engine["platforms"]){
+                    failed += [platform]["summary"]["failed"]
+                    error += [platform]["summary"]["error"]
                 }
 
                 println([engine: ["failed": failed, "error": error]])
@@ -106,8 +103,8 @@ def getProblemsCount(String jobName, String buildUrl){
             def error = 0
 
             for (gpu in parsedReport){
-                failed += parsedReport[gpu]["summary"]["failed"]
-                error += parsedReport[gpu]["summary"]["error"]
+                failed += gpu["summary"]["failed"]
+                error += gpu["summary"]["error"]
             }
 
             println(["Results": ["failed": failed, "error": error]])
