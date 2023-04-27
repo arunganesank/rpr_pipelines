@@ -88,8 +88,8 @@ class utils {
 
             String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${subFolder}/${stashName}/" 
 
-            self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true)
-            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true)
+            self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
+            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true, replicate: false)
         } else {
             self.makeStash(includes: '**/*', excludes: excludes, name: options.testResultsName, allowEmpty: true)
         }

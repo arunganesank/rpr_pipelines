@@ -1,7 +1,7 @@
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
 
-def getStoragesCredentials() {
+def getStoragesCredentials(Boolean replicate) {
     if (env.NODE_LABELS.split().contains("MacOS")) {
         return [
                    ["url": "nasURL", "port": "nasSSHPort"],
@@ -44,6 +44,7 @@ def call(Map params) {
         Boolean preZip = params.containsKey("preZip") ? params["preZip"] : true
         Boolean postUnzip = params.containsKey("postUnzip") ? (preZip && params["postUnzip"]) : false
         Boolean storeOnNAS = params.containsKey("storeOnNAS") ? params["storeOnNAS"] : false
+        Boolean replicate = params.containsKey("replicate") ? params["replicate"] : true
 
         if (storeOnNAS) {
             def includeParams = []
@@ -104,7 +105,7 @@ def call(Map params) {
                 throw new Exception("Empty stash")
             }
 
-            for (storageCredentials in getStoragesCredentials()) {
+            for (storageCredentials in getStoragesCredentials(replicate)) {
                 int times = 3
                 int retries = 0
                 int status = 0
@@ -172,7 +173,7 @@ def call(Map params) {
 
                 if (preZip) {
                     if (postUnzip) {
-                        withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+                        withCredentials([string(credentialsId: storageCredentials["url"], variable: "REMOTE_HOST"), string(credentialsId: storageCredentials["port"], variable: "SSH_PORT")]) {
                             if (isUnix()) {
                                 stdout = sh(returnStdout: true, script: '$CIS_TOOLS/unzipFile.sh $REMOTE_HOST $SSH_PORT' + " \"${remotePath}${zipName}\" \"${remotePath}\" true")
                             } else {
@@ -184,12 +185,14 @@ def call(Map params) {
                             println(stdout)
                         }
                     }
+                }
+            }
 
-                    if (isUnix()) {
-                        sh "rm -rf \"${zipName}\""
-                    } else {
-                        bat "del \"${zipName}\""
-                    }
+            if (preZip) {
+                if (isUnix()) {
+                    sh "rm -rf \"${zipName}\""
+                } else {
+                    bat "del \"${zipName}\""
                 }
             }
         } else {
