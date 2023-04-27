@@ -8,7 +8,7 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
      * @param remoteHost - remote host url (default - NAS)
 */
 
-def call(String server_path, String local_path, String customKeys = "", Boolean clearEnv = true, String remoteHost = null, String sshPort = null) {
+def call(String server_path, String local_path, String customKeys = "", Boolean clearEnv = true, String remoteHost = "nasURL", String sshPort = "nasSSHPort") {
     int times = 3
     int retries = 0
     int status = 0
@@ -16,14 +16,6 @@ def call(String server_path, String local_path, String customKeys = "", Boolean 
     while (retries++ < times) {
         print("Try to download files with rsync №${retries}")
         try {
-            if (!remoteHost) {
-                remoteHost = makeUnstash.getSuitableStorageURL()
-            }
-
-            if (!sshPort) {
-                sshPort = makeUnstash.getSuitableStoragePort()
-            }
-
             withCredentials([string(credentialsId: remoteHost, variable: 'REMOTE_HOST'), string(credentialsId: sshPort, variable: "SSH_PORT")]) {
                 // Avoid warnings connected with using Groovy String interpolation with credentials
                 // See docs for more details: https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation
