@@ -79,8 +79,8 @@ def getProblemsCount(String jobName, String buildUrl){
                 def error = 0
 
                 for (platform in engine["platforms"]){
-                    failed += [platform]["summary"]["failed"]
-                    error += [platform]["summary"]["error"]
+                    failed += platform["summary"]["failed"]
+                    error += platform["summary"]["error"]
                 }
 
                 println([engine: ["failed": failed, "error": error]])
