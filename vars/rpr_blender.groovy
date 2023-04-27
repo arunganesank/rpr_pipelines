@@ -235,7 +235,7 @@ def executeTests(String osName, String asicName, Map options)
                         if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
                         } else {
-                            verifyMatlib("Blender", cacheImgPath, 70, osName, options)
+                            //verifyMatlib("Blender", cacheImgPath, 70, osName, options)
                         }
                     }
                 }

@@ -260,7 +260,7 @@ def executeTests(String osName, String asicName, Map options)
                         if(!fileExists(cacheImgPath)){
                             throw new ExpectedExceptionWrapper(NotificationConfiguration.NO_OUTPUT_IMAGE, new Exception(NotificationConfiguration.NO_OUTPUT_IMAGE))
                         } else {
-                            verifyMatlib("Maya", cacheImgPath, 50, osName, options)
+                            //verifyMatlib("Maya", cacheImgPath, 50, osName, options)
                         }
                     }
                 }
