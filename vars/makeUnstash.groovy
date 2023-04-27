@@ -1,5 +1,19 @@
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
+
+String getSuitableStorageURL() {
+    if (env.NODE_LABELS.split().contains("MacOS")) {
+        return "nasURLOld"
+    } else {
+        return "nasURL"
+    }
+}
+
+String getSuitableStoragePort() {
+    return "nasSSHPort"
+}
+
+
 /**
  * Implementation of stashes through custom machine
  *
@@ -33,7 +47,11 @@ def call(Map params) {
             while (retries++ < times) {
                 try {
                     print("Try to make unstash №${retries}")
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+
+                    String storageURLCredential = getSuitableStorageURL()
+                    String storageSSHPortCredential = getSuitableStoragePort()
+
+                    withCredentials([string(credentialsId: storageURLCredential, variable: "REMOTE_HOST"), string(credentialsId: storageSSHPortCredential, variable: "SSH_PORT")]) {
                         if (isUnix()) {
                             status = sh(returnStatus: true, script: '$CIS_TOOLS/downloadFiles.sh' + " \"${remotePath}\" . " + '$REMOTE_HOST $SSH_PORT')
                         } else {
