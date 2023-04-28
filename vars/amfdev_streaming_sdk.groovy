@@ -490,7 +490,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
                     if (options.serverInfo.osName.contains("Windows")) {
                         bat """
                             set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
                     } else if (options.serverInfo.osName.contains("Ubuntu")) {
                         bat """
@@ -505,7 +505,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                     """
                 }
 
@@ -514,7 +514,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
             case "Android":
                 bat """
                     set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
+                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
                 """
 
                 break
@@ -1888,7 +1888,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                     Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
 
                     GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
-                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}", "SHOW_STREAMING_TRACES=${options.collectStreamingTraces}"]) {
+                    withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}", "SHOW_STREAMING_DUMP=${options.collectStreamingDump}"]) {
                         dir("jobs_launcher") {
                             List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
                             retryInfoList.each{ gpu ->
@@ -2046,7 +2046,7 @@ def call(String projectBranch = "",
     Boolean collectInternalDriverVersion = false,
     String skipBuild = "",
     String inGameResolution = "1920x1080",
-    Boolean collectStreamingTraces = false
+    Boolean collectStreamingDump = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2179,7 +2179,7 @@ def call(String projectBranch = "",
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                         retriesForTestStage:2,
-                        collectStreamingTraces:collectStreamingTraces
+                        collectStreamingDump:collectStreamingDump
                         ]
         }
 
