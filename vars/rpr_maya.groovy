@@ -185,13 +185,15 @@ def cloneTestsRepository(Map options) {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
 
-            if (env.NODE_LABELS.split().contains("OldNAS")) {
-                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-            } else {
-                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
-            }
+            dir("hipbin") {
+                if (env.NODE_LABELS.split().contains("OldNAS")) {
+                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
+                } else {
+                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+                }
 
-            utils.unzip(this, "hipbin_3.01.00.zip")
+                utils.unzip(this, "hipbin_3.01.00.zip")
+            }
         }
     }
 }

@@ -116,8 +116,13 @@ def executeTests(String osName, String asicName, Map options)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
                 if (options.engine == "Northstar64") {
-                    dir("rprSdk") {
-                        downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+                    dir("rprSdk/hipbin") {
+                        if (env.NODE_LABELS.split().contains("OldNAS")) {
+                            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
+                        } else {
+                            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+                        }
+
                         utils.unzip(this, "hipbin_3.01.00.zip")
                     }
                 }
