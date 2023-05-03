@@ -1,4 +1,6 @@
-def ORG_PART = "--organizationid de28e25c-ded6-4ff0-be77-e4ee2330f77c"
+import groovy.transform.Field
+
+@Field final String ORG_PART = "--organizationid de28e25c-ded6-4ff0-be77-e4ee2330f77c"
 
 def updateAnydeskPassword(String newPassword) {
     withEnv(["NEW_ANYDESK_PASS=${newPassword}"]) {
@@ -23,12 +25,13 @@ def updateAnydeskPassword(String newPassword) {
 
 def updatePasswordsInCollection(String collection) {
     def tasks = [:]
-    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true)
-    def itemIds = sh(script: "bw list items ${ORG_PART} --collectionid ${collectionId} | jq -r '.[] | select(has(\"fields\")) | select(.fields[].name == \"JENKINS_NODE\") | .id'",
-                    returnStdout: true).split("\n").trim()
+    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
+    def itemIds = sh(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
+                    returnStdout: true).trim().split("\n")
     for(itemId in itemIds) {
-        def jnNodeName = sh(script: "bw get item ${itemId} | jq -r '.fields[] | select(.name == \"JENKINS_NODE\") | .value'", returnStdout: true)
-        def newPassword = sh(script: "bw generate", returnStdout: true)
+        def curItemId = itemId
+        def jnNodeName = sh(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
+        def newPassword = sh(script: "bw generate", returnStdout: true).trim()
         tasks[jnNodeName] = {
             try {
                 stage(jnNodeName) {
@@ -36,7 +39,7 @@ def updatePasswordsInCollection(String collection) {
                         updateAnydeskPassword(newPassword)
                     }
                     withEnv(["NEW_PASS=${newPassword}"]) {
-                        sh "bw get item ${itemId} | jq '.login.password=\"\$NEW_PASS\"' | bw encode | bw edit item ${itemId}"
+                        sh """bw get item ${curItemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${curItemId}"""
                     }
                 }
             } catch(e) {
@@ -59,7 +62,7 @@ def call(String collections) {
     node("PC-TESTER-TBILISI-UBUNTU20") {
         try {
             withEnv(["BW_PASSWORD=${bwCreds['BW_PASSWORD']}"]) {
-                sessionKey = sh(script: "bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw", returnStdout: true)
+                sessionKey = sh(script: "bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw", returnStdout: true).trim()
             }
 
             withEnv(["BW_SESSION=${sessionKey}"]) {
