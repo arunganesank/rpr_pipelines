@@ -1667,7 +1667,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 def call(
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows',
+    String platforms = 'Windows:AMD_RX6800XT,AMD_RX7900XT',
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
