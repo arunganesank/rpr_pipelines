@@ -1673,7 +1673,7 @@ def call(
     String deployEnvironment = 'pr',
     String customDomain = '',
     Boolean disableSsl = false,
-    String testsPackage = "none",
+    String testsPackage = "regression.json",
     String tests = '',
     String updateRefs = 'No',
     Integer testCaseRetries = 5,
