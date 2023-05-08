@@ -8,17 +8,13 @@ def updateAnydeskPassword(String newPassword) {
             def uname = sh script: "uname", returnStdout: true
             boolean isMacOS = uname.startsWith("Darwin")
 
-            // TODO: remove debug code
             if (isMacOS) {
-                sh "echo [DEBUG] ${env.NODE_NAME}: change password to \$NEW_ANYDESK_PASS"
-                // sh "echo \$NEW_ANYDESK_PASS | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password"
+                sh "echo \$NEW_ANYDESK_PASS | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password"
             } else {
-                sh "echo [DEBUG] ${env.NODE_NAME}: change password to \$NEW_ANYDESK_PASS"
-                // sh "echo \$NEW_ANYDESK_PASS | sudo anydesk --set-password"
+                sh "echo \$NEW_ANYDESK_PASS | sudo anydesk --set-password"
             }
         } else {
-            bat "echo [DEBUG] ${env.NODE_NAME}: change password to %NEW_ANYDESK_PASS%"
-            // bat "echo %NEW_ANYDESK_PASS% | anydesk.exe --set-password"
+            bat "echo %NEW_ANYDESK_PASS% | \"C:\\Program Files (x86)\\AnyDesk\\AnyDesk.exe\" --set-password"
         }
     }
 }
