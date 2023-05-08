@@ -23,24 +23,20 @@ def updateAnydeskPassword(String newPassword) {
     }
 }
 
-def updatePasswordsInCollection(String collection) {
-    def tasks = [:]
-    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
-    def itemIds = sh(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
-                    returnStdout: true).trim().split("\n")
-    for(itemId in itemIds) {
-        def curItemId = itemId
-        def jnNodeName = sh(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
-        def newPassword = sh(script: "bw generate", returnStdout: true).trim()
-        tasks[jnNodeName] = {
+def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
+    def newPassword = sh(script: "bw generate", returnStdout: true).trim()
+    tasks[jnNodeName] = {
+        stage(jnNodeName) {
             try {
-                stage(jnNodeName) {
+                if (env.NODE_NAME != jnNodeName) {
                     node(jnNodeName) {
                         updateAnydeskPassword(newPassword)
                     }
-                    withEnv(["NEW_PASS=${newPassword}"]) {
-                        sh """bw get item ${curItemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${curItemId}"""
-                    }
+                } else {
+                    updateAnydeskPassword(newPassword)
+                }
+                withEnv(["NEW_PASS=${newPassword}"]) {
+                    sh """bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}"""
                 }
             } catch(e) {
                 currentBuild.result = "UNSTABLE"
@@ -49,11 +45,22 @@ def updatePasswordsInCollection(String collection) {
             }
         }
     }
-
-    parallel tasks
 }
 
-def call(String collections) {
+def updatePasswordsInCollection(String collection, Map tasks) {
+    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
+    def itemIds = sh(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
+                    returnStdout: true).trim()
+    if(itemIds) {
+        for(itemId in itemIds.split("\n")) {
+            def jnNodeName = sh(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
+            updateNodePassword(jnNodeName, itemId, tasks)
+        }
+    }
+}
+
+def call(String collections, String nodes) {
+    def tasks = [:]
     def sessionKey
     def bwCreds = input message: 'Please enter your Vaultwarden credentials',
         parameters: [string(name: 'BW_EMAIL', trim: true), password(name: 'BW_PASSWORD')]
@@ -67,9 +74,19 @@ def call(String collections) {
 
             withEnv(["BW_SESSION=${sessionKey}"]) {
                 sh "bw sync"
-                for(collection in collections.split(',')) {
-                    updatePasswordsInCollection(collection)
+                if(collections) {
+                    for(collection in collections.split(',')) {
+                        updatePasswordsInCollection(collection, tasks)
+                    }
                 }
+                if(nodes) {
+                    for(nodeName in nodes.split(',')) {
+                        def itemId = sh(script: """bw list items ${ORG_PART} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | select(.fields[].value == "${nodeName}") | .id'""",
+                                        returnStdout: true).trim()
+                        updateNodePassword(nodeName, itemId, tasks)
+                    }
+                }
+                parallel tasks
             }
         } catch(e) {
             currentBuild.result = "FAILURE"
