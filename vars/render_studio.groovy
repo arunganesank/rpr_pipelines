@@ -1099,7 +1099,6 @@ def executeBuild(String osName, Map options) {
                 println "[WARNING] ${osName} is not supported"
         }
     } catch (e) {
-        currentBuild.result = "FAILED"
         throw e
     } finally {
         archiveArtifacts "*.log"
