@@ -116,7 +116,6 @@ def call(Map blockOptions, Closure code) {
                             Boolean doAbort = exception.containsKey("abort") ? exception["abort"] : false
                             Boolean doRetry = !doAbort && exception.containsKey("retry") ? exception["retry"] : false
 
-                            def exceptionWrapper = new ExpectedExceptionWrapper(exception["problemMessage"], e)
                             exceptionWrapper.abort = doAbort
                             exceptionWrapper.retry = doRetry
 
