@@ -110,13 +110,17 @@ def call(Map blockOptions, Closure code) {
                     switch(exception["rethrow"]) {
                         case ExceptionThrowType.RETHROW:
                             throw e
-                            break
                         case ExceptionThrowType.THROW_IN_WRAPPER:
-                            Boolean doRetry = exception.containsKey("retry") ? exception["retry"] : false
                             def exceptionWrapper = new ExpectedExceptionWrapper(exception["problemMessage"], e)
+
+                            Boolean doAbort = exception.containsKey("abort") ? exception["abort"] : false
+                            Boolean doRetry = !doAbort && exception.containsKey("retry") ? exception["retry"] : false
+
+                            def exceptionWrapper = new ExpectedExceptionWrapper(exception["problemMessage"], e)
+                            exceptionWrapper.abort = doAbort
                             exceptionWrapper.retry = doRetry
+
                             throw exceptionWrapper
-                            break
                         default:
                             println(e.toString())
                             println(e.getMessage())

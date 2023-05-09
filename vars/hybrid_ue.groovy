@@ -424,6 +424,7 @@ def call(String projectBranch = "",
                                 movieQuality:movieQuality,
                                 resX: resX,
                                 resY: resY,
+                                retriesForBuildStage: 2,
                                 windowed: windowed,
                                 forceRes: forceRes,
                                 onlyVideo:onlyVideo])

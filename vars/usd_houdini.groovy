@@ -328,7 +328,6 @@ def executeBuildWindows(String osName, Map options) {
             String buildLogContent = readFile("${STAGE_NAME}.log")
             if (buildLogContent.contains("PDB API call failed")) {
                 exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
-                exception.retry = true
 
                 utils.reboot(this, osName)
             }
@@ -453,7 +452,6 @@ def executeBuild(String osName, Map options) {
             String buildLogContent = readFile("Build-${osName}.log")
             if (buildLogContent.contains("Segmentation fault")) {
                 exception = new ExpectedExceptionWrapper(NotificationConfiguration.SEGMENTATION_FAULT, e)
-                exception.retry = true
 
                 utils.reboot(this, osName)
             }

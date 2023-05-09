@@ -221,13 +221,13 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                         // save expected exception message for add it in report
                                         String expectedExceptionMessage = ""
                                         if (e instanceof ExpectedExceptionWrapper) {
-                                            if (e.abortCurrentOS) {
+                                            if (e.abort) {
                                                 options["abort${osName}"] = true
                                             }
                                             expectedExceptionMessage = e.getMessage()
                                             // check that cause isn't more specific expected exception
                                             if (e.getCause() instanceof ExpectedExceptionWrapper) {
-                                                if (e.getCause().abortCurrentOS) {
+                                                if (e.getCause().abort) {
                                                     options["abort${osName}"] = true
                                                 }
                                                 expectedExceptionMessage = e.getCause().getMessage()
@@ -322,8 +322,8 @@ def executeTestsNode(String osName, String gpuNames, String buildProfile, def ex
                                 }
 
                                 try {
-                                    Integer retries_count = options.retriesForTestStage ?: -1
-                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retries_count, false, osName)
+                                    Integer retriesCount = options.retriesForTestStage ?: -1
+                                    run_with_retries(testerLabels, options.TEST_TIMEOUT, retringFunction, true, "Test", newOptions, retriesCount, false, osName)
                                 } catch(FlowInterruptedException e) {
                                     options.buildWasAborted = true
                                     e.getCauses().each(){
@@ -381,7 +381,9 @@ def executePlatform(String osName, String gpuNames, String buildProfile, def exe
                         def retringFunction = { nodesList, currentTry ->
                             executeBuild(osName, options)
                         }
-                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, true, "Build", options, -1, true, osName, true)
+
+                        Integer retriesCount = options.retriesForBuildStage ?: -1
+                        run_with_retries(builderLabels, options.BUILD_TIMEOUT, retringFunction, true, "Build", options, retriesCount, false, osName, true)
                     }
                 }
             } catch (e1) {
@@ -568,7 +570,7 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
                             def retringFunction = { nodesList, currentTry ->
                                 executePreBuild(options)
                             }
-                            run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3, true)
+                            run_with_retries(preBuildLabels, options.PREBUILD_TIMEOUT, retringFunction, true, "PreBuild", options, 3, false)
                         }
 
                         if(!options['executeBuild']) {
