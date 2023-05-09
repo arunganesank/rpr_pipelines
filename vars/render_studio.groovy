@@ -878,7 +878,6 @@ def executeBuildWindows(Map options) {
                     String buildLogContent = readFile("${STAGE_NAME}.Build.log")
                     if (buildLogContent.contains("CMake error : Cannot restore timestamp")) {
                         exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
-                        exception.retry = true
 
                         utils.reboot(this, osName)
                     }

@@ -331,7 +331,6 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
             String buildLogContent = readFile("${STAGE_NAME}_${buildType}.log")
             if (buildLogContent.contains("Segmentation fault")) {
                 exception = new ExpectedExceptionWrapper(NotificationConfiguration.SEGMENTATION_FAULT, e)
-                exception.retry = true
 
                 utils.reboot(this, osName)
             }

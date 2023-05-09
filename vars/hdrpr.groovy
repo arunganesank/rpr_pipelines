@@ -438,7 +438,6 @@ def executeBuild(String osName, Map options) {
                 String buildLogContent = readFile("Build-${osName}.log")
                 if (buildLogContent.contains("Segmentation fault")) {
                     exception = new ExpectedExceptionWrapper(NotificationConfiguration.SEGMENTATION_FAULT, e)
-                    exception.retry = true
 
                     utils.reboot(this, osName)
                 }

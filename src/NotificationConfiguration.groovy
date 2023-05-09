@@ -33,25 +33,24 @@ public class NotificationConfiguration {
 
         "exceptions": [
             [
-                "class": Exception, "problemMessage": "PR is not mergeable.", 
+                "class": Exception, "problemMessage": "Merge conflict detected. Please, contact the developers.",
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
-                "getMessage": ["Not mergeable"],
+                "getMessage": ["Not mergeable"], "abort": true,
                 "githubNotification": ["status": "failure"]
             ],
             [
-                "class": "TimeoutExceeded", "problemMessage": "Failed to download source code repository due to timeout.", 
+                "class": "TimeoutExceeded", "problemMessage": "Failed to download source code repository due to timeout. Please, contact the CIS command.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "timed_out"]
             ],
             [
-                "class": Exception, "problemMessage": "Failed to merge branches.", 
+                "class": Exception, "problemMessage": "Failed to merge branches. Please, contact the CIS command.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
-                "getMessage": ["Branch not suitable for integration"],
+                "getMessage": ["Branch not suitable for integration"], "abort": true,
                 "githubNotification": ["status": "failure"]
             ],
             [
-                "class": Exception, "problemMessage": "Failed to download source code repository.", 
-                "retry": true,
+                "class": Exception, "problemMessage": "Failed to download source code repository. Please, contact the CIS command.",
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "failure"]
             ]
@@ -186,8 +185,7 @@ public class NotificationConfiguration {
             [
                 "class": Exception, "problemMessage": "Failed to configurate tests.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
-                "githubNotification": ["status": "action_required"],
-                "retry": true
+                "githubNotification": ["status": "action_required"]
             ]
         ]
     ]
