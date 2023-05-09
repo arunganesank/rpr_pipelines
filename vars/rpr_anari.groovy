@@ -20,17 +20,23 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch(osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete}
-                """
-                break
-            default:
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch(osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete}
+                    """
+                    break
+                default:
+                    sh """
+                        ./make_results_baseline.sh ${delete}
+                    """
+            }
         }
     }
 }

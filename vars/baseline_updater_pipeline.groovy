@@ -88,6 +88,29 @@ import groovy.json.JsonSlurperClassic
 ]
 
 
+String getBaselinesUpdateInitiator() {
+    for (def cause in currentBuild.rawBuild.getCauses()) {
+        if (cause.getClass().toString().contains("UserIdCause")) {
+            return cause.getUserId()
+        }
+    }
+
+    return "Unknown"
+}
+
+def getBaselinesOriginalBuild(String jobName = null, String buildID = null) {
+    if (jobName && buildID) {
+        return "${env.JENKINS_URL}job/${jobName.replace('/', '/job/')}/${buildID}"
+    } else {
+        return "Unknown"
+    }
+}
+
+String getBaselinesUpdatingBuild() {
+    return env.BUILD_URL
+}
+
+
 @NonCPS
 def parseResponse(String response) {
     def jsonSlurper = new groovy.json.JsonSlurperClassic()
@@ -285,7 +308,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
 
         JSON serializedJson = JSONSerializer.toJSON(targetCases, new JsonConfig());
         writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
-        saveBaselines(baselinesPathProfile)
+        saveBaselines(updateInfo.jobName, updateInfo.buildID, baselinesPathProfile)
     } else {
         downloadFiles("${remoteResultPath}/${targetGroup}", "results")
 
@@ -310,19 +333,26 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
             writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         }
 
-        saveBaselines(baselinesPathProfile)
+        saveBaselines(updateInfo.jobName, updateInfo.buildID, baselinesPathProfile)
     }
 }
 
 
-def saveBaselines(String baselinesPathProfile, String resultsDirectory = "results") {
-    python3("${WORKSPACE}\\jobs_launcher\\common\\scripts\\generate_baselines.py --results_root ${resultsDirectory} --baseline_root baselines")
-    uploadFiles("baselines/", baselinesPathProfile)
+def saveBaselines(String jobName, String buildID, String baselinesPathProfile, String resultsDirectory = "results") {
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${getBaselinesOriginalBuild(jobName, buildID)}",
+            "BASELINES_UPDATING_BUILD=${getBaselinesUpdatingBuild()}"
+    ]) {
 
-    bat """
-        if exist ${resultsDirectory} rmdir /Q /S ${resultsDirectory}
-        if exist baselines rmdir /Q /S baselines
-    """
+        python3("${WORKSPACE}\\jobs_launcher\\common\\scripts\\generate_baselines.py --results_root ${resultsDirectory} --baseline_root baselines")
+        uploadFiles("baselines/", baselinesPathProfile)
+
+        bat """
+            if exist ${resultsDirectory} rmdir /Q /S ${resultsDirectory}
+            if exist baselines rmdir /Q /S baselines
+        """
+    }
 }
 
 

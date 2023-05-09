@@ -129,20 +129,26 @@ def buildRenderCache(String osName, Map options, Boolean cleanInstall=true, Bool
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete} RPRViewer
-                """
-                break
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete} RPRViewer
+                    """
+                    break
 
-            case "OSX":
-                println "OSX isn't supported"
-                break
+                case "OSX":
+                    println "OSX isn't supported"
+                    break
 
-            default:
-                println "Linux isn't supported"
+                default:
+                    println "Linux isn't supported"
+            }
         }
     }
 }
