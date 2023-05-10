@@ -129,8 +129,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
 
             if (e instanceof ExpectedExceptionWrapper) {
                 if (e.abort) {
-                    println("[ERROR] Detected abort flag in catched exception. Abort next tests on ${osName} OS")
-                    i = tries + 1
+                    println("[ERROR] Detected abort flag in catched exception")
+                    i = tries - 1
                 } else if (e.retry) {
                     println("[INFO] Retry detected. Exception is allowed")
                     isExceptionAllowed = true
@@ -141,8 +141,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
 
                     if (e instanceof ExpectedExceptionWrapper) {
                         if (e.abort) {
-                            println("[ERROR] Detected abort flag in catched exception. Abort next tests on ${osName} OS")
-                            i = tries + 1
+                            println("[ERROR] Detected abort flag in catched exception")
+                            i = tries - 1
                         } else if (e.retry) {
                             println("[INFO] Retry detected. Exception is allowed")
                             isExceptionAllowed = true
