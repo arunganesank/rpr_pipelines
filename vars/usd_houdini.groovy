@@ -202,7 +202,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/${options.assetsName}_baselines" : "/mnt/c/TestResources/${options.assetsName}_baselines"
                 println "[INFO] Downloading reference images for ${options.testsPackage}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)

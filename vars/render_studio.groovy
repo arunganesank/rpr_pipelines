@@ -387,9 +387,9 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
             options.tests.split(" ").each() {
                 if (it.contains(".json")) {
-                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 } else {
-                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
         }

@@ -43,5 +43,7 @@ def call(String local_path, String server_path, String customKeys = "", String r
             println(e.getStackTrace())
             sleep(60)
         }
+
+        throw new Exception("Failed to upload files. All attempts has been exceeded")
     }
 }

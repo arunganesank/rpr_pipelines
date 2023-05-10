@@ -180,7 +180,7 @@ def executeTests(String osName, String asicName, Map options) {
                 String baseline_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_anari_autotests_baselines" : "/mnt/c/TestResources/rpr_anari_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
                 options.tests.split(" ").each() {
-                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {

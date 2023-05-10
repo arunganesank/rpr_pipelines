@@ -8,7 +8,15 @@ import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
      * @param remoteHost - remote host url (default - NAS)
 */
 
-def call(String server_path, String local_path, String customKeys = "", Boolean clearEnv = true, String remoteHost = "nasURL", String sshPort = "nasSSHPort") {
+def call(
+    String server_path,
+    String local_path,
+    String customKeys = "",
+    Boolean clearEnv = true,
+    String remoteHost = "nasURL",
+    String sshPort = "nasSSHPort",
+    Boolean canBeAbsent = false
+) {
     int times = 3
     int retries = 0
     String scriptFile = clearEnv ? "downloadFilesSync" : "downloadFiles"
@@ -43,6 +51,12 @@ def call(String server_path, String local_path, String customKeys = "", Boolean 
             println(e.getMessage())
             println(e.getStackTrace())
             sleep(60)
+        }
+
+        if (canBeAbsent) {
+            println("[WARNING] Failed to download files. All attempts has been exceeded")
+        } else {
+            throw new Exception("Failed to download files. All attempts has been exceeded")
         }
     }
 }

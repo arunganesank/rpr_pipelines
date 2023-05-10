@@ -47,7 +47,7 @@ def getUE(Map options, String projectName) {
         String iniFile = projectsInfo[projectName]["iniFile"]
 
         dir("RPRHybrid-UE/Engine/Config") {
-            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".")
+            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".", "", true, "nasURL", "nasSSHPort", true)
             utils.removeFile(this, "Windows", "BaseEngine.ini")
             utils.renameFile(this, "Windows", "${iniFile}", "BaseEngine.ini")
         }
