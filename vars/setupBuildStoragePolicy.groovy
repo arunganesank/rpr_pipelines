@@ -9,7 +9,7 @@ def call(String project = "") {
         println("BuildDiscarderProperty will use settings for manual job.")
 
         properties([[$class: 'BuildDiscarderProperty', strategy:
-            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '40']]])
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '30', numToKeepStr: '50']]])
     } else if (isWeeklyJob()) {
         println("BuildDiscarderProperty will use settings for weekly job.")
 
@@ -59,17 +59,17 @@ def getProjectName(){
 
 
 def isWeeklyJob(){
-    return env.JOB_NAME.contains("-Weekly") ? true : false
+    return env.JOB_NAME.contains("Weekly") ? true : false
 }
 
 
 def isManualJob(){
-    return env.JOB_NAME.contains("-Manual") ? true : false
+    return env.JOB_NAME.contains("Manual") ? true : false
 }
 
 
 def isAutoJob(){
-    return env.JOB_NAME.contains("-Auto") ? true : false
+    return env.JOB_NAME.contains("Auto") ? true : false
 }
 
 
