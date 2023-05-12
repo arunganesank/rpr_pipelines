@@ -1208,7 +1208,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/Archive/job/RadeonProRender-HybridManual/992/api/json?tree=number,url,description"
+        String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
         def rawInfo = httpRequest(
             url: url,
@@ -1222,14 +1222,17 @@ def executePreBuild(Map options) {
         Integer hybridBuildNumber
         String hybridBuildUrl
 
-        hybridBuildNumber = 992
-        hybridBuildUrl = parsedInfo.url
-
-        options.hybridProSHA = parsedInfo.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
+            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
+            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
+        }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
@@ -1242,6 +1245,7 @@ def executePreBuild(Map options) {
             options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
         }
     }
+
 
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
