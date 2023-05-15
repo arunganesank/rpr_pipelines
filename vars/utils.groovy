@@ -905,7 +905,7 @@ class utils {
     }
 
     static def analyzeResults(Object self, def sessionReport, Map options, double threshold = 0.0) {
-        println """
+        self.println """
             Total: ${sessionReport.summary.total}
             Errors: ${sessionReport.summary.error}
             Skips: ${sessionReport.summary.skipped}
@@ -944,7 +944,8 @@ class utils {
             if (options.containsKey("problemsDetected")) {
                 self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
             } else {
-                def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).round(1)
+                options["problemsDetected"] = true
+                def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).doubleValue().round(1)
                 String errorMessage = "Detected problems detected with threshold (${errorsPercent}% errors). Test cases will be retried."
                 throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
             }
