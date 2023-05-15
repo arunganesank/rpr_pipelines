@@ -104,10 +104,10 @@ class utils {
             if (options.containsKey("testProfiles")) {
                 profile = testsResultsParts[-1]
                 // Remove "testResult" prefix and profile from stash name
-                stashName = testsResultsParts.subList(1, testsResultsParts.size() - 1).join("-") + "-" + options.currentTry
+                stashName = testsResultsParts.subList(1, testsResultsParts.size() - 1).join("-")
             } else {
                 // Remove "testResult" prefix from stash name
-                stashName = testsResultsParts.subList(1, testsResultsParts.size()).join("-") + "-" + options.currentTry
+                stashName = testsResultsParts.subList(1, testsResultsParts.size()).join("-")
             }
 
             if (options.containsKey("testProfiles")) {
@@ -117,8 +117,8 @@ class utils {
                 reportName = "Test_Report"
             }
 
-            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Debug/${reportName}/${subFolder}/${stashName}/"
-            self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
+            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Debug/${reportName}/${stashName}/${options.currentTry}/"
+            self.makeStash(includes: '**/*', name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
         } else {
             self.println("[WARNING] Problems data saving is supported only with NAS")
         }
@@ -925,16 +925,16 @@ class utils {
                 }
 
                 self.utils.saveProblemsData(self, options)
-                throw new self.ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
             }
         }
 
         if (threshold < 0) {
             String errorMessage = "Threshold can't be less than 0."
-            throw new self.ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
         } else if (threshold > 1) {
             String errorMessage = "Threshold can't be greater than 1."
-            throw new self.ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
         }
 
         if ((sessionReport.summary.total - sessionReport.summary.skipped) * threshold < sessionReport.summary.error) {
@@ -946,7 +946,7 @@ class utils {
             } else {
                 def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).round(1)
                 String errorMessage = "Detected problems detected with threshold (${errorsPercent}% errors). Test cases will be retried."
-                throw new self.ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
             }
         }
     }
