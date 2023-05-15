@@ -240,26 +240,17 @@ def executeTests(String osName, String asicName, Map options)
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
-                        
                         utils.stashTestData(this, options, options.storeOnNAS, "**/cache/**")
-                        // reallocate node if there are still attempts
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
