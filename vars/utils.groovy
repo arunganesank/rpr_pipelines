@@ -942,7 +942,7 @@ class utils {
 
             // retry problems detected with threshold only once
             if (options.containsKey("problemsDetected")) {
-                // do nothing
+                self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
             } else {
                 def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).round(1)
                 String errorMessage = "Detected problems detected with threshold (${errorsPercent}% errors). Test cases will be retried."
