@@ -214,28 +214,17 @@ def executeTests(String osName, String asicName, Map options) {
                     archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
 
                     if (stashResults) {
+                        def sessionReport
+
                         dir("Work") {
                             if (fileExists("Results/HdRPR/session_report.json")) {
-                                def sessionReport = readJSON file: 'Results/HdRPR/session_report.json'
+                                sessionReport = readJSON file: 'Results/HdRPR/session_report.json'
                                 if (sessionReport.summary.error > 0) {
                                     GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
                                 } else if (sessionReport.summary.failed > 0) {
                                     GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
                                 } else {
                                     GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
-                                }
-
-                                utils.stashTestData(this, options, options.storeOnNAS)
-
-                                if (options.reportUpdater) {
-                                    options.reportUpdater.updateReport(options.engine)
-                                }
-
-                                try {
-                                    utils.analyzeResults(this, sessionReport, options)
-                                } catch (e) {
-                                    removeInstaller(osName: "Windows", options: options, extension: "msi")
-                                    throw e
                                 }
                             }
                         }
@@ -246,6 +235,13 @@ def executeTests(String osName, String asicName, Map options) {
 
                         dir("Work-HybridPro/Results/HdRPR") {
                             utils.stashTestData(this, options, options.storeOnNAS, "", "HybridPro")
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            removeInstaller(osName: "Windows", options: options, extension: "msi")
+                            throw e
                         }
                     } else {
                         println "[INFO] Task ${options.tests} on ${options.nodeLabels} labels will be retried."

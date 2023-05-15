@@ -490,7 +490,7 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                         utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.engine)
+                            options.reportUpdater.updateReport(options.mode)
                         }
 
                         try {

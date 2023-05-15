@@ -172,7 +172,7 @@ def executeTests(String osName, String asicName, Map options) {
                         utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.engine)
+                            options.reportUpdater.updateReport()
                         }
 
                         utils.analyzeResults(this, sessionReport, options)
