@@ -122,13 +122,8 @@ def executeTests(String osName, String asicName, Map options)
 
                 if (options.engine == "Northstar64") {
                     dir("rprSdk/hipbin") {
-                        if (env.NODE_LABELS.split().contains("OldNAS")) {
-                            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                        } else {
-                            downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
-                        }
-
-                        utils.unzip(this, "hipbin_3.01.00.zip")
+                        downloadFiles("/volume1/web/Archive/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
+                        utils.unzip(this, "hipbin.zip")
                     }
                 }
             }
@@ -293,6 +288,12 @@ def executeBuildWindows(Map options) {
             artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
             makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+
+            if (options.hipbinDownloadedOS == "Windows") {
+                dir("../../hipbin") {
+                    makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                }
+            }
         }
     }
 
@@ -323,6 +324,18 @@ def executeBuildOSX(Map options) {
             artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
             makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("OSX", options), preZip: false, storeOnNAS: options.storeOnNAS)
+
+            if (options.hipbinDownloadedOS == "OSX") {
+                dir("../../hipbin") {
+                    // the Jenkins plugin can't perform git lfs pull on MacOS machines
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
+
+                    makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                }
+            }
         }
     }
 
@@ -343,6 +356,12 @@ def executeBuildLinux(String osName, Map options) {
             artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
             makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName(osName, options), preZip: false, storeOnNAS: options.storeOnNAS)
+
+            if (options.hipbinDownloadedOS == "Ubuntu20") {
+                dir("../../hipbin") {
+                    makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                }
+            }
         }
     }
 
@@ -763,6 +782,17 @@ def call(String projectBranch = "",
                 prBranchName = prInfo[1]
             }
 
+            // only one OS should save hipbin
+            String hipbinDownloadedOS = ""
+
+            if (platforms.contains("Windows")) {
+                hipbinDownloadedOS = "Windows"
+            } else if (platforms.contains("Ubuntu20")) {
+                hipbinDownloadedOS = "Ubuntu20"
+            } else if (platforms.contains("OSX")) {
+                hipbinDownloadedOS = "OSX"
+            }
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectBranch:projectBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_core.git",
@@ -798,7 +828,8 @@ def call(String projectBranch = "",
                         splitTestsExecution: false,
                         storeOnNAS: true,
                         flexibleUpdates: true,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        hipbinDownloadedOS: hipbinDownloadedOS
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {

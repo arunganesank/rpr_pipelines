@@ -179,7 +179,7 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("regression.0")) {
@@ -190,14 +190,14 @@ def cloneTestsRepository(Map options) {
                 checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            if (osName == "OSX") {
+                // the Jenkins plugin can't perform git lfs pull on MacOS machines
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
                 }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
             }
         }
     }
@@ -232,7 +232,7 @@ def executeTests(String osName, String asicName, Map options)
                 }
                 
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
@@ -535,6 +535,15 @@ def executeBuildOSX(Map options)
 {
     dir('RadeonProRenderMayaPlugin/MayaPkg') {
         GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
+
+        dir('../RadeonProRenderSDK/hipbin') {
+            // the Jenkins plugin can't perform git lfs pull on MacOS machines
+            sh """
+                git lfs install
+                git lfs pull
+            """
+        }
+
         sh """
             ./build_osx_installer.sh >> ../../${STAGE_NAME}.log 2>&1
         """
