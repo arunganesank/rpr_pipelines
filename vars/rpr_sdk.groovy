@@ -122,7 +122,7 @@ def executeTests(String osName, String asicName, Map options)
 
                 if (options.engine == "Northstar64") {
                     dir("rprSdk/hipbin") {
-                        downloadFiles("/volume1/web/Archive/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
+                        downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
                         utils.unzip(this, "hipbin.zip")
                     }
                 }
@@ -291,6 +291,7 @@ def executeBuildWindows(Map options) {
 
             if (options.hipbinDownloadedOS == "Windows") {
                 dir("../../hipbin") {
+                    bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
                 }
             }
@@ -333,6 +334,7 @@ def executeBuildOSX(Map options) {
                         git lfs pull
                     """
 
+                    sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
                 }
             }
@@ -359,6 +361,7 @@ def executeBuildLinux(String osName, Map options) {
 
             if (options.hipbinDownloadedOS == "Ubuntu20") {
                 dir("../../hipbin") {
+                    sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
                 }
             }
@@ -373,7 +376,7 @@ def executeBuild(String osName, Map options)
     try {
         dir('RadeonProRenderSDK') {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
+                checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName, useLFS: true)
             }
         }
 

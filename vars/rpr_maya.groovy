@@ -185,19 +185,17 @@ def cloneTestsRepository(String osName, Map options) {
     if (options.tests.contains("RPR_Export") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            if (osName == "OSX") {
-                // the Jenkins plugin can't perform git lfs pull on MacOS machines
-                dir('hipbin') {
-                    sh """
-                        git lfs install
-                        git lfs pull
-                    """
-                }
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            dir('hipbin') {
+                sh """
+                    git lfs install
+                    git lfs pull
+                """
             }
         }
     }
@@ -495,6 +493,7 @@ def executeBuildWindows(Map options)
 {
     dir('RadeonProRenderMayaPlugin\\MayaPkg') {
         GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+
         bat """
             build_windows_installer.cmd >> ../../${STAGE_NAME}.log  2>&1
         """
@@ -537,11 +536,14 @@ def executeBuildOSX(Map options)
         GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
 
         dir('../RadeonProRenderSDK/hipbin') {
-            // the Jenkins plugin can't perform git lfs pull on MacOS machines
-            sh """
-                git lfs install
-                git lfs pull
-            """
+            // FIXME: Old MacOS builder doesn't have git lfs
+            if (env.NODE_LABELS.split().contains("OldNAS")) {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
+            } else {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            }
+
+            utils.unzip(this, "hipbin_3.01.00.zip")
         }
 
         sh """

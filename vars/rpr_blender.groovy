@@ -156,19 +156,17 @@ def cloneTestsRepository(String osName, Map options) {
     if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            if (osName == "OSX" || osName == "MacOS_ARM") {
-                // the Jenkins plugin can't perform git lfs pull on MacOS machines
-                dir('hipbin') {
-                    sh """
-                        git lfs install
-                        git lfs pull
-                    """
-                }
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            dir('hipbin') {
+                sh """
+                    git lfs install
+                    git lfs pull
+                """
             }
         }
     }
