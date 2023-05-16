@@ -916,7 +916,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             String branchName = env.BRANCH_NAME ?: options.projectBranch
             String metricsRemoteDir
 
-            if (env.BRANCH_NAME) {
+            if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                 metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/auto/main/${engine}"
             } else {
                 metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/weekly/${engine}"
@@ -1119,7 +1119,9 @@ def call(String projectRepo = PROJECT_REPO,
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {
