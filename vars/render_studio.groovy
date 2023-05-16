@@ -1728,7 +1728,6 @@ def call(
     boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
         || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
         || env.BRANCH_NAME)
-
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
 
     def options = [configuration: PIPELINE_CONFIGURATION,
@@ -1757,6 +1756,7 @@ def call(
                                 skipCallback: this.&filter,
                                 modes: modes,
                                 testsPackage:testsPackage,
+                                testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
                                 testsPreCondition: this.&hasIdleClients,

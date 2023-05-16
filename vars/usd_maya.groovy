@@ -921,7 +921,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/weekly/${engine}"
@@ -1115,7 +1115,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {
