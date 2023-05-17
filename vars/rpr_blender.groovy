@@ -162,11 +162,13 @@ def cloneTestsRepository(String osName, Map options) {
             }
 
             // the Jenkins plugin sometimes can't perform git lfs pull
-            dir('hipbin') {
-                sh """
-                    git lfs install
-                    git lfs pull
-                """
+            if (osName == "OSX" || osName == "MacOS_ARM") {
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
+                }
             }
         }
     }
