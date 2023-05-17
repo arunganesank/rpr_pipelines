@@ -224,8 +224,6 @@ def executePreBuild(Map options) {
 
         options.originalBuildLink = parsedInfo.lastCompletedBuild.url
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] Link to used HybridPro</a></h3>""")
-    } else {
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
     }
 
     def tests = []

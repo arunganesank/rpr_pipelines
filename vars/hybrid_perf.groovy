@@ -219,8 +219,6 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     // set pending status for all
     if (env.CHANGE_ID) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)

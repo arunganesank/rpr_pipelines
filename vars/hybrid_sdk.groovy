@@ -239,8 +239,6 @@ def parseResponse(String response) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     // get links to the latest built HybridPro
     String url = "${env.JENKINS_URL}/job/RPR-SDK-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
