@@ -150,25 +150,23 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
-                }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            dir('hipbin') {
+                sh """
+                    git lfs install
+                    git lfs pull
+                """
             }
         }
     }
@@ -187,7 +185,7 @@ def executeTests(String osName, String asicName, Map options)
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
@@ -471,6 +469,7 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
         String buildScriptName = isx86 ? "build_osx.sh" : "build_osx-arm64.sh"
 
         dir('../RadeonProRenderSDK/hipbin') {
+            // the Jenkins plugin can't perform git lfs pull on MacOS machines
             sh """
                 git lfs install
                 git lfs pull
