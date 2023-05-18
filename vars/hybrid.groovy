@@ -143,7 +143,7 @@ def executeBuild(String osName, Map options) {
 
         outputEnvironmentInfo(osName)
 
-/*        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             GithubNotificator.updateStatus("Build", osName, "in_progress", options, "Checkout has been finished. Trying to build...")
             switch(osName) {
                 case "Windows":
@@ -159,7 +159,7 @@ def executeBuild(String osName, Map options) {
                 // use stashed artifacts on deploy stage to upload them on GitHub release
                 makeStash(includes: "BaikalNext_${STAGE_NAME}*", name: "app${osName}", storeOnNAS: options.storeOnNAS)
             }
-        }*/
+        }
     } catch (e) {
         println(e.getMessage())
         error_message = e.getMessage()
@@ -167,11 +167,11 @@ def executeBuild(String osName, Map options) {
     } finally {
         archiveArtifacts "*.log"
 
-/*        String artifactName = getArtifactName(osName)
+        String artifactName = getArtifactName(osName)
 
         dir("Build") {
             makeArchiveArtifacts(name: artifactName, storeOnNAS: options.storeOnNAS)
-        }*/
+        }
 
         String status = error_message ? "action_required" : "success"
         GithubNotificator.updateStatus("Build", osName, status, options, "Build finished as '${status}'", "${env.BUILD_URL}/artifact/${STAGE_NAME}.log")
@@ -601,6 +601,9 @@ def launchAndWaitTests(Map options) {
     }
 
     if (!options["descriptionsInitialized"]) {
+        // Wait a bit to let the builds start
+        sleep(60)
+
         options["descriptionsInitialized"] = true
 
         String description = buildDescriptionLine(options, env.BUILD_URL, "Original")
