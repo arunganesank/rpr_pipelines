@@ -575,7 +575,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
 
-                    utils.analyzeResults(this, sessionReport, optionsm, 0.5)
+                    utils.analyzeResults(this, sessionReport, options, 0.5)
                 }
             }
         }
