@@ -318,14 +318,18 @@ def buildDescriptionContent(String testsName, String buildUrl, String reportLink
         }
     }
 
-    if (buildInfo.result == "FAILURE") {
-        return "${testsName} tests are Failed. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}"
-    } else if (buildInfo.result == "UNSTABLE") {
-        return "${testsName} tests are Unstable. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}"
-    } else if (buildInfo.result == "SUCCESS") {
-        return "${testsName} tests are Success. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}"
+    if (buildInfo.inProgress) {
+        return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are in progress. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
     } else {
-        return "${testsName} tests with unexpected status. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}"
+        if (buildInfo.result == "FAILURE") {
+            return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else if (buildInfo.result == "UNSTABLE") {
+            return "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else if (buildInfo.result == "SUCCESS") {
+            return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else {
+            return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        }
     }
 }
 
@@ -337,33 +341,26 @@ def buildDescriptionLine(Map options, String buildUrl, String testsName) {
         case "Original":
             String reportLink = "${buildUrl}"
             String logsLink = "${buildUrl}/artifact"
-            messageContent = "Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a>"
-            break
+            return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
         case "Unit":
             String reportLink = "${buildUrl}/testReport"
             String logsLink = "${buildUrl}/artifact"
-            messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            break
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
         case "Performance":
             String reportLink = "${buildUrl}/Performance_20Tests_20Report"
             String logsLink = "${buildUrl}/artifact"
             messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            break
         case "RPR SDK":
             String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
             String logsLink = "${buildUrl}/artifact"
-            messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            break
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
         case "MaterialX":
             String reportLink = "${buildUrl}/Test_20Report"
             String logsLink = "${buildUrl}/artifact"
-            messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            break
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
         default: 
             throw new Exception("Unexpected testsName '${testsName}'")
     }
-
-    return "<span style='color: #b03a2e; font-size: 150%'>${messageContent}</span><br/><br/>"
 }
 
 
