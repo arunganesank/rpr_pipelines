@@ -248,21 +248,11 @@ def executeTests(String osName, String asicName, Map options) {
                         println "Stashing test results to : ${options.testResultsName}"
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        println "Total: ${sessionReport.summary.total}"
-                        println "Error: ${sessionReport.summary.error}"
-                        println "Skipped: ${sessionReport.summary.skipped}"
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped){
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ?
-                                        "All tests were marked as error. The test group will be restarted." :
-                                        "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.testProfile)
                         }
+
+                        utils.analyzeResults(this, sessionReport, options)
                     }
                 }
             } else {

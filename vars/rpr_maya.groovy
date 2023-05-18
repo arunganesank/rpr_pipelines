@@ -179,25 +179,25 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            if (osName == "OSX") {
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
                 }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
             }
         }
     }
@@ -232,7 +232,7 @@ def executeTests(String osName, String asicName, Map options)
                 }
                 
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
@@ -430,46 +430,20 @@ def executeTests(String osName, String asicName, Map options)
                         }
 
                         println("Stashing test results to : ${options.testResultsName}")
+
                         utils.stashTestData(this, options, options.storeOnNAS, "**/rpr_export_scenes/**,**/cache/**")
-
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                installMSIPlugin(osName, "Maya", options, false, true)
-                                removeInstaller(osName: osName, options: options)
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
-                        // retry on Maya crash
-                        if (sessionReport.summary.error > 0) {
-                            for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup][""]["render_results"]) {
-                                    for (message in caseResults.message) {
-                                        if (message.contains("Error windows")) {
-                                            String errorMessage
-                                            if (options.currentTry < options.nodeReallocateTries) {
-                                                errorMessage = "Maya crash detected. The test group will be restarted."
-                                            } else {
-                                                errorMessage = "Maya crash detected."
-                                            }
-                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installMSIPlugin(osName, "Maya", options, false, true)
+                            // remove installer of broken addon
+                            removeInstaller(osName: osName, options: options)
+                            throw e
                         }
                     }
                 }
@@ -495,6 +469,7 @@ def executeBuildWindows(Map options)
 {
     dir('RadeonProRenderMayaPlugin\\MayaPkg') {
         GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+
         bat """
             build_windows_installer.cmd >> ../../${STAGE_NAME}.log  2>&1
         """
@@ -535,6 +510,18 @@ def executeBuildOSX(Map options)
 {
     dir('RadeonProRenderMayaPlugin/MayaPkg') {
         GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
+
+        dir('../RadeonProRenderSDK/hipbin') {
+            // FIXME: Old MacOS builder doesn't have git lfs
+            if (env.NODE_LABELS.split().contains("OldNAS")) {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
+            } else {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            }
+
+            utils.unzip(this, "hipbin_3.01.00.zip")
+        }
+
         sh """
             ./build_osx_installer.sh >> ../../${STAGE_NAME}.log 2>&1
         """
@@ -922,7 +909,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin/weekly/${engine}"
@@ -1114,7 +1101,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         testsBranch = "inemankov/updated_logs_parsing"
     }
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {

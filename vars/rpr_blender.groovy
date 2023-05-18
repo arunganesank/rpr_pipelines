@@ -150,25 +150,25 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            if (osName == "OSX" || osName == "MacOS_ARM") {
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
                 }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
             }
         }
     }
@@ -187,7 +187,7 @@ def executeTests(String osName, String asicName, Map options)
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
@@ -387,26 +387,17 @@ def executeTests(String osName, String asicName, Map options)
                         
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
-                                // remove installer of broken addon
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
+                            // remove installer of broken addon
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -471,6 +462,7 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
         String buildScriptName = isx86 ? "build_osx.sh" : "build_osx-arm64.sh"
 
         dir('../RadeonProRenderSDK/hipbin') {
+            // the Jenkins plugin can't perform git lfs pull on MacOS machines
             sh """
                 git lfs install
                 git lfs pull
@@ -928,7 +920,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/weekly/${engine}"
@@ -1125,7 +1117,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         testsBranch = "inemankov/updated_engine_selection"
     }
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {

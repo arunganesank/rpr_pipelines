@@ -473,8 +473,6 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                         makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
                         options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
-                        utils.stashTestData(this, options, options.storeOnNAS)
-
                         def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
@@ -489,18 +487,18 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
                         }
 
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-                                removeInstaller(osName: "Windows", options: options, extension: "msi")
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
+                        utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.mode)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+                            removeInstaller(osName: "Windows", options: options, extension: "msi")
+                            throw e
                         }
                     }
                 }
@@ -1732,7 +1730,6 @@ def call(
     boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
         || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
         || env.BRANCH_NAME)
-
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
 
     def options = [configuration: PIPELINE_CONFIGURATION,
@@ -1761,6 +1758,7 @@ def call(
                                 skipCallback: this.&filter,
                                 modes: modes,
                                 testsPackage:testsPackage,
+                                testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
                                 testsPreCondition: this.&hasIdleClients,

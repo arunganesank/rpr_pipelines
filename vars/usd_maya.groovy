@@ -404,44 +404,16 @@ def executeTests(String osName, String asicName, Map options) {
                         println("Stashing test results to : ${options.testResultsName}")
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                uninstallRPRMayaUSDPlugin(osName, options)
-                                removeInstaller(osName: osName, options: options, extension: "exe")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
-                        // retry on Maya crash
-                        if (sessionReport.summary.error > 0) {
-                            for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup][""]["render_results"]) {
-                                    for (message in caseResults.message) {
-                                        if (message.contains("Error windows")) {
-                                            String errorMessage
-                                            if (options.currentTry < options.nodeReallocateTries) {
-                                                errorMessage = "Maya crash detected. The test group will be restarted."
-                                            } else {
-                                                errorMessage = "Maya crash detected."
-                                            }
-                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            uninstallRPRMayaUSDPlugin(osName, options)
+                            removeInstaller(osName: osName, options: options, extension: "exe")
+                            throw e
                         }
                     }
                 }
@@ -921,7 +893,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-MayaPlugin/weekly/${engine}"
@@ -1115,7 +1087,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {
