@@ -433,23 +433,14 @@ def addOrUpdateDescription(Map options, String newLine, String testsName) {
 
             boolean lineReplaced = false
 
-            println("Found lines")
-            println(build.description)
-            println(lines.size())
-
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines[i]
-                println(line)
-                println(testsName)
-                println(line.contains(testsName))
                 if (line.contains(testsName)) {
                     lines[i] = newLine.replace("<br/>", "")
                     build.description = lines.join("<br/>")
                     lineReplaced = true
                 }
             }
-
-            println("Replaced: " + lineReplaced)
 
             if (!lineReplaced) {
                 build.description += newLine
