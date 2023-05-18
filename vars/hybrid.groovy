@@ -143,7 +143,7 @@ def executeBuild(String osName, Map options) {
 
         outputEnvironmentInfo(osName)
 
-        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
+/*        withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             GithubNotificator.updateStatus("Build", osName, "in_progress", options, "Checkout has been finished. Trying to build...")
             switch(osName) {
                 case "Windows":
@@ -159,7 +159,7 @@ def executeBuild(String osName, Map options) {
                 // use stashed artifacts on deploy stage to upload them on GitHub release
                 makeStash(includes: "BaikalNext_${STAGE_NAME}*", name: "app${osName}", storeOnNAS: options.storeOnNAS)
             }
-        }
+        }*/
     } catch (e) {
         println(e.getMessage())
         error_message = e.getMessage()
@@ -167,11 +167,11 @@ def executeBuild(String osName, Map options) {
     } finally {
         archiveArtifacts "*.log"
 
-        String artifactName = getArtifactName(osName)
+/*        String artifactName = getArtifactName(osName)
 
         dir("Build") {
             makeArchiveArtifacts(name: artifactName, storeOnNAS: options.storeOnNAS)
-        }
+        }*/
 
         String status = error_message ? "action_required" : "success"
         GithubNotificator.updateStatus("Build", osName, status, options, "Build finished as '${status}'", "${env.BUILD_URL}/artifact/${STAGE_NAME}.log")
@@ -265,46 +265,56 @@ def getTriggeredBuildLink(String jobUrl) {
 
 
 def getProblemsCount(String buildUrl, String testsName) {
-    withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
-        buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
-    }
+    try {
+        withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
+        }
 
-    switch (testsName) {
-        case "Unit":
-            def parsedInfo = doRequest("${buildUrl}/testReport/api/json")
-            return ["failed": parsedInfo["failCount"], "error": 0]
-        case "Performance":
-            // TODO: add implementation for Perf tests when they'll be fixed
-            return ["failed": 0, "error": 0]
-        case "RPR SDK":
-            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
-            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
-        case "MaterialX":
-            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
-            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
-        default: 
-            throw new Exception("Unexpected testsName '${testsName}'")
+        switch (testsName) {
+            case "Unit":
+                def parsedInfo = doRequest("${buildUrl}/testReport/api/json")
+                return ["failed": parsedInfo["failCount"], "error": 0]
+            case "Performance":
+                // TODO: add implementation for Perf tests when they'll be fixed
+                return ["failed": 0, "error": 0]
+            case "RPR SDK":
+                def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+                return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+            case "MaterialX":
+                def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+                return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+            default: 
+                println("[WARNING] Unexpected testsName '${testsName}'")
+                return null
+        }
+    } catch(e) {
+        return null
     }
 }
 
 
 def buildDescriptionContent(String testsName, String buildUrl, String reportLink, String logsLink) {
     def buildInfo = checkBuildResult(buildUrl)
-    currentBuild.result = buildInfo.result
 
     String statusDescription = ""
 
-    if (currentBuild.inProgress) {
-        statusDescription = "Autotests are in progress"
+    if (buildInfo.inProgress) {
+        statusDescription = "(autotests are in progress)"
     } else {
+        currentBuild.result = buildInfo.result
+
         Map problems = getProblemsCount(buildUrl, testsName)
 
-        if (problems["failed"] > 0 && problems["error"] > 0) {
-            statusDescription = "(${problems.failed} failed / ${problems.error} error)"
-        } else if (problems["failed"] > 0) {
-            statusDescription = "(${problems.failed} failed)"
-        } else if (problems["error"] > 0) {
-            statusDescription = "(${problems.error} error)"
+        if (problems) {
+            if (problems["failed"] > 0 && problems["error"] > 0) {
+                statusDescription = "(${problems.failed} failed / ${problems.error} error)"
+            } else if (problems["failed"] > 0) {
+                statusDescription = "(${problems.failed} failed)"
+            } else if (problems["error"] > 0) {
+                statusDescription = "(${problems.error} error)"
+            }
+        } else {
+            statusDescription = "(could not receive autotests results)"
         }
     }
 
@@ -320,26 +330,35 @@ def buildDescriptionContent(String testsName, String buildUrl, String reportLink
 }
 
 
-def buildDescriptionLine(String buildUrl, String testsName) {
+def buildDescriptionLine(Map options, String buildUrl, String testsName) {
     String messageContent = ""
 
     switch (testsName) {
+        case "Original":
+            String reportLink = "${buildUrl}"
+            String logsLink = "${options.unitLink}/artifact"
+            messageContent = "Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a>"
+            break
         case "Unit":
-            String reportLink = "${options.unitLink}/testReport"
-            String logsLink = "${options.unitLink}/artifact"
+            String reportLink = "${buildUrl}/testReport"
+            String logsLink = "${buildUrl}/artifact"
             messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+            break
         case "Performance":
-            String reportLink = "${options.unitLink}/Performance_20Tests_20Report"
-            String logsLink = "${options.unitLink}/artifact"
+            String reportLink = "${buildUrl}/Performance_20Tests_20Report"
+            String logsLink = "${buildUrl}/artifact"
             messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+            break
         case "RPR SDK":
-            String reportLink = "${options.unitLink}/Test_20Report_20HybridPro"
-            String logsLink = "${options.unitLink}/artifact"
+            String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
+            String logsLink = "${buildUrl}/artifact"
             messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+            break
         case "MaterialX":
-            String reportLink = "${options.unitLink}/Test_20Report"
-            String logsLink = "${options.unitLink}/artifact"
+            String reportLink = "${buildUrl}/Test_20Report"
+            String logsLink = "${buildUrl}/artifact"
             messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+            break
         default: 
             throw new Exception("Unexpected testsName '${testsName}'")
     }
@@ -370,15 +389,36 @@ def checkBuildResult(String buildUrl) {
 }
 
 
-def addOrUpdateDescription(String newLine, String buildUrl, String testsName) {
+def addOrUpdateDescription(Map options, String newLine, String testsName) {
     for (buildUrl in options["buildsUrls"]) {
-        if (buildUrl.contains(env.JOB_NAME.replace("/", "/job/"))) {
-            // do not display the link in the description of the same build
+        // do not display the link in the description of the same build
+        boolean skip = false
+        switch (testsName) {
+            case "Original":
+                skip = buildUrl.contains("HybridPro-Build")
+                break
+            case "Unit":
+                skip = buildUrl.contains("HybridPro-Unit")
+                break
+            case "Performance":
+                skip = buildUrl.contains("HybridPro-Perf")
+                break
+            case "RPR SDK":
+                skip = buildUrl.contains("HybridPro-SDK")
+                break
+            case "MaterialX":
+                skip = buildUrl.contains("HybridPro-MTLX")
+                break
+            default: 
+                throw new Exception("Unexpected testsName '${testsName}'")
+        }
+
+        if (skip) {
             continue
         }
 
         Integer buildNumber = buildUrl.split("/")[-1] as Integer
-        String[] jobParts = buildUrl.replace(env.JENKINS_URL + "/job/", "").replace("${buildUrl}", "").split("/job/")
+        String[] jobParts = buildUrl.replace(env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
 
         def item = Jenkins.instance
 
@@ -388,20 +428,32 @@ def addOrUpdateDescription(String newLine, String buildUrl, String testsName) {
 
         def build = item.getBuildByNumber(buildNumber)
 
-        List lines = build.description.split("<br/>") as List
+        if (build.description != null) {
+            List lines = build.description.split("<br/>") as List
 
-        boolean lineReplaced = false
+            boolean lineReplaced = false
 
-        for (int i = 0; i > lines.size(); i++) {
-            if (line.contains(testsName)) {
-                lines[i] = newLine
-                build.description = lines.join("<br/>")
-                lineReplaced = true
+            println("Found lines")
+            println(build.description)
+            println(lines.size())
+
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines[i]
+                println(line)
+                println(testsName)
+                println(line.contains(testsName))
+                if (line.contains(testsName)) {
+                    lines[i] = newLine.replace("<br/>", "")
+                    build.description = lines.join("<br/>")
+                    lineReplaced = true
+                }
             }
-        }
 
-        if (!lineReplaced) {
-            build.description += newLine
+            println("Replaced: " + lineReplaced)
+
+            if (!lineReplaced) {
+                build.description += newLine
+            }
         }
     }
 }
@@ -413,8 +465,8 @@ def awaitBuildFinishing(Map options, String buildUrl, String testsName) {
     } else if (!options["finishedTestBuilds"].containsKey(testsName) || !options["finishedTestBuilds"][testsName])  {
         options["finishedTestBuilds"][testsName] = true
 
-        String description = buildDescriptionLine(buildUrl, testsName)
-        addOrUpdateDescription(description, buildUrl, testsName)
+        String description = buildDescriptionLine(options, buildUrl, testsName)
+        addOrUpdateDescription(options, description, testsName)
 
         options.resultsDescription += description
     }
@@ -551,21 +603,24 @@ def launchAndWaitTests(Map options) {
     if (!options["descriptionsInitialized"]) {
         options["descriptionsInitialized"] = true
 
+        String description = buildDescriptionLine(options, env.BUILD_URL, "Original")
+        addOrUpdateDescription(options, description, "Original")
+
         if (options["unitLink"]) {
-            String description = buildDescriptionLine(buildUrl, "Unit")
-            addOrUpdateDescription(description, options["unitLink"], "Unit")
+            description = buildDescriptionLine(options, options["unitLink"], "Unit")
+            addOrUpdateDescription(options, description, "Unit")
         }
         if (options["perfLink"]) {
-            String description = buildDescriptionLine(buildUrl, "Performance")
-            addOrUpdateDescription(description, options["perfLink"], "Performance")
+            description = buildDescriptionLine(options, options["perfLink"], "Performance")
+            addOrUpdateDescription(options, description, "Performance")
         }
         if (options["rprSdkLink"]) {
-            String description = buildDescriptionLine(buildUrl, "RPR SDK")
-            addOrUpdateDescription(description, options["rprSdkLink"], "RPR SDK")
+            description = buildDescriptionLine(options, options["rprSdkLink"], "RPR SDK")
+            addOrUpdateDescription(options, description, "RPR SDK")
         }
         if (options["mtlxLink"]) {
-            String description = buildDescriptionLine(buildUrl, "MaterialX")
-            addOrUpdateDescription(description, options["mtlxLink"], "MaterialX")
+            description = buildDescriptionLine(options, options["mtlxLink"], "MaterialX")
+            addOrUpdateDescription(options, description, "MaterialX")
         }
     }
 
@@ -710,7 +765,7 @@ def call(String pipelineBranch = "master",
                    resultsDescription: "",
                    deployPreCondition: this.&launchAndWaitTests,
                    buildsUrls: [env.BUILD_URL],
-                   finishedTestBuilds: []]
+                   finishedTestBuilds: [:]]
 
         multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
     } catch(e) {
