@@ -220,8 +220,6 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     options.testsList = options.apiValues
 
     // set pending status for all
@@ -306,6 +304,8 @@ def call(String commitSHA = "",
          String apiValues = "vulkan,d3d12",
          Boolean updateRefs = false) {
 
+    currentBuild.description = ""
+
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
             println("[INFO] Make a delay because there is a running build in master branch")
@@ -322,8 +322,6 @@ def call(String commitSHA = "",
     List apiList = apiValues.split(",") as List
 
     println "[INFO] Testing APIs: ${apiList}"
-
-    currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [configuration: PIPELINE_CONFIGURATION,
