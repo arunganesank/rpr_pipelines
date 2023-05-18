@@ -336,7 +336,7 @@ def buildDescriptionLine(Map options, String buildUrl, String testsName) {
     switch (testsName) {
         case "Original":
             String reportLink = "${buildUrl}"
-            String logsLink = "${options.unitLink}/artifact"
+            String logsLink = "${buildUrl}/artifact"
             messageContent = "Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a>"
             break
         case "Unit":

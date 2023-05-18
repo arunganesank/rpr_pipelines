@@ -491,6 +491,8 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
+    currentBuild.description = ""
+
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
             println("[INFO] Make a delay because there is a running build in master branch")
@@ -505,7 +507,6 @@ def call(String commitSHA = "",
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    currentBuild.description = ""
 
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
@@ -538,6 +539,9 @@ def call(String commitSHA = "",
         println e.toString()
         throw e
     } finally {
+        if (currentBuild.description) {
+            currentBuild.description += "<br/>"
+        }
         String problemMessage = problemMessageManager.publishMessages()
     }
 }

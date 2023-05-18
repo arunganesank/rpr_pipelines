@@ -289,6 +289,8 @@ def call(String commitSHA = "",
          String scenarios = "all",
          Boolean updateRefs = false) {
 
+    currentBuild.description = ""
+
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
             println("[INFO] Make a delay because there is a running build in master branch")
@@ -301,8 +303,6 @@ def call(String commitSHA = "",
         }
         milestone(buildNumber) 
     }
-
-    currentBuild.description = ""
 
     Map successfulTests = ["cliff_detected": false, "unexpected_acceleration": false]
 
