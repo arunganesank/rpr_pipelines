@@ -483,7 +483,7 @@ def launchAndWaitTests(Map options) {
     String testPlatformsMtlx = getTestPlatformsMtlx(testPlatforms)
 
     if (!options["ueLaunched"]) {
-        options["ueLaunched"] == true
+        options["ueLaunched"] = true
 
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
