@@ -20,6 +20,15 @@ import java.util.concurrent.ConcurrentHashMap
 )
 
 
+Boolean filter(Map options, String asicName, String osName, String testName, String profile) {
+    if (profile.contains("HybridPro") && (osName == "OSX" || osName == "Ubuntu20")) {
+        return true
+    }
+
+    return false
+}
+
+
 def installHoudiniPlugin(String osName, Map options) {
     getProduct(osName, options, ".", false)
 
@@ -847,11 +856,11 @@ def call(String projectRepo = PROJECT_REPO,
         String projectBranch = "",
         String testsBranch = "master",
         String platforms = 'Windows:AMD_RX6800XT,AMD_680M,AMD_WX9100,AMD_RX7900XT;OSX:AMD_RX5700XT;Ubuntu20:AMD_RX6700XT',
-        String houdiniVersions = "19.0.622,19.5.534",
+        String houdiniVersions = "19.5.534",
         String updateRefs = 'No',
         String testsPackage = "Smoke.json",
         String tests = "",
-        String enginesNames = "Northstar",
+        String enginesNames = "Northstar,HybridPro",
         Boolean enableRIFTracing = false,
         Boolean enableRPRTracing = false,
         String tester_tag = "Houdini",
@@ -959,7 +968,8 @@ def call(String projectRepo = PROJECT_REPO,
                         prBranchName:prBranchName,
                         notificationsTitlePrefix: "HOUDINI",
                         useTrackedMetrics:useTrackedMetrics,
-                        saveTrackedMetrics:saveTrackedMetrics
+                        saveTrackedMetrics:saveTrackedMetrics,
+                        skipCallback: this.&filter
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
