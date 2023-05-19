@@ -483,13 +483,13 @@ def launchAndWaitTests(Map options) {
     String testPlatformsMtlx = getTestPlatformsMtlx(testPlatforms)
 
     if (!options["ueLaunched"]) {
+        options["ueLaunched"] == true
+
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
-
-        options["ueLaunched"] == true
     }
 
     if (!options["unitLink"]) {
