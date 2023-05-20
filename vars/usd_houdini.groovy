@@ -680,6 +680,11 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
                 testResultList.each() {
                     if (it.endsWith(testProfile)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
+
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), testProfile)) {
+                            return
+                        }
+
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                         dir(testName) {
                             try {

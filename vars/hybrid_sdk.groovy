@@ -19,6 +19,15 @@ import java.util.concurrent.ConcurrentHashMap
 )
 
 
+Boolean filter(Map options, String asicName, String osName, String engine) {
+    if (asicName == "AMD_RadeonVII" || asicName == "AMD_RX5700XT" || asicName == "AMD_WX9100") {
+        return true
+    }
+
+    return false
+}
+
+
 def executeTestCommand(String osName, String asicName, Map options) {
     switch(osName) {
         case 'Windows':
@@ -332,6 +341,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), engine)) {
+                            return
+                        }
+
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -524,7 +537,8 @@ def call(String commitSHA = "",
                                 splitTestsExecution: false,
                                 problemMessageManager:problemMessageManager,
                                 nodeRetry: [],
-                                customStageName: "Test-SDK"])
+                                customStageName: "Test-SDK",
+                                skipCallback: this.&filter])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println e.toString()
