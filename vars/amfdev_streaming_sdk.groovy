@@ -983,9 +983,9 @@ def initAndroidDevice(Map options) {
             println "[ERROR] Failed to connect to Android device"
         }
 
-        if (options.ANDROID_TAG == "Chromecast") {
+        if (options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "XiaomiTVStick") {
             // screensave can't be turned off, reboot the device to avoid it
-            println "[INFO] Reboot chromecast device"
+            println "[INFO] Reboot device"
             bat "adb shell reboot"
             bat "adb connect ${deviceName}:5555"
             sleep(60)
