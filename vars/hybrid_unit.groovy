@@ -134,7 +134,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             }            
         } else {
             println "Execute Tests"
-            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
+            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/", "", true, "nasURL", "nasSSHPort", true)
             executeTestCommand(asicName, osName, options, apiValue)
         }
     } catch (e) {

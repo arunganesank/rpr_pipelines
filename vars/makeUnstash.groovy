@@ -40,13 +40,14 @@ def call(Map params) {
 
             int times = 3
             int retries = 0
-            int status = 0
 
             String zipName = "stash_${stashName}.zip"
 
             while (retries++ < times) {
                 try {
                     print("Try to make unstash №${retries}")
+
+                    int status = 0
 
                     String storageURLCredential = getSuitableStorageURL()
                     String storageSSHPortCredential = getSuitableStoragePort()
@@ -59,14 +60,10 @@ def call(Map params) {
                         }
                     }
 
-                    if (status == 23) {
-                        println("[ERROR] Failed to download stash")
-                    } else if (status == 24) {
-                        print("[ERROR] Partial transfer due to vanished source files")
-                    } else if (status != 0) {
-                        println("[ERROR] Download script returned non-zero code: ${status}")
-                    } else {
+                    if (status == 0) {
                         break
+                    } else {
+                        print("[ERROR] Rsync returned non-zero exit code: ${status}")
                     }
                 } catch (FlowInterruptedException e1) {
                     println("[INFO] Making of unstash of stash with name '${stashName}' was aborting.")

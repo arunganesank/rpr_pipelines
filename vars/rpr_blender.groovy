@@ -226,7 +226,7 @@ def executeTests(String osName, String asicName, Map options)
                         break
                 }
 
-                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false)
+                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
             }
         }
 
@@ -239,7 +239,7 @@ def executeTests(String osName, String asicName, Map options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
 
                     // Download configdev to enable collecting of debug information from RRP SDK
-                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false)
+                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false, "nasURL", "nasSSHPort", true)
                 }
             }
         
@@ -317,9 +317,9 @@ def executeTests(String osName, String asicName, Map options)
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }

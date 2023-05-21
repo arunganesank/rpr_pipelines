@@ -171,7 +171,7 @@ def executeTests(String osName, String asicName, Map options)
                 println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
 
                 options.tests.split(" ").each() {
-                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
@@ -545,7 +545,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             try {
                 dir("core_tests_configuration") {
-                    downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
+                    downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'", true, "nasURL", "nasSSHPort", true)
                 }
             } catch (e) {
                 println("[ERROR] Can't download json files with core tests configuration")

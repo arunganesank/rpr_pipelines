@@ -108,13 +108,15 @@ def call(Map params) {
             for (storageCredentials in getStoragesCredentials(replicate)) {
                 int times = 3
                 int retries = 0
-                int status = 0
 
                 boolean stashUploaded = false
 
                 while (retries++ < times) {
                     try {
                         print("Try to make stash №${retries}")
+
+                        int status = 0
+
                         withCredentials([string(credentialsId: storageCredentials["url"], variable: "REMOTE_HOST"), string(credentialsId: storageCredentials["port"], variable: "SSH_PORT")]) {
                             // Escaping of space characters should be done by different ways for local path and remote paths
                             // Read more about it here: https://rsync.samba.org/FAQ.html#9
@@ -146,15 +148,11 @@ def call(Map params) {
                             }
                         }
 
-                        if (status == 23) {
-                            println("[ERROR] Failed to upload stash")
-                        } else if (status == 24) {
-                            print("[ERROR] Partial transfer due to vanished source files")
-                        } else if (status != 0) {
-                            println("[ERROR] Uploading script returned non-zero code: ${status}")
-                        } else {
+                        if (status == 0) {
                             stashUploaded = true
                             break
+                        } else {
+                            print("[ERROR] Rsync returned non-zero exit code: ${status}")
                         }
                     } catch (FlowInterruptedException e1) {
                         println("[INFO] Making of stash with name '${stashName}' was aborting.")

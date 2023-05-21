@@ -213,7 +213,9 @@ def executeTests(String osName, String asicName, Map options) {
                     String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hdrpr_autotests_baselines" : "/mnt/c/TestResources/hdrpr_autotests_baselines"
                     baselineDir = enginePostfix ? "${baselineDir}-${enginePostfix}" : baselineDir
                     println "[INFO] Downloading reference images for ${options.testsPackage}"
-                    options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                    options.tests.split(" ").each {
+                        downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                    }
                 }
                 withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                     executeTestCommand(osName, asicName, options)
