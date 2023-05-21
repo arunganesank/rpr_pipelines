@@ -1597,7 +1597,7 @@ def executePreBuild(Map options) {
                     options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
                     options.engines.each { engine ->
-                        if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+                        if (env.JOB_NAME.contains("Weekly") && !env.JOB_NAME.contains("APU") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
                             packageInfo = readJSON file: "jobs/regression-windows.json"
 
                             for (int i = 0; i < packageInfo["groups"].size(); i++) {
