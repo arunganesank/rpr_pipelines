@@ -9,7 +9,9 @@ def updateAnydeskPassword(String newPassword) {
             boolean isMacOS = uname.startsWith("Darwin")
 
             if (isMacOS) {
-                sh "echo \$NEW_ANYDESK_PASS | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password"
+                // TODO: gui password change
+                // sh "echo \$NEW_ANYDESK_PASS | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password"
+                println("Skipping MacOS")
             } else {
                 sh "echo \$NEW_ANYDESK_PASS | sudo anydesk --set-password"
             }
