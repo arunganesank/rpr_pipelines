@@ -44,10 +44,6 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
         return true
     }
 
-    if (engine == "HybridPro" && (asicName == "AMD_RadeonVII" || asicName == "AMD_RX5700XT" || asicName == "AMD_WX9100")) {
-        return true
-    }
-
     return false
 }
 
