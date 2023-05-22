@@ -429,9 +429,9 @@ def executeBuildWindows(Map options)
         GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
         bat """
             cd ..
-            build.cmd >> ../${STAGE_NAME}.log  2>&1
+            build.cmd >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             bat """
@@ -475,10 +475,10 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 
         sh """
             cd ..
-            ./${buildScriptName} >> ../../${STAGE_NAME}.log  2>&1
+            ./${buildScriptName} >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
 
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             sh """
@@ -513,9 +513,9 @@ def executeBuildLinux(String osName, Map options)
         GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
         sh """
             cd ..
-            ./build.sh >> ../../${STAGE_NAME}.log  2>&1
+            ./build.sh >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
 
