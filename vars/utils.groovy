@@ -904,7 +904,7 @@ class utils {
         throw new Exception("Could not determine Ip adress")
     }
 
-    static def analyzeResults(Object self, def sessionReport, Map options, double threshold = 1.0) {
+    static def analyzeResults(Object self, def sessionReport, Map options, double threshold = 0.0) {
         self.println """
             Total: ${sessionReport.summary.total}
             Errors: ${sessionReport.summary.error}
@@ -937,11 +937,11 @@ class utils {
             throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
         }
 
-        if ((sessionReport.summary.total - sessionReport.summary.skipped) * threshold <= sessionReport.summary.error) {
+        if ((sessionReport.summary.total - sessionReport.summary.skipped) * threshold < sessionReport.summary.error) {
             self.utils.saveProblemsData(self, options)
 
             // retry problems detected with threshold only once
-            if (options.containsKey("problemsDetected")) {
+            if (options.containsKey("problemsDetected") && options["problemsDetected"]) {
                 self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
             } else {
                 options["problemsDetected"] = true
