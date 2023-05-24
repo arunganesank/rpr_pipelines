@@ -607,6 +607,9 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
 
+    // reboot to prevent appearing of Windows activation watermark
+    utils.reboot(this, osName)
+
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
 
