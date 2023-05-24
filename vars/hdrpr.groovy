@@ -29,10 +29,6 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    if (engine == "HybridPro" && osName == "Ubuntu20") {
-        return true
-    }
-
     return false
 }
 
