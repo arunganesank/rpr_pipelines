@@ -388,32 +388,6 @@ def checkBuildResult(String buildUrl) {
 
 def addOrUpdateDescription(Map options, String newLine, String testsName) {
     for (buildUrl in options["buildsUrls"]) {
-        // do not display the link in the description of the same build
-        boolean skip = false
-        switch (testsName) {
-            case "Original":
-                skip = buildUrl.contains("HybridPro-Build")
-                break
-            case "Unit":
-                skip = buildUrl.contains("HybridPro-Unit")
-                break
-            case "Performance":
-                skip = buildUrl.contains("HybridPro-Perf")
-                break
-            case "RPR SDK":
-                skip = buildUrl.contains("HybridPro-SDK")
-                break
-            case "MaterialX":
-                skip = buildUrl.contains("HybridPro-MTLX")
-                break
-            default: 
-                throw new Exception("Unexpected testsName '${testsName}'")
-        }
-
-        if (skip) {
-            continue
-        }
-
         Integer buildNumber = buildUrl.split("/")[-1] as Integer
         String[] jobParts = buildUrl.replace(env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
 

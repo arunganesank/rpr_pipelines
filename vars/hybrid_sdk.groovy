@@ -207,23 +207,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(String engineName, Map options) {
-    String buildNumber = ""
-
-    if (options.useTrackedMetrics) {
-        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
-            // use any large build number in case of PRs and other branches in auto job
-            // it's required to display build as last one
-            buildNumber = "10000"
-        } else {
-            buildNumber = env.BUILD_NUMBER
-        }
-    }
-
-    if (options["isPreBuilt"]) {
-        return """Core "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    } else {
-        return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    }
+    return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" 10000"""
 }
 
 
@@ -260,10 +244,6 @@ def executePreBuild(Map options) {
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
         options.rprsdkWindows = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreWin64.zip"
         options.rprsdkUbuntu = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreUbuntu20.zip"
-    }
-
-    if (env.BRANCH_NAME == "master") {
-        options.collectTrackedMetrics = true
     }
 
     dir('jobs_test_core') {
@@ -375,10 +355,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             try {
                 String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/HybridProDev/${engine}"
-
-                if (options.collectTrackedMetrics) {
-                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
-                }
+                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
 
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
@@ -393,10 +370,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         bat "get_status.bat ..\\summaryTestResults"
                     }
                 }
-
-                if (options.collectTrackedMetrics) {
-                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
-                } 
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 if (utils.isReportFailCritical(e.getMessage())) {
