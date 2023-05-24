@@ -354,7 +354,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/HybridProDev/${engine}"
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-SDK-Auto/master/${engine}"
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
 
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
