@@ -1168,6 +1168,12 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 prBranchName = prInfo[1]
             }
 
+            String builderTag = "BuilderRPRMaya"
+
+            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-384") {
+                builderTag = "(PC-BUILDER-HAMBURG-WIN10 || PC-BUILDER-BERLIN-WIN10 || PC-BUILDER-PORTLAND-WIN10)"
+            }
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo:projectRepo,
                         projectBranch:projectBranch,
@@ -1186,7 +1192,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         reportName:'Test_20Report',
                         splitTestsExecution:true,
                         gpusCount:gpusCount,
-                        BUILDER_TAG:'BuilderRPRMaya',
+                        BUILDER_TAG:builderTag,
                         TEST_TIMEOUT:120,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:75,
