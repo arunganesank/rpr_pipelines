@@ -222,7 +222,7 @@ def executeTests(String osName, String asicName, Map options)
                         break
                 }
 
-                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false)
+                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
             }
         }
 
@@ -235,7 +235,7 @@ def executeTests(String osName, String asicName, Map options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
 
                     // Download configdev to enable collecting of debug information from RRP SDK
-                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false)
+                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false, "nasURL", "nasSSHPort", true)
                 }
             }
         
@@ -313,9 +313,9 @@ def executeTests(String osName, String asicName, Map options)
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -425,9 +425,9 @@ def executeBuildWindows(Map options)
         GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
         bat """
             cd ..
-            build.cmd >> ../${STAGE_NAME}.log  2>&1
+            build.cmd >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             bat """
@@ -471,10 +471,10 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 
         sh """
             cd ..
-            ./${buildScriptName} >> ../../${STAGE_NAME}.log  2>&1
+            ./${buildScriptName} >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
 
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             sh """
@@ -509,9 +509,9 @@ def executeBuildLinux(String osName, Map options)
         GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
         sh """
             cd ..
-            ./build.sh >> ../../${STAGE_NAME}.log  2>&1
+            ./build.sh >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
 

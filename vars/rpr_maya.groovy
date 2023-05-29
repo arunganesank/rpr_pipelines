@@ -239,17 +239,14 @@ def executeTests(String osName, String asicName, Map options)
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_maya_autotests_assets" : "/mnt/c/TestResources/rpr_maya_autotests_assets"
 
-            // FIXME: use local NAS for baselines downloading
-            if (osName != "OSX") {
-                downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
-            }
+            downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
                 String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${options.toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${options.toolVersion}/prefs"
                 String customKeys = isUnix() ? "--protect-args" : ""
-                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false)
+                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
             }
         }
 
@@ -343,9 +340,9 @@ def executeTests(String osName, String asicName, Map options)
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -1171,6 +1168,12 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 prBranchName = prInfo[1]
             }
 
+            String builderTag = "BuilderRPRMaya"
+
+            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-384") {
+                builderTag = "(PC-BUILDER-HAMBURG-WIN10 || PC-BUILDER-BERLIN-WIN10 || PC-BUILDER-PORTLAND-WIN10)"
+            }
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo:projectRepo,
                         projectBranch:projectBranch,
@@ -1189,7 +1192,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         reportName:'Test_20Report',
                         splitTestsExecution:true,
                         gpusCount:gpusCount,
-                        BUILDER_TAG:'BuilderRPRMaya',
+                        BUILDER_TAG:builderTag,
                         TEST_TIMEOUT:120,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:75,

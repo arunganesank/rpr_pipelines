@@ -123,7 +123,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(stage: options.customStageName, title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_baselines" : "/mnt/c/TestResources/hybrid_mtlx_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
@@ -218,8 +220,6 @@ def executePreBuild(Map options) {
 
         options.originalBuildLink = parsedInfo.lastCompletedBuild.url
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] Link to used HybridPro</a></h3>""")
-    } else {
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
     }
 
     def tests = []
@@ -493,6 +493,8 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100",
          String updateRefs = "No") {
 
+    currentBuild.description = ""
+
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) { 
             println("[INFO] Make a delay because there is a running build in master branch")
@@ -507,7 +509,6 @@ def call(String commitSHA = "",
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    currentBuild.description = ""
 
     try {
         Map options = [:]
@@ -542,6 +543,9 @@ def call(String commitSHA = "",
         println e.toString()
         throw e
     } finally {
+        if (currentBuild.description) {
+            currentBuild.description += "<br/>"
+        }
         String problemMessage = problemMessageManager.publishMessages()
     }
 }

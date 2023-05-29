@@ -575,7 +575,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
 
-                    utils.analyzeResults(this, sessionReport, optionsm, 0.5)
+                    utils.analyzeResults(this, sessionReport, options, 0.5)
                 }
             }
         }
@@ -983,9 +983,9 @@ def initAndroidDevice(Map options) {
             println "[ERROR] Failed to connect to Android device"
         }
 
-        if (options.ANDROID_TAG == "Chromecast") {
+        if (options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "XiaomiTVStick") {
             // screensave can't be turned off, reboot the device to avoid it
-            println "[INFO] Reboot chromecast device"
+            println "[INFO] Reboot device"
             bat "adb shell reboot"
             bat "adb connect ${deviceName}:5555"
             sleep(60)
@@ -1597,7 +1597,7 @@ def executePreBuild(Map options) {
                     options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
                     options.engines.each { engine ->
-                        if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+                        if (env.JOB_NAME.contains("Weekly") && !env.JOB_NAME.contains("APU") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
                             packageInfo = readJSON file: "jobs/regression-windows.json"
 
                             for (int i = 0; i < packageInfo["groups"].size(); i++) {

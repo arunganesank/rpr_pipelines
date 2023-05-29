@@ -142,7 +142,7 @@ def executeBuild(String osName, Map options) {
         checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
         outputEnvironmentInfo(osName)
-        
+
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             GithubNotificator.updateStatus("Build", osName, "in_progress", options, "Checkout has been finished. Trying to build...")
             switch(osName) {
@@ -251,7 +251,7 @@ def parseResponse(String response) {
 }
 
 
-def saveTriggeredBuildLink(String jobUrl, String testsName) {
+def getTriggeredBuildLink(String jobUrl) {
     String url = "${jobUrl}/api/json?tree=lastBuild[number,url]"
 
     withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
@@ -260,11 +260,107 @@ def saveTriggeredBuildLink(String jobUrl, String testsName) {
 
     def parsedInfo = doRequest(url)
 
-    node("PreBuild") {
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastBuild.url}">[${testsName}] This build triggered a new build with tests</a></h3>""")
+    return parsedInfo.lastBuild.url
+}
+
+
+def getProblemsCount(String buildUrl, String testsName) {
+    try {
+        withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
+        }
+
+        switch (testsName) {
+            case "Unit":
+                def parsedInfo = doRequest("${buildUrl}/testReport/api/json")
+                return ["failed": parsedInfo["failCount"], "error": 0]
+            case "Performance":
+                // TODO: add implementation for Perf tests when they'll be fixed
+                return ["failed": 0, "error": 0]
+            case "RPR SDK":
+                def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+                return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+            case "MaterialX":
+                def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
+                return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+            default: 
+                println("[WARNING] Unexpected testsName '${testsName}'")
+                return null
+        }
+    } catch(e) {
+        return null
+    }
+}
+
+
+def buildDescriptionContent(String testsName, String buildUrl, String reportLink, String logsLink) {
+    def buildInfo = checkBuildResult(buildUrl)
+
+    String statusDescription = ""
+
+    if (buildInfo.inProgress) {
+        statusDescription = "(autotests are in progress)"
+    } else {
+        currentBuild.result = buildInfo.result
+
+        Map problems = getProblemsCount(buildUrl, testsName)
+
+        if (problems) {
+            if (problems["failed"] > 0 && problems["error"] > 0) {
+                statusDescription = "(${problems.failed} failed / ${problems.error} error)"
+            } else if (problems["failed"] > 0) {
+                statusDescription = "(${problems.failed} failed)"
+            } else if (problems["error"] > 0) {
+                statusDescription = "(${problems.error} error)"
+            }
+        } else {
+            statusDescription = "(could not receive autotests results)"
+        }
     }
 
-    return parsedInfo.lastBuild.url
+    if (buildInfo.inProgress) {
+        return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are in progress. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
+    } else {
+        if (buildInfo.result == "FAILURE") {
+            return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else if (buildInfo.result == "UNSTABLE") {
+            return "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else if (buildInfo.result == "SUCCESS") {
+            return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else {
+            return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        }
+    }
+}
+
+
+def buildDescriptionLine(Map options, String buildUrl, String testsName) {
+    String messageContent = ""
+
+    switch (testsName) {
+        case "Original":
+            String reportLink = "${buildUrl}"
+            String logsLink = "${buildUrl}/artifact"
+            return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
+        case "Unit":
+            String reportLink = "${buildUrl}/testReport"
+            String logsLink = "${buildUrl}/artifact"
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+        case "Performance":
+            String reportLink = "${buildUrl}/Performance_20Tests_20Report"
+            String logsLink = "${buildUrl}/artifact"
+            messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+        case "RPR SDK":
+            String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
+            String logsLink = "${buildUrl}/artifact"
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+        case "MaterialX":
+            String reportLink = "${buildUrl}/Test_20Report"
+            String logsLink = "${buildUrl}/artifact"
+            return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
+        default: 
+            throw new Exception("Unexpected testsName '${testsName}'")
+    }
 }
 
 
@@ -290,76 +386,54 @@ def checkBuildResult(String buildUrl) {
 }
 
 
-def getProblemsCount(String buildUrl, String testsName) {
-    withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
-        buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
-    }
+def addOrUpdateDescription(Map options, String newLine, String testsName) {
+    for (buildUrl in options["buildsUrls"]) {
+        Integer buildNumber = buildUrl.split("/")[-1] as Integer
+        String[] jobParts = buildUrl.replace(env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
 
-    switch (testsName) {
-        case "Unit":
-            def parsedInfo = doRequest("${buildUrl}/testReport/api/json")
-            return ["failed": parsedInfo["failCount"], "error": 0]
-        case "Performance":
-            // TODO: add implementation for Perf tests when they'll be fixed
-            return ["failed": 0, "error": 0]
-        case "RPR SDK":
-            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
-            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
-        case "MaterialX":
-            def parsedInfo = doRequest("${buildUrl}/artifact/summary_status.json")
-            return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
-        default: 
-            throw new Exception("Unexpected testsName '${testsName}'")
+        def item = Jenkins.instance
+
+        for (part in jobParts) {
+            item = item.getItem(part)
+        }
+
+        def build = item.getBuildByNumber(buildNumber)
+
+        if (build.description != null) {
+            List lines = build.description.split("<br/>") as List
+
+            boolean lineReplaced = false
+
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines[i]
+                if (line.contains(testsName)) {
+                    lines[i] = newLine.replace("<br/>", "")
+                    build.description = lines.join("<br/>")
+                    lineReplaced = true
+                }
+            }
+
+            if (!lineReplaced) {
+                build.description += newLine
+            }
+        }
     }
 }
 
 
-def awaitBuildFinishing(Map options, String buildUrl, String testsName, String reportLink, Boolean sendEmail = false) {
-    waitUntil({!checkBuildResult(buildUrl).inProgress}, quiet: true)
+def awaitBuildFinishing(Map options, String buildUrl, String testsName) {
+    if (checkBuildResult(buildUrl).inProgress) {
+        return false
+    } else if (!options["finishedTestBuilds"].containsKey(testsName) || !options["finishedTestBuilds"][testsName])  {
+        options["finishedTestBuilds"][testsName] = true
 
-    String description = ""
+        String description = buildDescriptionLine(options, buildUrl, testsName)
+        addOrUpdateDescription(options, description, testsName)
 
-    try {
-        def buildInfo = checkBuildResult(buildUrl)
-        currentBuild.result = buildInfo.result
-
-        Map problems = getProblemsCount(buildUrl, testsName)
-        String problemsDescription = ""
-
-        if (problems["failed"] > 0 && problems["error"] > 0) {
-            problemsDescription = "(${problems.failed} failed / ${problems.error} error)"
-        } else if (problems["failed"] > 0) {
-            problemsDescription = "(${problems.failed} failed)"
-        } else if (problems["error"] > 0) {
-            problemsDescription = "(${problems.error} error)"
-        }
-
-        if (buildInfo.result == "FAILURE") {
-            description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
-        } else if (buildInfo.result == "UNSTABLE") {
-            description += "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
-        } else if (buildInfo.result == "SUCCESS") {
-            description += "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
-        } else {
-            description += "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report link</a> ${problemsDescription}</span><br/><br/>"
-        }
-    } catch (Exception e) {
-        println("[WARNING] Failed to get '${testsName}' build description")
-        println(e)
-        description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${testsName} tests status. <a href='${buildUrl}'>Check build for details</a></span><br/><br/>"
+        options.resultsDescription += description
     }
 
-    currentBuild.description += description
-    options.resultsDescription += description
-
-    if (env.TAG_NAME && sendEmail && !options.emailSent) {
-        withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
-            String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
-            emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
-            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
-            options.emailSent = true
-        }
-    }
+    return true
 }
 
 
@@ -383,13 +457,13 @@ def launchAndWaitTests(Map options) {
     String testPlatformsMtlx = getTestPlatformsMtlx(testPlatforms)
 
     if (!options["ueLaunched"]) {
+        options["ueLaunched"] = true
+
         if (env.BRANCH_NAME == "master" && testPlatforms.contains("Windows")) {
             build(job: "HybridUEAuto/VictorianTrainsAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ToyShopAuto/rpr_master", wait: false)
             build(job: "HybridUEAuto/ShooterGameAuto/rpr_master", wait: false)
         }
-
-        options["ueLaunched"] == true
     }
 
     if (!options["unitLink"]) {
@@ -411,7 +485,8 @@ def launchAndWaitTests(Map options) {
                     quietPeriod : 0
                 )
 
-                options["unitLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"), "UNIT TESTS")
+                options["unitLink"] = getTriggeredBuildLink(env.JOB_URL.replace("Build", "Unit"))
+                options["buildsUrls"].add(options["unitLink"])
             }
         }
     }
@@ -433,7 +508,8 @@ def launchAndWaitTests(Map options) {
                 quietPeriod : 0
             )
 
-            options["perfLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "Perf"), "PERF TESTS")
+            options["perfLink"] = getTriggeredBuildLink(env.JOB_URL.replace("Build", "Perf"))
+            options["buildsUrls"].add(options["perfLink"])
         }
     }
 
@@ -456,7 +532,8 @@ def launchAndWaitTests(Map options) {
                 quietPeriod : 0
             )
 
-            options["rprSdkLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "SDK"), "RPR SDK TESTS")
+            options["rprSdkLink"] = getTriggeredBuildLink(env.JOB_URL.replace("Build", "SDK"))
+            options["buildsUrls"].add(options["rprSdkLink"])
         }
     }
 
@@ -480,28 +557,63 @@ def launchAndWaitTests(Map options) {
                 quietPeriod : 0
             )
 
-            options["mtlxLink"] = saveTriggeredBuildLink(env.JOB_URL.replace("Build", "MTLX"), "MATERIALX TESTS")
+            options["mtlxLink"] = getTriggeredBuildLink(env.JOB_URL.replace("Build", "MTLX"))
+            options["buildsUrls"].add(options["mtlxLink"])
         }
     }
 
-    if (options["unitLink"]) {
-        String reportLink = "${options.unitLink}/testReport"
-        awaitBuildFinishing(options, options["unitLink"], "Unit", reportLink)
-    }
-    if (options["perfLink"]) {
-        String reportLink = "${options.perfLink}/Performance_20Tests_20Report"
-        awaitBuildFinishing(options, options["perfLink"], "Performance", reportLink)
-    }
-    if (options["rprSdkLink"]) {
-        String reportLink = "${options.rprSdkLink}/Test_20Report_20HybridPro"
-        awaitBuildFinishing(options, options["rprSdkLink"], "RPR SDK", reportLink)
-    }
-    if (options["mtlxLink"]) {
-        String reportLink = "${options.mtlxLink}/Test_20Report"
-        awaitBuildFinishing(options, options["mtlxLink"], "MaterialX", reportLink, true)
+    if (!options["descriptionsInitialized"]) {
+        // Wait a bit to let the builds start
+        sleep(60)
+
+        options["descriptionsInitialized"] = true
+
+        String description = buildDescriptionLine(options, env.BUILD_URL, "Original")
+        addOrUpdateDescription(options, description, "Original")
+
+        if (options["unitLink"]) {
+            description = buildDescriptionLine(options, options["unitLink"], "Unit")
+            addOrUpdateDescription(options, description, "Unit")
+        }
+        if (options["perfLink"]) {
+            description = buildDescriptionLine(options, options["perfLink"], "Performance")
+            addOrUpdateDescription(options, description, "Performance")
+        }
+        if (options["rprSdkLink"]) {
+            description = buildDescriptionLine(options, options["rprSdkLink"], "RPR SDK")
+            addOrUpdateDescription(options, description, "RPR SDK")
+        }
+        if (options["mtlxLink"]) {
+            description = buildDescriptionLine(options, options["mtlxLink"], "MaterialX")
+            addOrUpdateDescription(options, description, "MaterialX")
+        }
     }
 
-    return true
+    boolean subbuildsFinished = true
+
+    if (options["unitLink"]) {
+        subbuildsFinished &= awaitBuildFinishing(options, options["unitLink"], "Unit")
+    }
+    if (options["perfLink"]) {
+        subbuildsFinished &= awaitBuildFinishing(options, options["perfLink"], "Performance")
+    }
+    if (options["rprSdkLink"]) {
+        subbuildsFinished &= awaitBuildFinishing(options, options["rprSdkLink"], "RPR SDK")
+    }
+    if (options["mtlxLink"]) {
+        subbuildsFinished &= awaitBuildFinishing(options, options["mtlxLink"], "MaterialX")
+    }
+
+    if (env.TAG_NAME && !options.emailSent && subbuildsFinished) {
+        withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
+            String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
+            emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
+            options.emailSent = true
+            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
+        }
+    }
+
+    return subbuildsFinished
 }
 
 
@@ -616,7 +728,9 @@ def call(String pipelineBranch = "master",
                    finishedBuildStages: new ConcurrentHashMap(),
                    problemMessageManager:problemMessageManager,
                    resultsDescription: "",
-                   deployPreCondition: this.&launchAndWaitTests]
+                   deployPreCondition: this.&launchAndWaitTests,
+                   buildsUrls: [env.BUILD_URL],
+                   finishedTestBuilds: [:]]
 
         multiplatform_pipeline(processedPlatforms, this.&executePreBuild, this.&executeBuild, null, this.&executeDeploy, options)
     } catch(e) {
@@ -624,7 +738,7 @@ def call(String pipelineBranch = "master",
         println e.toString()
         throw e
     } finally {
-        if (currentBuild.result == "FAILURE") {
+        if (currentBuild.result == "FAILURE" && !currentBuild.description) {
             String problemMessage = problemMessageManager.publishMessages()
         }
     }

@@ -19,6 +19,11 @@ import java.util.concurrent.ConcurrentHashMap
 )
 
 
+Boolean filter(Map options, String asicName, String osName, String engine) {
+    return false
+}
+
+
 def executeTestCommand(String osName, String asicName, Map options) {
     switch(osName) {
         case 'Windows':
@@ -119,7 +124,7 @@ def executeTests(String osName, String asicName, Map options) {
                 println "[INFO] Downloading reference images for ${options.tests}-${options.engine}"
 
                 options.tests.split(" ").each() {
-                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                    downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
 
@@ -202,23 +207,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(String engineName, Map options) {
-    String buildNumber = ""
-
-    if (options.useTrackedMetrics) {
-        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
-            // use any large build number in case of PRs and other branches in auto job
-            // it's required to display build as last one
-            buildNumber = "10000"
-        } else {
-            buildNumber = env.BUILD_NUMBER
-        }
-    }
-
-    if (options["isPreBuilt"]) {
-        return """Core "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    } else {
-        return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" \"${buildNumber}\""""
-    }
+    return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" 10000"""
 }
 
 
@@ -230,8 +219,6 @@ def parseResponse(String response) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     // get links to the latest built HybridPro
     String url = "${env.JENKINS_URL}/job/RPR-SDK-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
@@ -257,10 +244,6 @@ def executePreBuild(Map options) {
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
         options.rprsdkWindows = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreWin64.zip"
         options.rprsdkUbuntu = "/volume1/web/RPR-SDK-Auto/master/${rprsdkBuildNumber}/Artifacts/binCoreUbuntu20.zip"
-    }
-
-    if (env.BRANCH_NAME == "master") {
-        options.collectTrackedMetrics = true
     }
 
     dir('jobs_test_core') {
@@ -334,6 +317,10 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         List testNameParts = it.replace("testResult-", "").split("-") as List
                         String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
+                        if (filter(options, testNameParts.get(0), testNameParts.get(1), engine)) {
+                            return
+                        }
+
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -350,7 +337,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             try {
                 dir("core_tests_configuration") {
-                    downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'")
+                    downloadFiles("/volume1/web/Assets/rpr_core_autotests/", ".", "--include='*.json' --include='*/' --exclude='*'", true, "nasURL", "nasSSHPort", true)
                 }
             } catch (e) {
                 println("[ERROR] Can't download json files with core tests configuration")
@@ -367,11 +354,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             try {
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/HybridProDev/${engine}"
-
-                if (options.collectTrackedMetrics) {
-                    utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
-                }
+                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-SDK-Auto/master/${engine}"
+                utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
 
                 withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}"]) {
                     dir("jobs_launcher") {
@@ -386,10 +370,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         bat "get_status.bat ..\\summaryTestResults"
                     }
                 }
-
-                if (options.collectTrackedMetrics) {
-                    utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
-                } 
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 if (utils.isReportFailCritical(e.getMessage())) {
@@ -484,6 +464,8 @@ def call(String commitSHA = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String updateRefs = "No") {
 
+    currentBuild.description = ""
+
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
             println("[INFO] Make a delay because there is a running build in master branch")
@@ -498,7 +480,6 @@ def call(String commitSHA = "",
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    currentBuild.description = ""
 
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
@@ -525,12 +506,16 @@ def call(String commitSHA = "",
                                 splitTestsExecution: false,
                                 problemMessageManager:problemMessageManager,
                                 nodeRetry: [],
-                                customStageName: "Test-SDK"])
+                                customStageName: "Test-SDK",
+                                skipCallback: this.&filter])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println e.toString()
         throw e
     } finally {
+        if (currentBuild.description) {
+            currentBuild.description += "<br/>"
+        }
         String problemMessage = problemMessageManager.publishMessages()
     }
 }

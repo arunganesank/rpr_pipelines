@@ -281,7 +281,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
 
     if (updateType == "Cases") {
-        downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}")
+        downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}", "", true, "nasURL", "nasSSHPort", true)
 
         String reportComparePath = "results/${targetGroup}/report_compare.json"
         def testCases = readJSON(file: reportComparePath)
@@ -293,8 +293,8 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         }
 
         for (targetCase in casesNames.split(",")) {
-            downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color")
-            downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}")
+            downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color", "", true, "nasURL", "nasSSHPort", true)
+            downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}", "", true, "nasURL", "nasSSHPort", true)
 
             for (testCase in testCases) {
                 if (testCase["test_case"] == targetCase) {
@@ -310,7 +310,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         saveBaselines(updateInfo.jobName, updateInfo.buildID, baselinesPathProfile)
     } else {
-        downloadFiles("${remoteResultPath}/${targetGroup}", "results")
+        downloadFiles("${remoteResultPath}/${targetGroup}", "results", "", true, "nasURL", "nasSSHPort", true)
 
         String reportComparePath = "results/${targetGroup}/report_compare.json"
 

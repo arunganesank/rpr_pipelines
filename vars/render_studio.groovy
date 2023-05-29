@@ -387,9 +387,9 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
             options.tests.split(" ").each() {
                 if (it.contains(".json")) {
-                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 } else {
-                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
         }
@@ -606,6 +606,9 @@ def executeLMTestsSecondary(String osName, String asicName, Map options, int cli
 def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
+
+    // reboot to prevent appearing of Windows activation watermark
+    utils.reboot(this, osName)
 
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)

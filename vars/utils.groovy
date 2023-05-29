@@ -941,7 +941,7 @@ class utils {
             self.utils.saveProblemsData(self, options)
 
             // retry problems detected with threshold only once
-            if (options.containsKey("problemsDetected")) {
+            if (options.containsKey("problemsDetected") && options["problemsDetected"]) {
                 self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
             } else {
                 options["problemsDetected"] = true
