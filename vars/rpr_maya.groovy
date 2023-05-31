@@ -1097,6 +1097,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
 
     if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-367") {
         testsBranch = "inemankov/updated_logs_parsing"
+        toolVersion = "2024"
     }
 
     try {
