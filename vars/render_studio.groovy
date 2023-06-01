@@ -1166,7 +1166,11 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
+    if (options.version) {
+        currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
+    } else {
+        currentBuild.description += "<b>Render Studio version:</b> unknown, used prebuilt installer<br/>"
+    }
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
