@@ -643,10 +643,10 @@ def executePreBuild(Map options) {
         options['executeTests'] = true
     // auto job (master)
     } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        //options.testsPackage = "regression.json"
+        options.testsPackage = "regression.json"
     // auto job
     } else if (env.BRANCH_NAME) {
-        //options.testsPackage = "regression.json"
+        options.testsPackage = "regression.json"
     }
 
     options["branch_postfix"] = ""
@@ -1004,7 +1004,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI',
+         String platforms = 'Windows',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String testsPackage = "",
