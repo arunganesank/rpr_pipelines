@@ -490,7 +490,7 @@ def call(String commitSHA = "",
          String testsBranch = "",
          String testsPackage = "",
          String tests = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100",
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100",
          String updateRefs = "No") {
 
     currentBuild.description = ""

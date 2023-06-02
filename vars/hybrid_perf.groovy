@@ -285,7 +285,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 def call(String commitSHA = "",
          String commitMessage = "",
          String originalBuildLink = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String scenarios = "all",
          Boolean updateRefs = false) {
 
