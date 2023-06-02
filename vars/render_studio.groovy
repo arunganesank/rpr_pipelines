@@ -1162,15 +1162,16 @@ def fillDescription(Map options) {
     currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
     currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
     currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
-    currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
+
+    if (options.hybridProSHA) {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
+    } else {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> unknown, used prebuilt installer<br/>"
+    }
 
     currentBuild.description += "<br/>"
 
-    if (options.version) {
-        currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
-    } else {
-        currentBuild.description += "<b>Render Studio version:</b> unknown, used prebuilt installer<br/>"
-    }
+    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
