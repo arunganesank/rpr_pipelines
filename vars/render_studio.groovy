@@ -1742,6 +1742,10 @@ def call(
         || env.BRANCH_NAME)
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
 
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "superkomar/inv_integration") {
+        rebuildUSD = true
+    }
+
     def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
