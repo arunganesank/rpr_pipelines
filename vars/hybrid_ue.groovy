@@ -352,7 +352,7 @@ def executePreBuild(Map options) {
 
 
 def call(String projectBranch = "",
-         String ueBranch = "rpr_material_serialization_particles",
+         String ueBranch = "rpr_master",
          String platforms = "Windows",
          String projects = "",
          Boolean saveEngine = false,
