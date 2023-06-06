@@ -57,11 +57,11 @@ def getProblemsCount(String jobName, String buildUrl){
     try{
         if (jobName == "WML-Weekly"){
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
-            def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"][0]
+            def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"]
             def failed = 0
 
             for (caseInfo in parsedCases){
-                if (parsedCases[caseInfo]["status"] == "failed"){
+                if (caseInfo["status"] == "failed"){
                     failed += 1
                 }
             }
@@ -74,17 +74,17 @@ def getProblemsCount(String jobName, String buildUrl){
             def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
             def problems = []
 
-            for (engine in parsedReport){
+            parsedReport.each { engine, value ->
+                println("Engine: ${engine}")
                 def failed = 0
                 def error = 0
-
-                for (platform in engine["platforms"]){
-                    failed += platform["summary"]["failed"]
-                    error += platform["summary"]["error"]
+                value.platforms.each { platform, info ->
+                    failed += info.summary.failed
+                    error += info.summary.error
                 }
 
-                println([engine: ["failed": failed, "error": error]])
-                problems.add([engine: ["failed": failed, "error": error]])
+                println([engine: ["failed": countFailed, "error": countError]])
+                problems.add([engine: ["failed": countFailed, "error": countError]])
                 
             }
 
@@ -102,9 +102,10 @@ def getProblemsCount(String jobName, String buildUrl){
             def failed = 0
             def error = 0
 
-            for (gpu in parsedReport){
-                failed += gpu["summary"]["failed"]
-                error += gpu["summary"]["error"]
+            parsedReport.each { gpu, value ->
+                println("GPU: ${gpu}")
+                failed += value.summary.failed
+                error += value.summary.error               
             }
 
             println(["Results": ["failed": failed, "error": error]])
@@ -121,13 +122,13 @@ def generateInfo(){
     def jobs = getJobs()
     println("Jobs: ${jobs}")
     for (job in jobs){
-        def parsedJob = doRequest("${job["url"]}api/json")
+        def parsedJob = doRequest("${job.url}api/json")
 
-        if (parsedJob["lastCompletedBuild"] != null){
-            def jobName = parsedJob["name"]
-            def buildUrl = parsedJob["lastCompletedBuild"]["url"]
+        if (parsedJob.lastCompletedBuild != null){
+            def jobName = parsedJob.name
+            def buildUrl = parsedJob.lastCompletedBuild.url
             def parsedBuild = doRequest("${buildUrl}api/json")
-            def buildResult = parsedBuild["result"]
+            def buildResult = parsedBuild.result
 
             println("Job: ${jobName}. Result: ${buildResult}")
 
@@ -140,18 +141,18 @@ def generateInfo(){
 
                 String problemsDescription = ""
 
-                for (engine in problems){
+                problems.each { engine, value ->
                     if (engine != "Results"){
                         println("Engine: ${engine}")
                         problemsDescription += "${engine}:"
                     }
-                    println(problems[engine])
-                    if (problems[engine]["failed"] > 0 && problems[engine]["error"] > 0) {
-                        problemsDescription += "(${engine.failed} failed / ${engine.error} error)"
-                    } else if (problems[engine]["failed"] > 0) {
-                        problemsDescription += "(${engine.failed} failed)"
-                    } else if (problems[engine]["error"] > 0) {
-                        problemsDescription += "(${engine.error} error)"
+                    println(value)
+                    if value.failed > 0 && value.error > 0 {
+                        problemsDescription += "(${value.failed} failed / ${value.error} error)"
+                    } else if value.failed > 0 {
+                        problemsDescription += "(${value.failed} failed)"
+                    } else if value.error > 0 {
+                        problemsDescription += "(${value.error} error)"
                     }
                 }
 
