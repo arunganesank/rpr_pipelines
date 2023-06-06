@@ -147,11 +147,11 @@ def generateInfo(){
                         problemsDescription += "${engine}:"
                     }
                     println(value)
-                    if value.failed > 0 && value.error > 0 {
+                    if (value.failed > 0 && value.error > 0) {
                         problemsDescription += "(${value.failed} failed / ${value.error} error)"
-                    } else if value.failed > 0 {
+                    } else if (value.failed > 0) {
                         problemsDescription += "(${value.failed} failed)"
-                    } else if value.error > 0 {
+                    } else if (value.error > 0) {
                         problemsDescription += "(${value.error} error)"
                     }
                 }
