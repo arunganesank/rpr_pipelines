@@ -983,7 +983,9 @@ def initAndroidDevice(Map options) {
             println "[ERROR] Failed to connect to Android device"
         }
 
-        if (options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "XiaomiTVStick") {
+        if (options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "XiaomiTVStick"
+            || options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "FireStick") {
+
             // screensave can't be turned off, reboot the device to avoid it
             println "[INFO] Reboot device"
             bat "adb shell reboot"
@@ -1597,7 +1599,10 @@ def executePreBuild(Map options) {
                     options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
                     options.engines.each { engine ->
-                        if (env.JOB_NAME.contains("Weekly") && !env.JOB_NAME.contains("APU") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+                        if (env.JOB_NAME.contains("Weekly") && !env.JOB_NAME.contains("APU") && !env.JOB_NAME.contains("XiaomiTVStick") 
+                            && !env.JOB_NAME.contains("Chromecast") && !env.JOB_NAME.contains("FireStick")
+                            && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+
                             packageInfo = readJSON file: "jobs/regression-windows.json"
 
                             for (int i = 0; i < packageInfo["groups"].size(); i++) {
