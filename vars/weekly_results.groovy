@@ -83,8 +83,8 @@ def getProblemsCount(String jobName, String buildUrl){
                     error += info.summary.error
                 }
 
-                println([engine: ["failed": countFailed, "error": countError]])
-                problems.add([engine: ["failed": countFailed, "error": countError]])
+                println([engine: ["failed": failed, "error": error]])
+                problems.add([engine: ["failed": failed, "error": error]])
                 
             }
 
