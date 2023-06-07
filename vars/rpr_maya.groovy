@@ -676,7 +676,7 @@ def executePreBuild(Map options)
                     
                     if(env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
 
-                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+/*                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.pluginVersion}"
 
                         def new_version = version_inc(options.pluginVersion, 3)
@@ -695,7 +695,7 @@ def executePreBuild(Map options)
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
                         options.projectBranch = options.commitSHA
-                        println "[INFO] Project branch hash: ${options.projectBranch}"
+                        println "[INFO] Project branch hash: ${options.projectBranch}"*/
                     } else {
                         if (options.commitMessage.contains("CIS:BUILD")) {
                             options['executeBuild'] = true
