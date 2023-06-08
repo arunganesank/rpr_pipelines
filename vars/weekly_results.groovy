@@ -104,6 +104,7 @@ def getProblemsCount(String jobName, String buildUrl){
 
             parsedReport.each { gpu, value ->
                 println("GPU: ${gpu}")
+                println("Summary: ${value.summary}")
                 failed += value.summary.failed
                 error += value.summary.error               
             }
@@ -138,21 +139,24 @@ def generateInfo(){
 
             try{
                 problems = getProblemsCount(jobName, buildUrl)
+                println(problems)
 
                 String problemsDescription = ""
 
                 problems.each { result ->
-                    if (result.key != "Results"){
-                        println("Engine: ${result.key}")
-                        problemsDescription += "${result.key}:"
-                    }
-                    println(result.value)
-                    if (result.value.failed > 0 && result.value.error > 0) {
-                        problemsDescription += "(${result.value.failed} failed / ${result.value.error} error)"
-                    } else if (result.value.failed > 0) {
-                        problemsDescription += "(${result.value.failed} failed)"
-                    } else if (result.value.error > 0) {
-                        problemsDescription += "(${result.value.error} error)"
+                    result.each { key, value ->
+                        if (key != "Results"){
+                            println("Engine: ${key}")
+                            problemsDescription += "${key}:"
+                        }
+                        println(value)
+                        if (value.failed > 0 && value.error > 0) {
+                            problemsDescription += "(${value.failed} failed / ${value.error} error)"
+                        } else if (value.failed > 0) {
+                            problemsDescription += "(${value.failed} failed)"
+                        } else if (value.error > 0) {
+                            problemsDescription += "(${value.error} error)"
+                        }
                     }
                 }
 
