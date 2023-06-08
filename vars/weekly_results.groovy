@@ -83,8 +83,8 @@ def getProblemsCount(String jobName, String buildUrl){
                     error += info.summary.error
                 }
 
-                println([engine: ["failed": failed, "error": error]])
-                problems.add([engine: ["failed": failed, "error": error]])
+                println([(engine): ["failed": failed, "error": error]])
+                problems.add([(engine): ["failed": failed, "error": error]])
                 
             }
 
@@ -141,18 +141,18 @@ def generateInfo(){
 
                 String problemsDescription = ""
 
-                problems.each { engine, value ->
-                    if (engine != "Results"){
-                        println("Engine: ${engine}")
-                        problemsDescription += "${engine}:"
+                problems.each { result ->
+                    if (result.key != "Results"){
+                        println("Engine: ${result.key}")
+                        problemsDescription += "${result.key}:"
                     }
-                    println(value)
-                    if (value.failed > 0 && value.error > 0) {
-                        problemsDescription += "(${value.failed} failed / ${value.error} error)"
-                    } else if (value.failed > 0) {
-                        problemsDescription += "(${value.failed} failed)"
-                    } else if (value.error > 0) {
-                        problemsDescription += "(${value.error} error)"
+                    println(result.value)
+                    if (result.value.failed > 0 && result.value.error > 0) {
+                        problemsDescription += "(${result.value.failed} failed / ${result.value.error} error)"
+                    } else if (result.value.failed > 0) {
+                        problemsDescription += "(${result.value.failed} failed)"
+                    } else if (result.value.error > 0) {
+                        problemsDescription += "(${result.value.error} error)"
                     }
                 }
 
