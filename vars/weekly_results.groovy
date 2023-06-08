@@ -55,6 +55,7 @@ def getProblemsCount(String jobName, String buildUrl){
         ]
 
     try{
+        def problems = []
         if (jobName == "WML-Weekly"){
             def parsedReport = doRequest("${buildUrl}allure/data/suites.json")
             def parsedCases = parsedReport["children"][0]["children"][0]["children"][0]["children"]
@@ -66,13 +67,12 @@ def getProblemsCount(String jobName, String buildUrl){
                 }
             }
             println(["Results": ["failed": failed, "error": 0]])
-            return ["Results": ["failed": failed, "error": 0]]
+            problems.add(["Results": ["failed": failed, "error": 0]])
 
         } else if (overviewList.contains(jobName)){
             def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
 
             def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
-            def problems = []
 
             parsedReport.each { engine, value ->
                 println("Engine: ${engine}")
@@ -88,8 +88,6 @@ def getProblemsCount(String jobName, String buildUrl){
                 
             }
 
-            println(problems)
-            return problems
         } else if (summaryList.contains(jobName)){
             def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
             def parsedReport = null
@@ -119,8 +117,9 @@ def getProblemsCount(String jobName, String buildUrl){
             }
 
             println(["Results": ["failed": failed, "error": error]])
-            return ["Results": ["failed": failed, "error": error]]
+            problems.add(["Results": ["failed": failed, "error": error]])
         }
+        return problems
     } catch (Exception e){
         println("Can't get report for ${jobName}")
         println(e)
@@ -146,7 +145,10 @@ def generateInfo(){
                 currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success.</span><br/><br/>"
             }
 
-            try{
+            if (jobName.startsWith("BlenderHIP")) {
+                continue
+            }
+            try {
                 problems = getProblemsCount(jobName, buildUrl)
                 println(problems)
 
@@ -180,11 +182,11 @@ def generateInfo(){
                 println("Problems: ${problemsDescription}")
 
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.<br/>${problemsDescription}</span><br/><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.<br/>${problemsDescription}</span><br/><br/>"
                 } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.<br/>${problemsDescription}</span><br/><br/>"
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
