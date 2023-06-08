@@ -552,7 +552,7 @@ def executePreBuild(Map options) {
                     }
 
                     if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
-/*                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
+                        println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         println "[INFO] Current build version: ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
                         newVersion = version_inc(options.patchVersion, 1, ' ')
@@ -571,7 +571,7 @@ def executePreBuild(Map options) {
 
                         //get commit's sha which have to be build
                         options['projectBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-                        println "[INFO] Project branch hash: ${options.projectBranch}"*/
+                        println "[INFO] Project branch hash: ${options.projectBranch}"
                     }
                 } else {
                     options.projectBranchName = options.projectBranch
