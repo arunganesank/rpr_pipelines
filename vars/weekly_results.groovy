@@ -102,11 +102,20 @@ def getProblemsCount(String jobName, String buildUrl){
             def failed = 0
             def error = 0
 
-            parsedReport.each { gpu, value ->
-                println("GPU: ${gpu}")
-                println("Summary: ${value.summary}")
-                failed += value.summary.failed
-                error += value.summary.error               
+            if (jobName == "MaterialXvsHdRPR-Weekly"){
+                parsedReport.each { gpu, value ->
+                    println("GPU: ${gpu}")
+                    value.each { engine, results ->
+                        failed += results.failed
+                        error += results.error
+                    }              
+                }
+            } else {
+                parsedReport.each { gpu, value ->
+                    println("GPU: ${gpu}")
+                    failed += value.summary.failed
+                    error += value.summary.error               
+                }
             }
 
             println(["Results": ["failed": failed, "error": error]])
@@ -145,17 +154,25 @@ def generateInfo(){
 
                 problems.each { result ->
                     result.each { key, value ->
-                        if (key != "Results"){
-                            println("Engine: ${key}")
-                            problemsDescription += "${key}:"
-                        }
                         println(value)
                         if (value.failed > 0 && value.error > 0) {
-                            problemsDescription += "(${value.failed} failed / ${value.error} error)"
+                            if (key != "Results"){
+                                println("Engine: ${key}")
+                                problemsDescription += "${key}:<br/>"
+                            }
+                            problemsDescription += "${value.failed} failed / ${value.error} error<br/>"
                         } else if (value.failed > 0) {
-                            problemsDescription += "(${value.failed} failed)"
+                            if (key != "Results"){
+                                println("Engine: ${key}")
+                                problemsDescription += "${key}:<br/>"
+                            }
+                            problemsDescription += "${value.failed} failed<br/>"
                         } else if (value.error > 0) {
-                            problemsDescription += "(${value.error} error)"
+                            if (key != "Results"){
+                                println("Engine: ${key}")
+                                problemsDescription += "${key}:<br/>"
+                            }
+                            problemsDescription += "${value.error} error<br/>"
                         }
                     }
                 }
