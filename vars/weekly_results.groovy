@@ -143,11 +143,13 @@ def generateInfo(){
 
             if (buildResult == "SUCCESS"){
                 currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success.</span><br/><br/>"
+                continue
             }
 
             if (jobName.startsWith("BlenderHIP")) {
                 continue
             }
+            
             try {
                 problems = getProblemsCount(jobName, buildUrl)
                 println(problems)
@@ -159,34 +161,35 @@ def generateInfo(){
                         println(value)
                         if (value.failed > 0 && value.error > 0) {
                             if (key != "Results"){
-                                println("Engine: ${key}")
-                                problemsDescription += "${key}:<br/>"
+                                problemsDescription += "${key}: "
+                            } else {
+                                problemsDescription += "Results: "
                             }
                             problemsDescription += "${value.failed} failed / ${value.error} error<br/>"
                         } else if (value.failed > 0) {
                             if (key != "Results"){
-                                println("Engine: ${key}")
-                                problemsDescription += "${key}:<br/>"
+                                problemsDescription += "${key}: "
+                            } else {
+                                problemsDescription += "Results: "
                             }
                             problemsDescription += "${value.failed} failed<br/>"
                         } else if (value.error > 0) {
                             if (key != "Results"){
-                                println("Engine: ${key}")
-                                problemsDescription += "${key}:<br/>"
+                                problemsDescription += "${key}: "
+                            } else {
+                                problemsDescription += "Results: "
                             }
                             problemsDescription += "${value.error} error<br/>"
                         }
                     }
                 }
 
-                println("Problems: ${problemsDescription}")
-
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/><br/>"
                 } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.<br/>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
