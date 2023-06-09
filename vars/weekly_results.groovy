@@ -66,7 +66,6 @@ def getProblemsCount(String jobName, String buildUrl){
                     failed += 1
                 }
             }
-            println(["Results": ["failed": failed, "error": 0]])
             problems.add(["Results": ["failed": failed, "error": 0]])
 
         } else if (overviewList.contains(jobName)){
@@ -75,7 +74,6 @@ def getProblemsCount(String jobName, String buildUrl){
             def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
 
             parsedReport.each { engine, value ->
-                println("Engine: ${engine}")
                 def failed = 0
                 def error = 0
                 value.platforms.each { platform, info ->
@@ -83,7 +81,6 @@ def getProblemsCount(String jobName, String buildUrl){
                     error += info.summary.error
                 }
 
-                println([(engine): ["failed": failed, "error": error]])
                 problems.add([(engine): ["failed": failed, "error": error]])
                 
             }
@@ -102,7 +99,6 @@ def getProblemsCount(String jobName, String buildUrl){
 
             if (jobName == "MaterialXvsHdRPR-Weekly"){
                 parsedReport.each { gpu, value ->
-                    println("GPU: ${gpu}")
                     value.each { engine, results ->
                         failed += results.failed
                         error += results.error
@@ -110,13 +106,11 @@ def getProblemsCount(String jobName, String buildUrl){
                 }
             } else {
                 parsedReport.each { gpu, value ->
-                    println("GPU: ${gpu}")
                     failed += value.summary.failed
                     error += value.summary.error               
                 }
             }
 
-            println(["Results": ["failed": failed, "error": error]])
             problems.add(["Results": ["failed": failed, "error": error]])
         }
         return problems
@@ -152,13 +146,11 @@ def generateInfo(){
 
             try {
                 problems = getProblemsCount(jobName, buildUrl)
-                println(problems)
 
                 String problemsDescription = ""
 
                 problems.each { result ->
                     result.each { key, value ->
-                        println(value)
                         if (value.failed > 0 && value.error > 0) {
                             if (key != "Results"){
                                 problemsDescription += "${key}: "
@@ -193,9 +185,18 @@ def generateInfo(){
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
-                println(e)
+                println("An error occured while parsing info on ${jobName}: ${e}")
             }
         }
+    }
+}
+
+
+def sendInfo(){
+    try {
+        mail(to: "sofshik@gmail.com", subject: "Weekly results", mimeType: 'text/html', body: currentBuild.description)
+    } catch (Exception e) {
+        println("An error occured while sending info: ${e}")
     }
 }
 
@@ -207,7 +208,7 @@ def call() {
                 ws("WS/WeeklyResults") {
                     currentBuild.description = ""
                     generateInfo()
-                    mail(to: "sofshik@gmail.com", subject: "Weekly results", mimeType: 'text/html', body: currentBuild.description)
+                    sendInfo()
                 }
             }
         }
