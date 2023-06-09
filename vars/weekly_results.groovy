@@ -142,14 +142,14 @@ def generateInfo(){
             println("Job: ${jobName}. Result: ${buildResult}")
 
             if (buildResult == "SUCCESS"){
-                currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success.</span><br/><br/>"
+                currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} last build status is: Success.</span><br/><br/>"
                 continue
             }
 
             if (jobName.startsWith("BlenderHIP")) {
                 continue
             }
-            
+
             try {
                 problems = getProblemsCount(jobName, buildUrl)
                 println(problems)
@@ -185,11 +185,11 @@ def generateInfo(){
                 }
 
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/><br/>"
                 } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                 }
             } catch (Exception e) {
                 currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
@@ -207,7 +207,7 @@ def call() {
                 ws("WS/WeeklyResults") {
                     currentBuild.description = ""
                     generateInfo()
-                    
+                    mail(to: "sofshik@gmail.com", subject: "Weekly results", mimeType: 'text/html', body: currentBuild.description)
                 }
             }
         }
