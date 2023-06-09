@@ -177,9 +177,9 @@ def generateInfo(){
                 }
 
                 if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/>"
                 } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/><br/>"
+                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/>"
                 } else {
                     currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                 }
