@@ -440,7 +440,6 @@ def call(String jobName,
                         } catch (e) {
                             println("[ERROR] Failed to update baselines on NAS")
                             problemMessageManager.saveGlobalFailReason(NotificationConfiguration.FAILED_UPDATE_BASELINES_NAS)
-                            currentBuild.result = "FAILURE"
                             throw e
                         }
 
@@ -451,6 +450,7 @@ def call(String jobName,
                 break
             } catch (e) {
                 if (currentTry + 1 == maxTries) {
+                    currentBuild.result = "FAILURE"
                     throw new Exception("Failed to update baselines. All attempts exceeded")
                 }
 
