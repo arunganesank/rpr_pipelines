@@ -239,7 +239,9 @@ def executeTests(String osName, String asicName, Map options)
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_maya_autotests_assets" : "/mnt/c/TestResources/rpr_maya_autotests_assets"
 
-            downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
+            if (!env.NODE_LABELS.split().contains("OldNAS")) {
+                downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
+            }
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
