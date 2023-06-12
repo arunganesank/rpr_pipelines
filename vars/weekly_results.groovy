@@ -86,7 +86,9 @@ def getProblemsCount(String jobName, String buildUrl){
             }
 
         } else if (summaryList.contains(jobName)){
-            def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
+            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}/job/", "${REMOTE_HOST.minus('https://')}/")
+            }
             def parsedReport = null
 
             if (jobName == "RenderStudio-Weekly"){
@@ -140,6 +142,7 @@ def generateInfo(){
                 continue
             }
 
+            // TODO: add results parsing for Blender HIP jobs
             if (jobName.startsWith("BlenderHIP")) {
                 continue
             }
