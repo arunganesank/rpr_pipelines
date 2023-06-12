@@ -146,6 +146,7 @@ def getProblemsCount(String jobName, String buildUrl){
 def generateInfo(jobsNames){
     def jobs = getJobs()
     for (job in jobs){
+        def payload = ""
         if (jobsNames.contains(job.name)) {
             def parsedJob = doRequest("${job.url}api/json")
 
@@ -154,7 +155,6 @@ def generateInfo(jobsNames){
                 def buildUrl = parsedJob.lastCompletedBuild.url
                 def parsedBuild = doRequest("${buildUrl}api/json")
                 def buildResult = parsedBuild.result
-                def payload = ""
 
                 println("Job: ${jobName}. Result: ${buildResult}")
 
@@ -212,9 +212,9 @@ def generateInfo(jobsNames){
                     currentBuild.description += "<b style='color: #641e16'>Failed to generate info for:</b> <span style='color: #b03a2e'>${jobName}</span><br/>"
                     println("An error occured while parsing info on ${jobName}: ${e}")
                 }
-                return payload
             }
         }
+        return payload
     }
 }
 
@@ -222,12 +222,14 @@ def generateInfo(jobsNames){
 def sendInfo(){
     emailsJobs.each { email, jobsNames ->
         info = generateInfo(jobsNames)
-        try {
-            println("Sending the info to: ${email}")
-            mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
-        } catch (Exception e) {
-            println("An error occured while sending info: ${e}")
-            currentBuild.description += "<b style='color: #641e16'>An error occured while sending the info.</b><br/>"
+        if (info != "") {
+            try {
+                println("Sending the info to: ${email}")
+                mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
+            } catch (Exception e) {
+                println("An error occured while sending info: ${e}")
+                currentBuild.description += "<b style='color: #641e16'>An error occured while sending the info.</b><br/>"
+            }
         }
     }
 }
