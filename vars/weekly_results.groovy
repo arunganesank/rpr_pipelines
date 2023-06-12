@@ -89,9 +89,9 @@ def getProblemsCount(String jobName, String buildUrl){
 
         } else if (overviewList.contains(jobName)){
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                println("${env.JENKINS_URL.minus('https://')}/job/")
+                println("${env.JENKINS_URL.minus('https://')}job/")
                 println("${REMOTE_HOST.minus('https://')}/")
-                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}/job/", "${REMOTE_HOST.minus('https://')}/")
+                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}job/", "${REMOTE_HOST.minus('https://')}/")
 
                 def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
 
@@ -109,7 +109,9 @@ def getProblemsCount(String jobName, String buildUrl){
 
         } else if (summaryList.contains(jobName)){
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}/job/", "${REMOTE_HOST.minus('https://')}/")
+                println("${env.JENKINS_URL.minus('https://')}job/")
+                println("${REMOTE_HOST.minus('https://')}/")
+                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}job/", "${REMOTE_HOST.minus('https://')}/")
                 def parsedReport = null
 
                 if (jobName == "RenderStudio-Weekly"){
