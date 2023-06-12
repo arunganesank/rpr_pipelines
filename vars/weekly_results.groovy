@@ -145,8 +145,8 @@ def getProblemsCount(String jobName, String buildUrl){
 
 def generateInfo(jobsNames){
     def jobs = getJobs()
+    def payload = ""
     for (job in jobs){
-        def payload = ""
         if (jobsNames.contains(job.name)) {
             def parsedJob = doRequest("${job.url}api/json")
 
@@ -214,8 +214,8 @@ def generateInfo(jobsNames){
                 }
             }
         }
-        return payload
     }
+    return payload
 }
 
 
