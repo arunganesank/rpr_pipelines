@@ -2,6 +2,25 @@ import groovy.transform.Field
 
 import utils
 
+
+@Field final Map emailsJobs = [
+    "sofshik@gmail.com": [
+        "RenderStudio-Weekly",
+        "HdRPR-Weekly",
+        "RPR-BlenderPlugin-Weekly",
+        "RPR-MayaPlugin-Weekly",
+        "USD-BlenderPlugin-Weekly",
+        "USD-MayaPlugin-Weekly"
+    ],
+    "sofia.s.shikalova@gmail.com" : [
+        "BlenderHIP-WeeklyHIP_CUDA",
+        "MaterialXvsHdRPR-Weekly",
+        "USD-InventorPlugin-Weekly",
+        "USD-Viewer-Weekly"
+    ]
+]
+
+
 @NonCPS
 def parseResponse(String response) {
     def jsonSlurper = new groovy.json.JsonSlurperClassic()
@@ -123,94 +142,105 @@ def getProblemsCount(String jobName, String buildUrl){
 }
 
 
-def generateInfo(){
+def generateInfo(jobsNames){
     def jobs = getJobs()
-    println("Jobs: ${jobs}")
     for (job in jobs){
-        def parsedJob = doRequest("${job.url}api/json")
+        if (jobsNames.contains(job.name)) {
+            def parsedJob = doRequest("${job.url}api/json")
 
-        if (parsedJob.lastCompletedBuild != null){
-            def jobName = parsedJob.name
-            def buildUrl = parsedJob.lastCompletedBuild.url
-            def parsedBuild = doRequest("${buildUrl}api/json")
-            def buildResult = parsedBuild.result
+            if (parsedJob.lastCompletedBuild != null){
+                def jobName = parsedJob.name
+                def buildUrl = parsedJob.lastCompletedBuild.url
+                def parsedBuild = doRequest("${buildUrl}api/json")
+                def buildResult = parsedBuild.result
+                def payload = ""
 
-            println("Job: ${jobName}. Result: ${buildResult}")
+                println("Job: ${jobName}. Result: ${buildResult}")
 
-            if (buildResult == "SUCCESS"){
-                currentBuild.description += "<span style='color: #5FBC34; font-size: 150%'>${jobName} last build status is: Success.</span><br/><br/>"
-                continue
-            }
+                if (buildResult == "SUCCESS"){
+                    payload += "<span style='color: #5FBC34; font-size: 150%'>${jobName} last build status is: Success.</span><br/><br/>"
+                    continue
+                }
 
-            // TODO: add results parsing for Blender HIP jobs
-            if (jobName.startsWith("BlenderHIP")) {
-                continue
-            }
+                // TODO: add results parsing for Blender HIP jobs
+                if (jobName.startsWith("BlenderHIP")) {
+                    continue
+                }
 
-            try {
-                problems = getProblemsCount(jobName, buildUrl)
+                try {
+                    problems = getProblemsCount(jobName, buildUrl)
 
-                String problemsDescription = ""
+                    String problemsDescription = ""
 
-                problems.each { result ->
-                    result.each { key, value ->
-                        if (value.failed > 0 && value.error > 0) {
-                            if (key != "Results"){
-                                problemsDescription += "${key}: "
-                            } else {
-                                problemsDescription += "Results: "
+                    problems.each { result ->
+                        result.each { key, value ->
+                            if (value.failed > 0 && value.error > 0) {
+                                if (key != "Results"){
+                                    problemsDescription += "${key}: "
+                                } else {
+                                    problemsDescription += "Results: "
+                                }
+                                problemsDescription += "${value.failed} failed / ${value.error} error<br/>"
+                            } else if (value.failed > 0) {
+                                if (key != "Results"){
+                                    problemsDescription += "${key}: "
+                                } else {
+                                    problemsDescription += "Results: "
+                                }
+                                problemsDescription += "${value.failed} failed<br/>"
+                            } else if (value.error > 0) {
+                                if (key != "Results"){
+                                    problemsDescription += "${key}: "
+                                } else {
+                                    problemsDescription += "Results: "
+                                }
+                                problemsDescription += "${value.error} error<br/>"
                             }
-                            problemsDescription += "${value.failed} failed / ${value.error} error<br/>"
-                        } else if (value.failed > 0) {
-                            if (key != "Results"){
-                                problemsDescription += "${key}: "
-                            } else {
-                                problemsDescription += "Results: "
-                            }
-                            problemsDescription += "${value.failed} failed<br/>"
-                        } else if (value.error > 0) {
-                            if (key != "Results"){
-                                problemsDescription += "${key}: "
-                            } else {
-                                problemsDescription += "Results: "
-                            }
-                            problemsDescription += "${value.error} error<br/>"
                         }
                     }
-                }
 
-                if (buildResult == "FAILURE") {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/>"
-                } else if (buildResult == "UNSTABLE") {
-                    currentBuild.description += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/>"
-                } else {
-                    currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                    if (buildResult == "FAILURE") {
+                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/>"
+                    } else if (buildResult == "UNSTABLE") {
+                        payload += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/>"
+                    } else {
+                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                    }
+                } catch (Exception e) {
+                    payload += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
+                    println("An error occured while parsing info on ${jobName}: ${e}")
                 }
-            } catch (Exception e) {
-                currentBuild.description += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
-                println("An error occured while parsing info on ${jobName}: ${e}")
             }
         }
     }
+    return payload
 }
 
 
 def sendInfo(){
-    try {
-        mail(to: "sofshik@gmail.com", subject: "Weekly results", mimeType: 'text/html', body: currentBuild.description)
-    } catch (Exception e) {
-        println("An error occured while sending info: ${e}")
+    emailsJobs.each { email, jobsNames ->
+        try {
+            info = generateInfo(jobsNames)
+        } catch (Exception e) {
+            currentBuild.description += "<b style='color: #641e16'>An error occured while parsing info for:</b> <span style='color: #b03a2e'>${email}</span><br/>"
+            return
+        }
+        try {
+            mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
+        } catch (Exception e) {
+            println("An error occured while sending info: ${e}")
+            currentBuild.description += "<b style='color: #641e16'>An error occured while sending info to:</b> <span style='color: #b03a2e'>${email}</span><br/>"
+        }
     }
 }
 
 
 def call() {
     timestamps {
-        stage("Parsing weekly results") {
+        stage("Parsing and sending weekly results") {
             node("Windows && PreBuild") {
                 ws("WS/WeeklyResults") {
                     currentBuild.description = ""
-                    generateInfo()
                     sendInfo()
                 }
             }
