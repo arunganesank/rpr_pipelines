@@ -223,6 +223,7 @@ def sendInfo(){
     emailsJobs.each { email, jobsNames ->
         info = generateInfo(jobsNames)
         try {
+            println("Sending the info to: ${email}")
             mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
         } catch (Exception e) {
             println("An error occured while sending info: ${e}")
