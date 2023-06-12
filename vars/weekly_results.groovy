@@ -88,51 +88,52 @@ def getProblemsCount(String jobName, String buildUrl){
             problems.add(["Results": ["failed": failed, "error": 0]])
 
         } else if (overviewList.contains(jobName)){
-            def preparedUrl = buildUrl.replaceAll("rpr.cis.luxoft.com/job", "cis.nas.luxoft.com")
+            withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+                def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}/job/", "${REMOTE_HOST.minus('https://')}/")
 
-            def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
+                def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
 
-            parsedReport.each { engine, value ->
-                def failed = 0
-                def error = 0
-                value.platforms.each { platform, info ->
-                    failed += info.summary.failed
-                    error += info.summary.error
+                parsedReport.each { engine, value ->
+                    def failed = 0
+                    def error = 0
+                    value.platforms.each { platform, info ->
+                        failed += info.summary.failed
+                        error += info.summary.error
+                    }
+
+                    problems.add([(engine): ["failed": failed, "error": error]])
                 }
-
-                problems.add([(engine): ["failed": failed, "error": error]])
-                
             }
 
         } else if (summaryList.contains(jobName)){
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
                 def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}/job/", "${REMOTE_HOST.minus('https://')}/")
-            }
-            def parsedReport = null
+                def parsedReport = null
 
-            if (jobName == "RenderStudio-Weekly"){
-                parsedReport = doRequest("${preparedUrl}Test_Report_Desktop/summary_report.json")
-            } else {
-                parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
-            }
-            def failed = 0
-            def error = 0
-
-            if (jobName == "MaterialXvsHdRPR-Weekly"){
-                parsedReport.each { gpu, value ->
-                    value.each { engine, results ->
-                        failed += results.failed
-                        error += results.error
-                    }              
+                if (jobName == "RenderStudio-Weekly"){
+                    parsedReport = doRequest("${preparedUrl}Test_Report_Desktop/summary_report.json")
+                } else {
+                    parsedReport = doRequest("${preparedUrl}Test_Report/summary_report.json")
                 }
-            } else {
-                parsedReport.each { gpu, value ->
-                    failed += value.summary.failed
-                    error += value.summary.error               
-                }
-            }
+                def failed = 0
+                def error = 0
 
-            problems.add(["Results": ["failed": failed, "error": error]])
+                if (jobName == "MaterialXvsHdRPR-Weekly"){
+                    parsedReport.each { gpu, value ->
+                        value.each { engine, results ->
+                            failed += results.failed
+                            error += results.error
+                        }              
+                    }
+                } else {
+                    parsedReport.each { gpu, value ->
+                        failed += value.summary.failed
+                        error += value.summary.error               
+                    }
+                }
+
+                problems.add(["Results": ["failed": failed, "error": error]])
+            }
         }
         return problems
     } catch (Exception e){
