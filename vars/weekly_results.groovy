@@ -89,8 +89,6 @@ def getProblemsCount(String jobName, String buildUrl){
 
         } else if (overviewList.contains(jobName)){
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                println("${env.JENKINS_URL.minus('https://')}job/")
-                println("${REMOTE_HOST.minus('https://')}/")
                 def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}job/", "${REMOTE_HOST.minus('https://')}/")
 
                 def parsedReport = doRequest("${preparedUrl}Test_Report/overview_report.json")
@@ -109,8 +107,6 @@ def getProblemsCount(String jobName, String buildUrl){
 
         } else if (summaryList.contains(jobName)){
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-                println("${env.JENKINS_URL.minus('https://')}job/")
-                println("${REMOTE_HOST.minus('https://')}/")
                 def preparedUrl = buildUrl.replaceAll("${env.JENKINS_URL.minus('https://')}job/", "${REMOTE_HOST.minus('https://')}/")
                 def parsedReport = null
 
@@ -213,6 +209,7 @@ def generateInfo(jobsNames){
                     }
                 } catch (Exception e) {
                     payload += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
+                    currentBuild.description += "<b style='color: #641e16'>Failed to generate info for:</b> <span style='color: #b03a2e'>${jobName}</span><br/>"
                     println("An error occured while parsing info on ${jobName}: ${e}")
                 }
             }
@@ -224,17 +221,12 @@ def generateInfo(jobsNames){
 
 def sendInfo(){
     emailsJobs.each { email, jobsNames ->
-        try {
-            info = generateInfo(jobsNames)
-        } catch (Exception e) {
-            currentBuild.description += "<b style='color: #641e16'>An error occured while parsing info for:</b> <span style='color: #b03a2e'>${email}</span><br/>"
-            return
-        }
+        info = generateInfo(jobsNames)
         try {
             mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
         } catch (Exception e) {
             println("An error occured while sending info: ${e}")
-            currentBuild.description += "<b style='color: #641e16'>An error occured while sending info to:</b> <span style='color: #b03a2e'>${email}</span><br/>"
+            currentBuild.description += "<b style='color: #641e16'>An error occured while sending the info.</b><br/>"
         }
     }
 }
