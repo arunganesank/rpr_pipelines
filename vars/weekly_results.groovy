@@ -212,10 +212,10 @@ def generateInfo(jobsNames){
                     currentBuild.description += "<b style='color: #641e16'>Failed to generate info for:</b> <span style='color: #b03a2e'>${jobName}</span><br/>"
                     println("An error occured while parsing info on ${jobName}: ${e}")
                 }
+                return payload
             }
         }
     }
-    return payload
 }
 
 
