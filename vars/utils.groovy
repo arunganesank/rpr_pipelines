@@ -688,7 +688,7 @@ class utils {
 
                     // check that overview report isn't deployed yet
                     self.httpRequest(
-                        url: "${self.BUILD_URL}/${publishedReportName}/",
+                        url: "${self.env.BUILD_URL}/${publishedReportName}/",
                         authentication: 'jenkinsCredentials',
                         httpMode: 'GET'
                     )
@@ -717,7 +717,7 @@ class utils {
                         try {
                             // check that all necessary reports are published
                             self.httpRequest(
-                                url: "${self.BUILD_URL}/${publishedReportName}/",
+                                url: "${self.env.BUILD_URL}/${publishedReportName}/",
                                 authentication: 'jenkinsCredentials',
                                 httpMode: 'GET'
                             )
@@ -734,7 +734,7 @@ class utils {
                                     "${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
                             }
                         } else {
-                            locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                            locations = locations ? "${locations}::${self.env.BUILD_URL}/${publishedReportName}" : "${self.env.BUILD_URL}/${publishedReportName}"
                         }
                     }
 
@@ -747,9 +747,9 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", \
+                        publishReport(self, "${self.env.BUILD_URL}", "OverviewReport", "summary_report.html", \
                             "Test Report", "Summary Report (Overview)", options.storeOnNAS, \
-                            ["jenkinsBuildUrl": self.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
+                            ["jenkinsBuildUrl": self.env.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
                     }
                 }
             }

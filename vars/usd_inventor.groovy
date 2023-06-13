@@ -39,7 +39,7 @@ def executeBuildWindows(Map options) {
             """
 
             zip archive: true, dir: "buildResults", glob: '', zipFile: "Windows_${buildName}.zip"
-            rtp nullAction: '1', parserName: 'HTML', stableText: """<h3><a href="${BUILD_URL}artifact/Windows_${buildName}.zip">[BUILD: ${BUILD_ID}] Windows_${buildName}.zip</a></h3>"""
+            rtp nullAction: '1', parserName: 'HTML', stableText: """<h3><a href="${env.BUILD_URL}artifact/Windows_${buildName}.zip">[BUILD: ${BUILD_ID}] Windows_${buildName}.zip</a></h3>"""
 
             bat """
                 rename Windows_${buildName}.zip PluginWindows.zip

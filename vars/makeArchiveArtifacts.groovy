@@ -37,7 +37,7 @@ def call(Map params) {
                 rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${artifactURL}">[BUILD: ${BUILD_ID}] ${artifactName}</a></h3>"""
             }
         } else {
-            artifactURL = "${BUILD_URL}artifact/${artifactName}"
+            artifactURL = "${env.BUILD_URL}artifact/${artifactName}"
             
             archiveArtifacts(artifactName)
 

@@ -159,7 +159,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
                 makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
             }
 
-            utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+            utils.publishReport(this, "${env.BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
             options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
         } catch (err) {
@@ -286,9 +286,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             if (options.failedConfigurations.size() != 0) {
-                utils.publishReport(this, "${BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
+                utils.publishReport(this, "${env.BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
                     "HTML Failures Unit", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
             }
         } catch(e) {
             println(e.toString())
