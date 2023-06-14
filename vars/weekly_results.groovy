@@ -4,7 +4,7 @@ import utils
 
 
 @Field final Map emailsJobs = [
-    "sofshik@gmail.com": [
+    "first": [
         "RenderStudio-Weekly",
         "HdRPR-Weekly",
         "RPR-BlenderPlugin-Weekly",
@@ -12,7 +12,7 @@ import utils
         "USD-BlenderPlugin-Weekly",
         "USD-MayaPlugin-Weekly"
     ],
-    "sofia.s.shikalova@gmail.com" : [
+    "second": [
         "BlenderHIP-WeeklyHIP_CUDA",
         "MaterialXvsHdRPR-Weekly",
         "USD-InventorPlugin-Weekly",
@@ -40,7 +40,7 @@ def doRequest(String url) {
 
 
 def getJobs(){
-    def parsedJobs = doRequest("https://rpr.cis.luxoft.com/view/Weekly%20Jobs/api/json")
+    def parsedJobs = doRequest("${env.JENKINS_URL}view/Weekly%20Jobs/api/json")
     def jobs = []
     for (job in parsedJobs["jobs"]){
         if (!(job["name"].contains("StreamingSDK")) && !(job["name"].contains("QA"))){
@@ -220,15 +220,16 @@ def generateInfo(jobsNames){
 
 
 def sendInfo(){
-    emailsJobs.each { email, jobsNames ->
+    emailsJobs.each { id, jobsNames ->
         info = generateInfo(jobsNames)
         if (info != "") {
-            try {
-                println("Sending the info to: ${email}")
-                mail(to: email, subject: "Weekly results", mimeType: 'text/html', body: info)
-            } catch (Exception e) {
-                println("An error occured while sending info: ${e}")
-                currentBuild.description += "<b style='color: #641e16'>An error occured while sending the info.</b><br/>"
+            withCredentials([string(credentialsId: id, variable: "EMAIL")]) {
+                try {
+                    mail(to: EMAIL, subject: "Weekly results", mimeType: 'text/html', body: info)
+                } catch (Exception e) {
+                    println("An error occured while sending info: ${e}")
+                    currentBuild.description += "<b style='color: #641e16'>An error occured while sending the info.</b><br/>"
+                }
             }
         }
     }
