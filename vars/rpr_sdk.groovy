@@ -343,7 +343,7 @@ def executeBuildLinux(String osName, Map options) {
         // no artifacts in repo for ubuntu20
         String ARTIFACT_NAME = "binCore${osName}.zip"
 
-        dir("RadeonProRenderSDK/RadeonProRender/binUbuntu18") {
+        dir("RadeonProRenderSDK/RadeonProRender/binUbuntu20") {
             sh(script: 'zip -r' + " \"${ARTIFACT_NAME}\" .")
 
             artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
