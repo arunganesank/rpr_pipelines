@@ -122,12 +122,7 @@ def executeTests(String osName, String asicName, Map options)
 
                 if (options.engine == "Northstar64") {
                     dir("rprSdk/hipbin") {
-                        if (env.NODE_LABELS.split().contains("OldNAS")) {
-                            downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                        } else {
-                            downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
-                        }
-
+                        downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
                         utils.unzip(this, "hipbin.zip")
                     }
                 }
@@ -140,10 +135,7 @@ def executeTests(String osName, String asicName, Map options)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_core_autotests_assets" : "/mnt/c/TestResources/rpr_core_autotests_assets"
-
-            if (!env.NODE_LABELS.split().contains("OldNAS")) {
-                downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assets_dir)
-            }
+            downloadFiles("/volume1/web/Assets/rpr_core_autotests/", assets_dir)
         }
 
         String enginePostfix = options.engine == "HIPvsNS" ? "Northstar64" : options.engine

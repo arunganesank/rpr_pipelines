@@ -171,10 +171,7 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/${options.assetsName}_assets" : "/mnt/c/TestResources/${options.assetsName}_assets"
-
-            if (!env.NODE_LABELS.split().contains("OldNAS")) {
-                downloadFiles("/volume1/web/Assets/${options.assetsName}/", assetsDir, "", true)
-            }
+            downloadFiles("/volume1/web/Assets/${options.assetsName}/", assetsDir, "", true)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
