@@ -22,7 +22,7 @@ def updateAnydeskPassword(String newPassword) {
 }
 
 def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
-    def newPassword = sh(script: "bw generate", returnStdout: true).trim()
+    def newPassword = bat(script: bashWrapper("bw generate"), returnStdout: true).trim()
     tasks[jnNodeName] = {
         stage(jnNodeName) {
             try {
@@ -34,7 +34,7 @@ def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
                     updateAnydeskPassword(newPassword)
                 }
                 withEnv(["NEW_PASS=${newPassword}"]) {
-                    sh """bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}"""
+                    bat bashWrapper("""bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}""")
                 }
             } catch(e) {
                 currentBuild.result = "UNSTABLE"
@@ -46,15 +46,19 @@ def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
 }
 
 def updatePasswordsInCollection(String collection, Map tasks) {
-    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
-    def itemIds = sh(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
+    def collectionId = bat(script: bashWrapper("bw get collection ${ORG_PART} ${collection} | jq -r .id"), returnStdout: true).trim()
+    def itemIds = bat(script: bashWrapper("""bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'"""),
                     returnStdout: true).trim()
     if(itemIds) {
         for(itemId in itemIds.split("\n")) {
-            def jnNodeName = sh(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
+            def jnNodeName = bat(script: bashWrapper("""bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'"""), returnStdout: true).trim()
             updateNodePassword(jnNodeName, itemId, tasks)
         }
     }
+}
+
+def bashWrapper(String commands) {
+    return "bash.exe -c \"${commands}\""
 }
 
 def call(String collections, String nodes) {
@@ -64,14 +68,14 @@ def call(String collections, String nodes) {
         parameters: [string(name: 'BW_EMAIL', trim: true), password(name: 'BW_PASSWORD')]
 
     // TODO: use special label
-    node("PC-TESTER-TBILISI-UBUNTU20") {
+    node("BitWarden&&Windows") {
         try {
             withEnv(["BW_PASSWORD=${bwCreds['BW_PASSWORD']}"]) {
-                sessionKey = sh(script: "bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw", returnStdout: true).trim()
+                sessionKey = bat(script: bashWrapper("bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw"), returnStdout: true).trim()
             }
 
             withEnv(["BW_SESSION=${sessionKey}"]) {
-                sh "bw sync"
+                bat bashWrapper("bw sync")
                 if(collections) {
                     for(collection in collections.split(',')) {
                         updatePasswordsInCollection(collection, tasks)
@@ -79,7 +83,7 @@ def call(String collections, String nodes) {
                 }
                 if(nodes) {
                     for(nodeName in nodes.split(',')) {
-                        def itemId = sh(script: """bw list items ${ORG_PART} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | select(.fields[].value == "${nodeName}") | .id'""",
+                        def itemId = bat(script: bashWrapper("""bw list items ${ORG_PART} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | select(.fields[].value == "${nodeName}") | .id'"""),
                                         returnStdout: true).trim()
                         updateNodePassword(nodeName, itemId, tasks)
                     }
