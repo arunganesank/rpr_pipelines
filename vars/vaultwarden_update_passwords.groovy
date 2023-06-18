@@ -58,7 +58,7 @@ def updatePasswordsInCollection(String collection, Map tasks) {
 }
 
 def bashWrapper(String commands) {
-    return "bash.exe -c \"${commands}\""
+    return """"C:\Program Files\Git\bin\bash.exe" -c \"${commands}\""""
 }
 
 def call(String collections, String nodes) {
