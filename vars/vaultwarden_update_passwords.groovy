@@ -22,7 +22,7 @@ def updateAnydeskPassword(String newPassword) {
 }
 
 def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
-    def newPassword = bat(script: "bw generate", returnStdout: true).trim()
+    def newPassword = sh(script: "bw generate", returnStdout: true).trim()
     tasks[jnNodeName] = {
         stage(jnNodeName) {
             try {
@@ -34,7 +34,7 @@ def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
                     updateAnydeskPassword(newPassword)
                 }
                 withEnv(["NEW_PASS=${newPassword}"]) {
-                    bat """bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}"""
+                    sh """bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}"""
                 }
             } catch(e) {
                 currentBuild.result = "UNSTABLE"
@@ -46,12 +46,12 @@ def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
 }
 
 def updatePasswordsInCollection(String collection, Map tasks) {
-    def collectionId = bat(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
-    def itemIds = bat(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
+    def collectionId = sh(script: "bw get collection ${ORG_PART} ${collection} | jq -r .id", returnStdout: true).trim()
+    def itemIds = sh(script: """bw list items --collectionid ${collectionId} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | .id'""",
                     returnStdout: true).trim()
     if(itemIds) {
         for(itemId in itemIds.split("\n")) {
-            def jnNodeName = bat(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
+            def jnNodeName = sh(script: """bw get item ${itemId} | jq -r '.fields[] | select(.name == "JENKINS_NODE") | .value'""", returnStdout: true).trim()
             updateNodePassword(jnNodeName, itemId, tasks)
         }
     }
@@ -67,11 +67,11 @@ def call(String collections, String nodes) {
     node("BitWarden") {
         try {
             withEnv(["BW_PASSWORD=${bwCreds['BW_PASSWORD']}"]) {
-                sessionKey = bat(script: "bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw", returnStdout: true).trim()
+                sessionKey = sh(script: "bw login ${bwCreds['BW_EMAIL']} --passwordenv BW_PASSWORD --raw", returnStdout: true).trim()
             }
 
             withEnv(["BW_SESSION=${sessionKey}"]) {
-                bat "bw sync"
+                sh "bw sync"
                 if(collections) {
                     for(collection in collections.split(',')) {
                         updatePasswordsInCollection(collection, tasks)
@@ -79,7 +79,7 @@ def call(String collections, String nodes) {
                 }
                 if(nodes) {
                     for(nodeName in nodes.split(',')) {
-                        def itemId = bat(script: """bw list items ${ORG_PART} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | select(.fields[].value == "${nodeName}") | .id'""",
+                        def itemId = sh(script: """bw list items ${ORG_PART} | jq -r '.[] | select(has("fields")) | select(.fields[].name == "JENKINS_NODE") | select(.fields[].value == "${nodeName}") | .id'""",
                                         returnStdout: true).trim()
                         updateNodePassword(nodeName, itemId, tasks)
                     }
@@ -91,7 +91,7 @@ def call(String collections, String nodes) {
             println(e.toString())
             throw e
         } finally {
-            bat "bw logout"
+            sh "bw logout"
         }
     }
 }
