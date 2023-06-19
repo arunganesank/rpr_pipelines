@@ -4,19 +4,20 @@ import utils
 
 
 @Field final Map emailsJobs = [
-    "first": [
-        "RenderStudio-Weekly",
-        "HdRPR-Weekly",
+    "weeklyResultsPack1": [
         "RPR-BlenderPlugin-Weekly",
-        "RPR-MayaPlugin-Weekly",
         "USD-BlenderPlugin-Weekly",
+        "HdRPR-Weekly",
+        "USD-HoudiniPlugin-Weekly"
+    ],
+    "weeklyResultsPack2": [
+        "RPR-MayaPlugin-Weekly",
         "USD-MayaPlugin-Weekly"
     ],
-    "second": [
-        "BlenderHIP-WeeklyHIP_CUDA",
+    "weeklyResultsPack3": [
+        "HybridPro-MTLX-Weekly",
         "MaterialXvsHdRPR-Weekly",
-        "USD-InventorPlugin-Weekly",
-        "USD-Viewer-Weekly"
+        "RenderStudio-Weekly"
     ]
 ]
 
@@ -159,7 +160,7 @@ def generateInfo(jobsNames){
                 println("Job: ${jobName}. Result: ${buildResult}")
 
                 if (buildResult == "SUCCESS"){
-                    payload += "<span style='color: #5FBC34; font-size: 150%'>${jobName} last build status is: Success.</span><br/><br/>"
+                    payload += "<span style='color: #5FBC34; font-size: 150%'>${jobName} <a href='${buildUrl}'>last build</a> status is: Success.</span><br/><br/>"
                     continue
                 }
 
@@ -201,11 +202,11 @@ def generateInfo(jobsNames){
                     }
 
                     if (buildResult == "FAILURE") {
-                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/>"
+                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} <a href='${buildUrl}'>last build</a> status is: Failed.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/>"
                     } else if (buildResult == "UNSTABLE") {
-                        payload += "<span style='color: #b7950b; font-size: 150%'>${jobName} last build status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/>"
+                        payload += "<span style='color: #b7950b; font-size: 150%'>${jobName} <a href='${buildUrl}'>last build</a> status is: Unstable.</span><br/><span style='color: #b7950b'>${problemsDescription}</span><br/>"
                     } else {
-                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} last build returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
+                        payload += "<span style='color: #b03a2e; font-size: 150%'>${jobName} <a href='${buildUrl}'>last build</a> returned unexpected status.</span><br/><span style='color: #b03a2e'>${problemsDescription}</span><br/><br/>"
                     }
                 } catch (Exception e) {
                     payload += "<span style='color: #b03a2e; font-size: 150%'>Failed to get ${jobName} report.</span><br/><br/>"
