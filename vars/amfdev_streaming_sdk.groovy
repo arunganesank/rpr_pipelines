@@ -557,15 +557,15 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*', name: "${options.testResultsName}${stashPostfix}", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     } else if (executionType == "mcClient") {
                          println "Stashing results of multiconnection client"
-                        makeStash(includes: '**/*_second_client.log,**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_sec_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*_second_client.html,**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_sec_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                         makeStash(includes: '**/*.json', name: "${options.testResultsName}_sec_cl_j", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     } else {
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
                         println "Stashing logs to : ${options.testResultsName}_server"
@@ -575,26 +575,17 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                         makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
                     }
 
-                    // number of errors > 50% -> do retry
-                    if (sessionReport.summary.total * 0.5 < sessionReport.summary.error) {
-                        String errorMessage
-                        if (options.currentTry < options.nodeReallocateTries) {
-                            errorMessage = "Many tests were marked as error. The test group will be restarted."
-                        } else {
-                            errorMessage = "Many tests were marked as error."
-                        }
-                        throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                    }
+                    utils.analyzeResults(this, sessionReport, options, 0.5)
                 }
             }
         }
     } catch(e) {
         if (executeTestsFinished) {
             if (e instanceof ExpectedExceptionWrapper) {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                 throw e
             } else {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                 throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
             }
         }
@@ -748,7 +739,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
             prepareLatencyToolEnvironment()
         }
 
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild.contains(osName)) {
                     cleanWS(osName)
@@ -992,9 +983,11 @@ def initAndroidDevice(Map options) {
             println "[ERROR] Failed to connect to Android device"
         }
 
-        if (options.ANDROID_TAG == "Chromecast") {
+        if (options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "XiaomiTVStick"
+            || options.ANDROID_TAG == "Chromecast" || options.ANDROID_TAG == "FireStick") {
+
             // screensave can't be turned off, reboot the device to avoid it
-            println "[INFO] Reboot chromecast device"
+            println "[INFO] Reboot device"
             bat "adb shell reboot"
             bat "adb connect ${deviceName}:5555"
             sleep(60)
@@ -1061,7 +1054,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
 
         killAdbServer()
 
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 if (!options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     cleanWS(osName)
@@ -1205,10 +1198,10 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } catch (e) {
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     }
@@ -1241,7 +1234,7 @@ def executeBuildWindows(Map options) {
                     checkoutScm(branchName: "develop", repositoryUrl: DRIVER_REPO)
                 }
 
-                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameDriver}")
+                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logNameDriver}")
 
                 bat """
                     set AMD_VIRTUAL_DRIVER=${WORKSPACE}\\AMDVirtualDrivers
@@ -1271,7 +1264,7 @@ def executeBuildWindows(Map options) {
                     checkoutScm(branchName: "master", repositoryUrl: AMF_TESTS_REPO)
                 }
 
-                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logNameLatencyTool}")
+                GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logNameLatencyTool}")
 
                 dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
@@ -1295,7 +1288,7 @@ def executeBuildWindows(Map options) {
         }
 
         dir("StreamingSDK\\drivers\\amf\\stable\\build\\solution") {
-            GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+            GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logName}")
 
             try {
                 bat """
@@ -1336,7 +1329,7 @@ def executeBuildWindows(Map options) {
                 makeStash(includes: "${options.winTestingBuildName}.zip", name: "ToolWindows", preZip: false, storeOnNAS: options.storeOnNAS)
             }
 
-            archiveUrl = "${BUILD_URL}artifact/${BUILD_NAME}"
+            archiveUrl = "${env.BUILD_URL}artifact/${BUILD_NAME}"
             rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
         }
 
@@ -1362,7 +1355,7 @@ def executeBuildAndroid(Map options) {
             String androidBuildKeys = "assemble${androidBuildConf.substring(0, 1).toUpperCase() + androidBuildConf.substring(1).toLowerCase()}"
 
             dir("StreamingSDK/drivers/amf/stable/protected/samples/CPPSamples/RemoteGameClientAndroid") {
-                GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+                GithubNotificator.updateStatus("Build", "Android", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logName}")
 
                 bat """
                     gradlew.bat ${androidBuildKeys} >> ..\\..\\..\\..\\..\\..\\..\\..\\${logName} 2>&1
@@ -1399,7 +1392,7 @@ def executeBuildUbuntu(Map options) {
     String logName = "${STAGE_NAME}.log"
 
     dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
-        GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/${logName}")
+        GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logName}")
 
         sh """
             make >> ../../../../../../../${logName} 2>&1
@@ -1527,7 +1520,7 @@ def executePreBuild(Map options) {
                 GithubNotificator githubNotificator = new GithubNotificator(this, options)
                 githubNotificator.init(options)
                 options["githubNotificator"] = githubNotificator
-                githubNotificator.initPreBuild("${BUILD_URL}")
+                githubNotificator.initPreBuild("${env.BUILD_URL}")
                 options.projectBranchName = githubNotificator.branchName
             }
         }
@@ -1606,7 +1599,10 @@ def executePreBuild(Map options) {
                     options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests, collectTraces ? 90 : 70)
 
                     options.engines.each { engine ->
-                        if (env.JOB_NAME.contains("Weekly") && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+                        if (env.JOB_NAME.contains("Weekly") && !env.JOB_NAME.contains("APU") && !env.JOB_NAME.contains("XiaomiTVStick") 
+                            && !env.JOB_NAME.contains("Chromecast") && !env.JOB_NAME.contains("FireStick")
+                            && WEEKLY_REGRESSION_CONFIGURATION.contains(engine)) {
+
                             packageInfo = readJSON file: "jobs/regression-windows.json"
 
                             for (int i = 0; i < packageInfo["groups"].size(); i++) {
@@ -1694,7 +1690,7 @@ def executePreBuild(Map options) {
         multiplatform_pipeline.initProfiles(options)
 
         if (env.BRANCH_NAME && options.githubNotificator) {
-            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+            options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
 
             if (options.isDevelopBranch) {
                 GithubNotificator.createStatus('Test', "Driver tests", 'queued', options, 'Scheduled', "${env.JOB_URL}")
@@ -1709,7 +1705,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
         try {
 
             if (options["executeTests"] && testResultList) {
-                withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+                withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                     dir("../../../../../..") {
                         checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO)
                     }
@@ -1887,7 +1883,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                 try {
                     Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
 
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
                     withEnv(["JOB_STARTED_TIME=${options.JOB_STARTED_TIME}", "BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}", "SHOW_STREAMING_DUMP=${options.collectStreamingDump}"]) {
                         dir("jobs_launcher") {
                             List retryInfoList = utils.deepcopyCollection(this, options.nodeRetry)
@@ -1918,7 +1914,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                     }
                 } catch (e) {
                     String errorMessage = utils.getReportFailReason(e.getMessage())
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "failure", options, errorMessage, "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "failure", options, errorMessage, "${env.BUILD_URL}")
                     if (utils.isReportFailCritical(e.getMessage())) {
                         options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
                         println """
@@ -1929,9 +1925,9 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                             try {
                                 // Save test data for access it manually anyway
                                 // FIXME: save reports on NAS
-                                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                                     "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
-                                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
                                 options.testDataSaved = true 
                             } catch (e1) {
                                 println """
@@ -2002,16 +1998,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                 withNotifications(title: "Building test report for ${game}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
                     // FIXME: save reports on NAS
-                    utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                    utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                         "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
-                        ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                        ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
                     if (summaryTestResults) {
                         GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
-                                "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                                "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${env.BUILD_URL}/Test_20Report")
                     } else {
                         GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
-                                NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                                NotificationConfiguration.REPORT_PUBLISHED, "${env.BUILD_URL}/Test_20Report")
                     }
                 }
             }

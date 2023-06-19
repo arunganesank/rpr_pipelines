@@ -250,7 +250,7 @@ def executeTests(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
                 String prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Autodesk/Inventor 2023"
-                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2023/*", prefsDir, "", false)
+                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2023/*", prefsDir, "", false, "nasURL", "nasSSHPort", true)
                 bat "reg import \"${prefsDir.replace("/mnt/c", "C:").replace("/", "\\")}\\inventor_window.reg\""
             }
         }
@@ -366,7 +366,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_inventor_autotests_baselines" : "/mnt/c/TestResources/usd_inventor_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
@@ -414,20 +416,17 @@ def executeTests(String osName, String asicName, Map options) {
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
-
                         utils.stashTestData(this, options, options.storeOnNAS)
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                // remove broken usdviewer
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -1005,7 +1004,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI',
+         String platforms = 'Windows',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String testsPackage = "",

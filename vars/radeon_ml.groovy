@@ -35,7 +35,7 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                 downloadFiles("/volume1/web/Assets/rpr_ml_assets/", assetsDir)
             }
 
-            withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "${asicName}-${osName}-FT", options: options, logUrl: env.BUILD_URL, configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 timeout(time: "5", unit: "MINUTES") {
                     cleanWS(osName)
                     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
@@ -85,17 +85,17 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
                         """
                 }
             }
-            GithubNotificator.updateStatus("Test", "${asicName}-${osName}-FT", "success", options, NotificationConfiguration.TEST_PASSED, "${BUILD_URL}/artifact/${STAGE_NAME}.ft.log")
+            GithubNotificator.updateStatus("Test", "${asicName}-${osName}-FT", "success", options, NotificationConfiguration.TEST_PASSED, "${env.BUILD_URL}/artifact/${STAGE_NAME}.ft.log")
         } catch(e) {
             println(e.toString())
             currentBuild.result = "UNSTABLE"
             options.problemMessageManager.saveUnstableReason(NotificationConfiguration.FAILED_FT_TESTS)
-            GithubNotificator.updateStatus("Test", "${asicName}-${osName}-FT", "failure", options, NotificationConfiguration.TEST_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.ft.log")
+            GithubNotificator.updateStatus("Test", "${asicName}-${osName}-FT", "failure", options, NotificationConfiguration.TEST_FAILED, "${env.BUILD_URL}/artifact/${STAGE_NAME}.ft.log")
             throw e
         } finally {
             archiveArtifacts "*.log"
-            utils.publishReport(this, BUILD_URL, "results", "report.html", "FT ${osName}-${asicName}", "FT ${osName}-${asicName}", options.storeOnNAS, \
-                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": false])
+            utils.publishReport(this, env.BUILD_URL, "results", "report.html", "FT ${osName}-${asicName}", "FT ${osName}-${asicName}", options.storeOnNAS, \
+                ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": false])
         }
     }
 }
@@ -103,11 +103,11 @@ def executeFunctionalTestsCommand(String osName, String asicName, Map options) {
 def executeTests(String osName, String asicName, Map options) {
     try {
         cleanWS(osName)
-        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, BUILD_URL)
+        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "in_progress", options, NotificationConfiguration.EXECUTE_UNIT_TESTS, env.BUILD_URL)
         outputEnvironmentInfo(osName, "${STAGE_NAME}.UnitTests")
         makeUnstash(name: "app${osName}", storeOnNAS: options.storeOnNAS)
         executeUnitTestsCommand(osName, options)
-        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "success", options, NotificationConfiguration.UNIT_TESTS_PASSED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
+        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "success", options, NotificationConfiguration.UNIT_TESTS_PASSED, "${env.BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } catch (FlowInterruptedException error) {
         println("[INFO] Job was aborted during executing tests.")
 
@@ -130,7 +130,7 @@ def executeTests(String osName, String asicName, Map options) {
             bat "echo \"Failed to execute unit tests\" >> ${STAGE_NAME}.UnitTests.log"
         }
 
-        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
+        GithubNotificator.updateStatus("Test", "${asicName}-${osName}-Unit", "failure", options, NotificationConfiguration.UNIT_TESTS_FAILED, "${env.BUILD_URL}/artifact/${STAGE_NAME}.UnitTests.log")
     } finally {
         try {
             archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
@@ -209,7 +209,7 @@ def executeWindowsBuildCommand(String osName, Map options, String buildType){
 
 def executeBuildWindows(String osName, Map options) {
 
-    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact")
 
     bat """
         xcopy /s/y/i ..\\RML_thirdparty\\MIOpen third_party\\miopen
@@ -224,7 +224,7 @@ def executeBuildWindows(String osName, Map options) {
 
     rtp nullAction: '1', parserName: 'HTML', stableText: """<h4>${osName}: <a href="${releaseLink}">Release</a> / <a href="${debugLink}">Debug</a> </h4>"""
 
-    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${env.BUILD_URL}/artifact")
 }
 
 
@@ -295,7 +295,7 @@ def executeOSXBuildCommand(String osName, Map options, String buildType) {
 
 def executeBuildOSX(String osName, Map options) {
 
-    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact")
 
     sh """
         cp -r ../RML_thirdparty/MIOpen/* ./third_party/miopen
@@ -308,7 +308,7 @@ def executeBuildOSX(String osName, Map options) {
 
     rtp nullAction: '1', parserName: 'HTML', stableText: """<h4>${osName}: <a href="${releaseLink}">Release</a> / <a href="${debugLink}">Debug</a> </h4>"""
 
-    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${env.BUILD_URL}/artifact")
 
 }
 
@@ -397,7 +397,7 @@ def executeLinuxBuildCommand(String osName, Map options, String buildType) {
 
 
 def executeBuildLinux(String osName, Map options) {
-    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact")
 
     sh """
         cp -r ../RML_thirdparty/MIOpen/* ./third_party/miopen
@@ -414,7 +414,7 @@ def executeBuildLinux(String osName, Map options) {
 
     rtp nullAction: '1', parserName: 'HTML', stableText: """<h4>${osName}: <a href="${releaseLink}">Release</a> / <a href="${debugLink}">Debug</a> </h4>"""
 
-    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${BUILD_URL}/artifact")
+    GithubNotificator.updateStatus("Build", osName, "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE, "${env.BUILD_URL}/artifact")
 
 }
 
@@ -482,7 +482,7 @@ def executePreBuild(Map options) {
             GithubNotificator githubNotificator = new GithubNotificator(this, options)
             githubNotificator.init(options)
             options.githubNotificator = githubNotificator
-            githubNotificator.initPreBuild(BUILD_URL)
+            githubNotificator.initPreBuild(env.BUILD_URL)
             options.projectBranchName = githubNotificator.branchName
         }
     } else {
@@ -503,7 +503,7 @@ def executePreBuild(Map options) {
     }
 
     if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, BUILD_URL, true, true, false)
+        options.githubNotificator.initChecks(options, env.BUILD_URL, true, true, false)
 
         options["platforms"].split(";").each() { platform ->
             List tokens = platform.tokenize(":")
@@ -523,7 +523,7 @@ def executePreBuild(Map options) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,AMD_RX6800XT,AMD_RX7900XT;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RX6800XT,AMD_RX7900XT;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean executeFT = true) {
 

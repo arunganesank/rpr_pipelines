@@ -304,7 +304,7 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
 
 def checkoutAutotests(Map options) {
-    withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+    withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
         timeout(time: "5", unit: "MINUTES") {
             cleanWS("Windows")
             checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
@@ -387,9 +387,9 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
             options.tests.split(" ").each() {
                 if (it.contains(".json")) {
-                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 } else {
-                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
+                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
         }
@@ -418,10 +418,10 @@ def processClientException(def exception, Map options, String clientType, int cl
     }
     println exception.toString()
     if (exception instanceof ExpectedExceptionWrapper) {
-        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${exception.getMessage()}", "${BUILD_URL}")
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${exception.getMessage()}", "${env.BUILD_URL}")
         throw new ExpectedExceptionWrapper("${exception.getMessage()}", exception.getCause())
     } else {
-        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
         throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", exception)
     }
 }
@@ -473,34 +473,32 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                         makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
                         options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
-                        utils.stashTestData(this, options, options.storeOnNAS)
-
                         def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
 
                             dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
                                 utils.removeDir(this, osName, "AMDRenderStudio")
                             }
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-                                removeInstaller(osName: "Windows", options: options, extension: "msi")
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
+                        utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.mode)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+                            removeInstaller(osName: "Windows", options: options, extension: "msi")
+                            throw e
                         }
                     }
                 }
@@ -510,10 +508,10 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
         // throw exception in finally block only if test stage was finished
         if (options.executeTestsFinished) {
             if (e instanceof ExpectedExceptionWrapper) {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                 throw e
             } else {
-                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                 throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
             }
         }
@@ -609,6 +607,9 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
 
+    // reboot to prevent appearing of Windows activation watermark
+    utils.reboot(this, osName)
+
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
 
@@ -664,10 +665,10 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } catch (e) {
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     }
@@ -1127,7 +1128,7 @@ def notifyByTg(Map options){
     String branchURL = isPR ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"env.BUILD_URL\":\"${env.env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
@@ -1161,7 +1162,12 @@ def fillDescription(Map options) {
     currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
     currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
     currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
-    currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
+
+    if (options.hybridProSHA) {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
+    } else {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> unknown, used prebuilt installer<br/>"
+    }
 
     currentBuild.description += "<br/>"
 
@@ -1208,7 +1214,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/Archive/job/RadeonProRender-HybridManual/992/api/json?tree=number,url,description"
+        String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
 
         def rawInfo = httpRequest(
             url: url,
@@ -1222,14 +1228,19 @@ def executePreBuild(Map options) {
         Integer hybridBuildNumber
         String hybridBuildUrl
 
-        hybridBuildNumber = 992
-        hybridBuildUrl = parsedInfo.url
-
-        options.hybridProSHA = parsedInfo.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
+            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+            options.hybridProSHA = parsedInfo.lastSuccessfulBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+        } else {
+            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
+            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
+            options.hybridProSHA = parsedInfo.lastUnstableBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+        }
 
         withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/Archive/RadeonProRender-HybridManual/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+            options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+            options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
         }
 
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
@@ -1242,6 +1253,7 @@ def executePreBuild(Map options) {
             options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
         }
     }
+
 
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
@@ -1259,7 +1271,7 @@ def executePreBuild(Map options) {
                 GithubNotificator githubNotificator = new GithubNotificator(this, options)
                 githubNotificator.init(options)
                 options["githubNotificator"] = githubNotificator
-                githubNotificator.initPreBuild("${BUILD_URL}")
+                githubNotificator.initPreBuild("${env.BUILD_URL}")
                 options.projectBranchName = githubNotificator.branchName
             }
 
@@ -1445,7 +1457,7 @@ def executePreBuild(Map options) {
         }
 
         if (env.BRANCH_NAME && options.githubNotificator) {
-            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+            options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
         }
     }
 }
@@ -1457,7 +1469,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
         String modeName = options.displayingTestProfiles[mode]
 
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report for ${modeName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "Building test report for ${modeName}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
 
@@ -1511,7 +1523,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/weekly/${mode}"
                 }
 
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
 
                 if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
@@ -1548,7 +1560,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                             bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(modeName, options)}"
                         } catch (e) {
                             String errorMessage = utils.getReportFailReason(e.getMessage())
-                            GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                             if (utils.isReportFailCritical(e.getMessage())) {
                                 throw e
                             } else {
@@ -1565,16 +1577,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                 println("[ERROR] Failed to build test report.")
                 println(e.toString())
                 println(e.getMessage())
                 if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
-                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                        utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                             "Test Report ${modeName}", "Summary Report, Compare Report" , options.storeOnNAS, \
-                            ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                            ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                         options.testDataSaved = true 
                     } catch(e1) {
@@ -1640,16 +1652,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             withNotifications(title: "Building test report for ${modeName}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                     "Test Report ${modeName}", "Summary Report, Compare Report" , options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${env.BUILD_URL}/Test_20Report")
                 } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${env.BUILD_URL}/Test_20Report")
                 }
             }
 
@@ -1728,8 +1740,11 @@ def call(
     boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
         || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
         || env.BRANCH_NAME)
-
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
+
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "superkomar/inv_integration") {
+        rebuildUSD = true
+    }
 
     def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
@@ -1757,6 +1772,7 @@ def call(
                                 skipCallback: this.&filter,
                                 modes: modes,
                                 testsPackage:testsPackage,
+                                testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
                                 testsPreCondition: this.&hasIdleClients,

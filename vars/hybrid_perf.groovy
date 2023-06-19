@@ -219,8 +219,6 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     // set pending status for all
     if (env.CHANGE_ID) {
         GithubNotificator githubNotificator = new GithubNotificator(this, options)
@@ -287,9 +285,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 def call(String commitSHA = "",
          String commitMessage = "",
          String originalBuildLink = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String scenarios = "all",
          Boolean updateRefs = false) {
+
+    currentBuild.description = ""
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
@@ -303,8 +303,6 @@ def call(String commitSHA = "",
         }
         milestone(buildNumber) 
     }
-
-    currentBuild.description = ""
 
     Map successfulTests = ["cliff_detected": false, "unexpected_acceleration": false]
 

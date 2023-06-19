@@ -69,7 +69,7 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
@@ -123,7 +123,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(stage: options.customStageName, title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_baselines" : "/mnt/c/TestResources/hybrid_mtlx_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
@@ -140,10 +142,10 @@ def executeTests(String osName, String asicName, Map options) {
         }
         println e.toString()
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${e.getMessage()}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
         } else {
-            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     } finally {
@@ -161,27 +163,21 @@ def executeTests(String osName, String asicName, Map options) {
                         def sessionReport = readJSON file: 'Results/HybMTLX/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
-
                         utils.stashTestData(this, options, options.storeOnNAS)
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport()
                         }
+
+                        utils.analyzeResults(this, sessionReport, options)
                     }
                 }
             }
@@ -189,10 +185,10 @@ def executeTests(String osName, String asicName, Map options) {
             // throw exception in finally block only if test stage was finished
             if (options.executeTestsFinished) {
                 if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                     throw e
                 } else {
-                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                     throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
                 }
             }
@@ -224,8 +220,6 @@ def executePreBuild(Map options) {
 
         options.originalBuildLink = parsedInfo.lastCompletedBuild.url
         rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] Link to used HybridPro</a></h3>""")
-    } else {
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
     }
 
     def tests = []
@@ -378,7 +372,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             try {
-                GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
 
                 String matLibUrl
 
@@ -398,7 +392,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 }
             } catch (e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
-                GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${env.BUILD_URL}")
                 if (utils.isReportFailCritical(e.getMessage())) {
                     options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
                     println """
@@ -408,9 +402,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     if (!options.testDataSaved && !options.storeOnNAS) {
                         try {
                             // Save test data for access it manually anyway
-                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                            utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                                 "Test Report", "Summary Report, Compare Report", options.storeOnNAS, \
-                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                                ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                             options.testDataSaved = true 
                         } catch (e1) {
@@ -477,9 +471,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             withNotifications(stage: options.customStageName, title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                     "Test Report", "Summary Report, Compare Report", options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
             }
         }
     } catch (e) {
@@ -496,8 +490,10 @@ def call(String commitSHA = "",
          String testsBranch = "",
          String testsPackage = "",
          String tests = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100",
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100",
          String updateRefs = "No") {
+
+    currentBuild.description = ""
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) { 
@@ -513,7 +509,6 @@ def call(String commitSHA = "",
     }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    currentBuild.description = ""
 
     try {
         Map options = [:]
@@ -548,6 +543,9 @@ def call(String commitSHA = "",
         println e.toString()
         throw e
     } finally {
+        if (currentBuild.description) {
+            currentBuild.description += "<br/>"
+        }
         String problemMessage = problemMessageManager.publishMessages()
     }
 }

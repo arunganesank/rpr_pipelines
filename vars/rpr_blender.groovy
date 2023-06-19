@@ -150,25 +150,25 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("Smoke") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            if (osName == "OSX" || osName == "MacOS_ARM") {
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
                 }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
             }
         }
     }
@@ -184,10 +184,10 @@ def executeTests(String osName, String asicName, Map options)
     try {
         utils.removeEnvVars(this)
 
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
@@ -222,7 +222,7 @@ def executeTests(String osName, String asicName, Map options)
                         break
                 }
 
-                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false)
+                downloadFiles("/volume1/CIS/tools-preferences/Blender/${osName}/${options.toolVersion}/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
             }
         }
 
@@ -235,7 +235,7 @@ def executeTests(String osName, String asicName, Map options)
                     println "[INFO] Install function on ${env.NODE_NAME} return ${newPluginInstalled}"
 
                     // Download configdev to enable collecting of debug information from RRP SDK
-                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false)
+                    downloadFiles("/volume1/CIS/configs/Blender/configdev.py", addonDir, customKeys, false, "nasURL", "nasSSHPort", true)
                 }
             }
         
@@ -313,9 +313,9 @@ def executeTests(String osName, String asicName, Map options)
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -354,10 +354,10 @@ def executeTests(String osName, String asicName, Map options)
         println(e.getMessage())
         
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}\n${additionalDescription}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED} ${additionalDescription}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}\n${additionalDescription}", e)
         }
     } finally {
@@ -376,37 +376,28 @@ def executeTests(String osName, String asicName, Map options)
                         sessionReport = readJSON file: 'Results/Blender/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
                         println("Stashing test results to : ${options.testResultsName}")
                         
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
-                                // remove installer of broken addon
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installBlenderAddon(osName, 'rprblender', options.toolVersion, options, false, true)
+                            // remove installer of broken addon
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -417,10 +408,10 @@ def executeTests(String osName, String asicName, Map options)
             // throw exception in finally block only if test stage was finished
             if (options.executeTestsFinished) {
                 if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                     throw e
                 } else {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                     throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
                 }
             }
@@ -431,12 +422,12 @@ def executeTests(String osName, String asicName, Map options)
 def executeBuildWindows(Map options)
 {
     dir('RadeonProRenderBlenderAddon\\BlenderPkg') {
-        GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+        GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/Build-Windows.log")
         bat """
             cd ..
-            build.cmd >> ../${STAGE_NAME}.log  2>&1
+            build.cmd >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             bat """
@@ -466,11 +457,12 @@ def executeBuildWindows(Map options)
 def executeBuildOSX(Map options, Boolean isx86 = true)
 {
     dir('RadeonProRenderBlenderAddon/BlenderPkg') {
-        GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
+        GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/Build-OSX.log")
 
         String buildScriptName = isx86 ? "build_osx.sh" : "build_osx-arm64.sh"
 
         dir('../RadeonProRenderSDK/hipbin') {
+            // the Jenkins plugin can't perform git lfs pull on MacOS machines
             sh """
                 git lfs install
                 git lfs pull
@@ -479,10 +471,10 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 
         sh """
             cd ..
-            ./${buildScriptName} >> ../../${STAGE_NAME}.log  2>&1
+            ./${buildScriptName} >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
 
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
             sh """
@@ -514,12 +506,12 @@ def executeBuildOSX(Map options, Boolean isx86 = true)
 def executeBuildLinux(String osName, Map options)
 {
     dir('RadeonProRenderBlenderAddon/BlenderPkg') {
-        GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-${osName}.log")
+        GithubNotificator.updateStatus("Build", osName, "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/Build-${osName}.log")
         sh """
             cd ..
-            ./build.sh >> ../../${STAGE_NAME}.log  2>&1
+            ./build.sh >> ${env.WORKSPACE}/${STAGE_NAME}.log  2>&1
         """
-        python3("create_zip_addon.py >> ../../${STAGE_NAME}.log 2>&1")
+        python3("create_zip_addon.py >> ${env.WORKSPACE}/${STAGE_NAME}.log 2>&1")
 
         dir('.build') {
 
@@ -690,7 +682,7 @@ def executePreBuild(Map options)
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
                         options["githubNotificator"] = githubNotificator
-                        githubNotificator.initPreBuild("${BUILD_URL}")
+                        githubNotificator.initPreBuild("${env.BUILD_URL}")
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
@@ -872,7 +864,7 @@ def executePreBuild(Map options)
         }
 
         if (env.BRANCH_NAME && options.githubNotificator) {
-            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+            options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
         }
     }
 }
@@ -884,7 +876,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
         String engineName = options.displayingTestProfiles[engine]
 
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
 
@@ -928,13 +920,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-BlenderPlugin/weekly/${engine}"
                 }
 
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
 
                 if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
@@ -965,7 +957,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                             bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(engineName, options)}"
                         } catch (e) {
                             String errorMessage = utils.getReportFailReason(e.getMessage())
-                            GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                             if (utils.isReportFailCritical(e.getMessage())) {
                                 throw e
                             } else {
@@ -982,16 +974,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                 println("[ERROR] Failed to build test report.")
                 println(e.toString())
                 println(e.getMessage())
                 if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
-                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
+                        utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                             "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
-                            ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                            ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                         options.testDataSaved = true 
                     } catch(e1) {
@@ -1057,16 +1049,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             withNotifications(title: "Building test report for ${engineName}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                     "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${env.BUILD_URL}/Test_20Report")
                 } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${env.BUILD_URL}/Test_20Report")
                 }
             }
 
@@ -1097,7 +1089,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1',
+    String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT;OSX:AMD_RX5700XT;MacOS_ARM:AppleM1,AppleM2',
     String updateRefs = 'No',
     String testsPackage = "",
     String tests = "",
@@ -1125,7 +1117,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         testsBranch = "inemankov/updated_engine_selection"
     }
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {

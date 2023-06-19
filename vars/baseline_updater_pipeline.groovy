@@ -281,7 +281,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
 
     if (updateType == "Cases") {
-        downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}")
+        downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}", "", true, "nasURL", "nasSSHPort", true)
 
         String reportComparePath = "results/${targetGroup}/report_compare.json"
         def testCases = readJSON(file: reportComparePath)
@@ -293,8 +293,8 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         }
 
         for (targetCase in casesNames.split(",")) {
-            downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color")
-            downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}")
+            downloadFiles("${remoteResultPath}/${targetGroup}/Color/*${targetCase}*", "results/${targetGroup}/Color", "", true, "nasURL", "nasSSHPort", true)
+            downloadFiles("${remoteResultPath}/${targetGroup}/*${targetCase}*.json", "results/${targetGroup}", "", true, "nasURL", "nasSSHPort", true)
 
             for (testCase in testCases) {
                 if (testCase["test_case"] == targetCase) {
@@ -310,7 +310,7 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         writeJSON(file: reportComparePath, json: serializedJson, pretty: 4)
         saveBaselines(updateInfo.jobName, updateInfo.buildID, baselinesPathProfile)
     } else {
-        downloadFiles("${remoteResultPath}/${targetGroup}", "results")
+        downloadFiles("${remoteResultPath}/${targetGroup}", "results", "", true, "nasURL", "nasSSHPort", true)
 
         String reportComparePath = "results/${targetGroup}/report_compare.json"
 
@@ -378,64 +378,88 @@ def call(String jobName,
         onlyFails,
         allPlatforms)
 
+    int maxTries = 3
+    String nodeLabels = "Windows && !NoBaselinesUpdate"
+
     stage("UpdateBaselines") {
-        node("Windows && !NoBaselinesUpdate") {
-            ws("WS/UpdateBaselines") {
-                ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
+        for (int currentTry = 0; currentTry < maxTries; currentTry++) {
+            String nodeName = null
 
-                try {
-                    cleanWS()
+            try {
+                node(nodeLabels) {
+                    ws("WS/UpdateBaselines") {
+                        nodeName = env.NODE_NAME
 
-                    // duck tape for one autotests repository for two projects
-                    if (toolName == "inventor" && jobName.contains("USD-Viewer")) {
-                        toolName = "usd_viewer"
-                    }
+                        ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
-                    toolName = toolName.toLowerCase()
+                        try {
+                            cleanWS()
 
-                    if (profile == "None" || profile == "\"") {
-                        profile = ""
-                    }
-
-                    String reportName
-
-                    if (profile) {
-                        reportName = PROFILE_REPORT_MAPPING.containsKey(profile.toLowerCase()) ? "Test_Report_${PROFILE_REPORT_MAPPING[profile.toLowerCase()]}" : "Test_Report_${profile}"
-                    } else {
-                        reportName = "Test_Report"
-                    }
-
-                    generateDescription(updateInfo, profile)
-
-                    dir("jobs_launcher") {
-                        checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/jobs_launcher.git")
-                    }
-
-                    List directories
-
-                    // search all directories in the target report
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
-                        directories = bat(returnStdout: true, script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
-                    }
-
-                    for (targetGroup in groupsNames.split(",")) {
-                        directories.each() { directory ->
-                            String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
-                            if (!isSuitableDir(updateInfo, directory, targetGroup, remoteResultPath)) {
-                                return
+                            // duck tape for one autotests repository for two projects
+                            if (toolName == "inventor" && jobName.contains("USD-Viewer")) {
+                                toolName = "usd_viewer"
                             }
 
-                            doGroupUpdate(updateInfo, directory, targetGroup, profile, remoteResultPath)
+                            toolName = toolName.toLowerCase()
+
+                            if (profile == "None" || profile == "\"") {
+                                profile = ""
+                            }
+
+                            String reportName
+
+                            if (profile) {
+                                reportName = PROFILE_REPORT_MAPPING.containsKey(profile.toLowerCase()) ? "Test_Report_${PROFILE_REPORT_MAPPING[profile.toLowerCase()]}" : "Test_Report_${profile}"
+                            } else {
+                                reportName = "Test_Report"
+                            }
+
+                            generateDescription(updateInfo, profile)
+
+                            dir("jobs_launcher") {
+                                checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/jobs_launcher.git")
+                            }
+
+                            List directories
+
+                            // search all directories in the target report
+                            withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+                                directories = bat(returnStdout: true, script: '%CIS_TOOLS%\\' + "listFiles.bat \"/volume1/web/${jobName}/${buildID}/${reportName}\" " + '%REMOTE_HOST% %SSH_PORT%').split("\n") as List
+                            }
+
+                            for (targetGroup in groupsNames.split(",")) {
+                                directories.each() { directory ->
+                                    String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                                    if (!isSuitableDir(updateInfo, directory, targetGroup, remoteResultPath)) {
+                                        return
+                                    }
+
+                                    doGroupUpdate(updateInfo, directory, targetGroup, profile, remoteResultPath)
+                                }
+                            }
+                        } catch (e) {
+                            println("[ERROR] Failed to update baselines on NAS")
+                            problemMessageManager.saveGlobalFailReason(NotificationConfiguration.FAILED_UPDATE_BASELINES_NAS)
+                            throw e
                         }
+
+                        problemMessageManager.publishMessages()
                     }
-                } catch (e) {
-                    println("[ERROR] Failed to update baselines on NAS")
-                    problemMessageManager.saveGlobalFailReason(NotificationConfiguration.FAILED_UPDATE_BASELINES_NAS)
-                    currentBuild.result = "FAILURE"
-                    throw e
                 }
 
-                problemMessageManager.publishMessages()
+                break
+            } catch (e) {
+                if (currentTry + 1 == maxTries) {
+                    currentBuild.result = "FAILURE"
+                    throw new Exception("Failed to update baselines. All attempts exceeded")
+                }
+
+                if (nodeName) {
+                    nodeLabels += " && !${nodeName}"
+                    println("New list of labels: ${nodeLabels}")
+                } else {
+                    println("No node name. Can't update list of labels")
+                }
             }
         }
     }

@@ -4,14 +4,18 @@ def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=120) {
         println("[INFO] Try to download plugin through curl (try #${currentTry})")
         try {
             timeout(time: oneTryTimeout, unit: "SECONDS") {
-                if (isUnix()) {
-                    sh """
-                        ${curlCommand}
-                    """
-                } else {
-                    bat """
-                        ${curlCommand}
-                    """
+                withCredentials([string(credentialsId: "nasURLFrontend", variable: "NAS_URL"),
+                    string(credentialsId: "nasInternalIP", variable: "NAS_IP")]) {
+
+                    if (isUnix()) {
+                        sh """
+                            ${curlCommand.replace(NAS_URL, NAS_IP)}
+                        """
+                    } else {
+                        bat """
+                            ${curlCommand.replace(NAS_URL, NAS_IP)}
+                        """
+                    }
                 }
             }
             break

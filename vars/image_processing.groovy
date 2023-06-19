@@ -397,7 +397,7 @@ def executeDeploy(Map options, List platformList, List testResultList)
 }
 
 def call(String projectBranch = "",
-         String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI;OSX:AMD_RX5700XT;Ubuntu20-Clang;MacOS_ARM:AppleM1',
+         String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI;OSX:AMD_RX5700XT;Ubuntu20-Clang;MacOS_ARM:AppleM1',
          String cmakeKeys = '',
          Boolean testPerformance = false,
          String tester_tag = 'Tester') {

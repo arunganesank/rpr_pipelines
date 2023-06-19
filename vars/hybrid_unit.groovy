@@ -134,7 +134,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             }            
         } else {
             println "Execute Tests"
-            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/")
+            downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/", "", true, "nasURL", "nasSSHPort", true)
             executeTestCommand(asicName, osName, options, apiValue)
         }
     } catch (e) {
@@ -159,7 +159,7 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
                 makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
             }
 
-            utils.publishReport(this, "${BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+            utils.publishReport(this, "${env.BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
 
             options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
         } catch (err) {
@@ -220,8 +220,6 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def executePreBuild(Map options) {
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] This build is triggered by the connected build</a></h3>""")
-
     options.testsList = options.apiValues
 
     // set pending status for all
@@ -288,9 +286,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             if (options.failedConfigurations.size() != 0) {
-                utils.publishReport(this, "${BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
+                utils.publishReport(this, "${env.BUILD_URL}", "SummaryReport", "${reportFiles.replaceAll('^,', '')}",
                     "HTML Failures Unit", reportFiles.replaceAll('^,', '').replaceAll("\\.\\./", ""), options.storeOnNAS,
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
             }
         } catch(e) {
             println(e.toString())
@@ -302,9 +300,11 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 def call(String commitSHA = "",
          String commitMessage = "",
          String originalBuildLink = "",
-         String platforms = "Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan,d3d12",
          Boolean updateRefs = false) {
+
+    currentBuild.description = ""
 
     if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
         while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) {
@@ -322,8 +322,6 @@ def call(String commitSHA = "",
     List apiList = apiValues.split(",") as List
 
     println "[INFO] Testing APIs: ${apiList}"
-
-    currentBuild.description = ""
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
                            [configuration: PIPELINE_CONFIGURATION,

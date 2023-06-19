@@ -179,25 +179,25 @@ def executeTestCommand(String osName, String asicName, Map options)
 }
 
 
-def cloneTestsRepository(Map options) {
+def cloneTestsRepository(String osName, Map options) {
     checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
     if (options.tests.contains("RPR_Export") || options.tests.contains("regression.0")) {
         dir("RadeonProRenderSDK") {
             if (options["isPreBuilt"]) {
-                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: "master", repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             } else {
-                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO)
+                checkoutScm(branchName: options.rprsdkCommitSHA, repositoryUrl: rpr_sdk.RPR_SDK_REPO, useLFS: true)
             }
 
-            dir("hipbin") {
-                if (env.NODE_LABELS.split().contains("OldNAS")) {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
-                } else {
-                    downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            // the Jenkins plugin sometimes can't perform git lfs pull
+            if (osName == "OSX") {
+                dir('hipbin') {
+                    sh """
+                        git lfs install
+                        git lfs pull
+                    """
                 }
-
-                utils.unzip(this, "hipbin_3.01.00.zip")
             }
         }
     }
@@ -217,7 +217,7 @@ def executeTests(String osName, String asicName, Map options)
             utils.reboot(this, osName)
         }
 
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 try {
                     if (osName == "OSX" && asicName == "AppleM1") {
@@ -232,24 +232,21 @@ def executeTests(String osName, String asicName, Map options)
                 }
                 
                 cleanWS(osName)
-                cloneTestsRepository(options)
+                cloneTestsRepository(osName, options)
             }
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assets_dir = isUnix() ? "${CIS_TOOLS}/../TestResources/rpr_maya_autotests_assets" : "/mnt/c/TestResources/rpr_maya_autotests_assets"
 
-            // FIXME: use local NAS for baselines downloading
-            if (osName != "OSX") {
-                downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
-            }
+            downloadFiles("/volume1/web/Assets/rpr_maya_autotests/", assets_dir)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
                 String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${options.toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${options.toolVersion}/prefs"
                 String customKeys = isUnix() ? "--protect-args" : ""
-                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false)
+                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
             }
         }
 
@@ -343,9 +340,9 @@ def executeTests(String osName, String asicName, Map options)
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -386,11 +383,11 @@ def executeTests(String osName, String asicName, Map options)
         utils.reboot(this, osName)
 
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()} ${additionalDescription}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}\n${additionalDescription}", e.getCause())
         } else {
             String errorMessage = "The reason is not automatically identified. Please contact support."
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${errorMessage} ${additionalDescription}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${errorMessage} ${additionalDescription}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${errorMessage}\n${additionalDescription}", e)
         }
     } finally {
@@ -422,54 +419,28 @@ def executeTests(String osName, String asicName, Map options)
                         sessionReport = readJSON file: 'Results/Maya/session_report.json'
 
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
                         println("Stashing test results to : ${options.testResultsName}")
+
                         utils.stashTestData(this, options, options.storeOnNAS, "**/rpr_export_scenes/**,**/cache/**")
-
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0){
-                                installMSIPlugin(osName, "Maya", options, false, true)
-                                removeInstaller(osName: osName, options: options)
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
-                        // retry on Maya crash
-                        if (sessionReport.summary.error > 0) {
-                            for (testGroup in sessionReport.results) {
-                                for (caseResults in sessionReport.results[testGroup][""]["render_results"]) {
-                                    for (message in caseResults.message) {
-                                        if (message.contains("Error windows")) {
-                                            String errorMessage
-                                            if (options.currentTry < options.nodeReallocateTries) {
-                                                errorMessage = "Maya crash detected. The test group will be restarted."
-                                            } else {
-                                                errorMessage = "Maya crash detected."
-                                            }
-                                            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installMSIPlugin(osName, "Maya", options, false, true)
+                            // remove installer of broken addon
+                            removeInstaller(osName: osName, options: options)
+                            throw e
                         }
                     }
                 }
@@ -480,10 +451,10 @@ def executeTests(String osName, String asicName, Map options)
             // throw exception in finally block only if test stage was finished
             if (options.executeTestsFinished) {
                 if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                     throw e
                 } else {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                     throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
                 }
             }
@@ -494,7 +465,8 @@ def executeTests(String osName, String asicName, Map options)
 def executeBuildWindows(Map options)
 {
     dir('RadeonProRenderMayaPlugin\\MayaPkg') {
-        GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-Windows.log")
+        GithubNotificator.updateStatus("Build", "Windows", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/Build-Windows.log")
+
         bat """
             build_windows_installer.cmd >> ../../${STAGE_NAME}.log  2>&1
         """
@@ -534,7 +506,19 @@ def executeBuildWindows(Map options)
 def executeBuildOSX(Map options)
 {
     dir('RadeonProRenderMayaPlugin/MayaPkg') {
-        GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${BUILD_URL}/artifact/Build-OSX.log")
+        GithubNotificator.updateStatus("Build", "OSX", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/Build-OSX.log")
+
+        dir('../RadeonProRenderSDK/hipbin') {
+            // FIXME: Old MacOS builder doesn't have git lfs
+            if (env.NODE_LABELS.split().contains("OldNAS")) {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".", "", true, "nasURLOld", "nasSSHPort")
+            } else {
+                downloadFiles("/volume1/CIS/bin-storage/hipbin_3.01.00.zip", ".")
+            }
+
+            utils.unzip(this, "hipbin_3.01.00.zip")
+        }
+
         sh """
             ./build_osx_installer.sh >> ../../${STAGE_NAME}.log 2>&1
         """
@@ -686,7 +670,7 @@ def executePreBuild(Map options)
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
                         options["githubNotificator"] = githubNotificator
-                        githubNotificator.initPreBuild("${BUILD_URL}")
+                        githubNotificator.initPreBuild("${env.BUILD_URL}")
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
@@ -866,7 +850,7 @@ def executePreBuild(Map options)
         }
 
         if (env.BRANCH_NAME && options.githubNotificator) {
-            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+            options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
         }
     }
 }
@@ -878,7 +862,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
         String engineName = options.displayingTestProfiles[engine]
 
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "Building test report for ${engineName}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
 
@@ -922,13 +906,13 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 String metricsRemoteDir
 
-                if (env.BRANCH_NAME) {
+                if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin/auto/main/${engine}"
                 } else {
                     metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RPR-MayaPlugin/weekly/${engine}"
                 }
 
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
                 
                 if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
@@ -959,7 +943,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                             bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(engineName, options)}"
                         } catch (e) {
                             String errorMessage = utils.getReportFailReason(e.getMessage())
-                            GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                             if (utils.isReportFailCritical(e.getMessage())) {
                                 throw e
                             } else {
@@ -976,16 +960,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                 println("[ERROR] Failed to build test report.")
                 println(e.toString())
                 println(e.getMessage())
                 if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
-                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
+                        utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                             "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
-                            ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                            ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                         options.testDataSaved = true 
                     } catch(e1) {
@@ -1052,16 +1036,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             withNotifications(title: "Building test report for ${engineName}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
                     "Test Report ${engineName}", "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${env.BUILD_URL}/Test_20Report")
                 } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${engineName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${env.BUILD_URL}/Test_20Report")
                 }
             }
         }
@@ -1088,7 +1072,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT',
         String updateRefs = 'No',
         String testsPackage = "",
         String tests = "",
@@ -1112,9 +1096,12 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
 
     if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-367") {
         testsBranch = "inemankov/updated_logs_parsing"
+        toolVersion = "2024"
     }
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {
@@ -1182,6 +1169,12 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                 prBranchName = prInfo[1]
             }
 
+            String builderTag = "BuilderRPRMaya"
+
+            if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-384") {
+                builderTag = "(PC-BUILDER-HAMBURG-WIN10 || PC-BUILDER-BERLIN-WIN10 || PC-BUILDER-PORTLAND-WIN10)"
+            }
+
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo:projectRepo,
                         projectBranch:projectBranch,
@@ -1200,10 +1193,11 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         reportName:'Test_20Report',
                         splitTestsExecution:true,
                         gpusCount:gpusCount,
-                        BUILDER_TAG:'BuilderRPRMaya',
+                        BUILDER_TAG:builderTag,
                         TEST_TIMEOUT:120,
                         ADDITIONAL_XML_TIMEOUT:15,
                         NON_SPLITTED_PACKAGE_TIMEOUT:75,
+                        BUILD_TIMEOUT:120,
                         DEPLOY_TIMEOUT:180,
                         TESTER_TAG:tester_tag,
                         customBuildLinkWindows: customBuildLinkWindows,

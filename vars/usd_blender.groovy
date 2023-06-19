@@ -258,9 +258,9 @@ def executeTests(String osName, String asicName, Map options) {
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -331,25 +331,16 @@ def executeTests(String osName, String asicName, Map options) {
                         println "Stashing test results to : ${options.testResultsName}"
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                                installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -916,7 +907,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             String branchName = env.BRANCH_NAME ?: options.projectBranch
             String metricsRemoteDir
 
-            if (env.BRANCH_NAME) {
+            if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
                 metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/auto/main/${engine}"
             } else {
                 metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/weekly/${engine}"
@@ -1119,7 +1110,9 @@ def call(String projectRepo = PROJECT_REPO,
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
-    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json") || env.BRANCH_NAME)
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
     boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
 
     try {

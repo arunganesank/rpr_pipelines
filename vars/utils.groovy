@@ -95,6 +95,35 @@ class utils {
         }
     }
 
+    static def saveProblemsData(Object self, Map options) {
+        if (options.storeOnNAS) {
+            String profile = ""
+            String stashName = ""
+            String reportName = ""
+            List testsResultsParts = options.testResultsName.split("-") as List
+            if (options.containsKey("testProfiles")) {
+                profile = testsResultsParts[-1]
+                // Remove "testResult" prefix and profile from stash name
+                stashName = testsResultsParts.subList(1, testsResultsParts.size() - 1).join("-")
+            } else {
+                // Remove "testResult" prefix from stash name
+                stashName = testsResultsParts.subList(1, testsResultsParts.size()).join("-")
+            }
+
+            if (options.containsKey("testProfiles")) {
+                String profileName = options.containsKey("displayingTestProfiles") ? options.displayingTestProfiles[profile] : profile
+                reportName = "Test_Report_${profileName}"
+            } else {
+                reportName = "Test_Report"
+            }
+
+            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Debug/${reportName}/${stashName}/${options.currentTry}/"
+            self.makeStash(includes: '**/*', name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
+        } else {
+            self.println("[WARNING] Problems data saving is supported only with NAS")
+        }
+    }
+
     static String getPublishedReportName(Object self, String defaultReportName) {
         return defaultReportName.replace("_", "_5f").replace(" ", "_20")
     }
@@ -659,7 +688,7 @@ class utils {
 
                     // check that overview report isn't deployed yet
                     self.httpRequest(
-                        url: "${self.BUILD_URL}/${publishedReportName}/",
+                        url: "${self.env.BUILD_URL}/${publishedReportName}/",
                         authentication: 'jenkinsCredentials',
                         httpMode: 'GET'
                     )
@@ -688,7 +717,7 @@ class utils {
                         try {
                             // check that all necessary reports are published
                             self.httpRequest(
-                                url: "${self.BUILD_URL}/${publishedReportName}/",
+                                url: "${self.env.BUILD_URL}/${publishedReportName}/",
                                 authentication: 'jenkinsCredentials',
                                 httpMode: 'GET'
                             )
@@ -705,7 +734,7 @@ class utils {
                                     "${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
                             }
                         } else {
-                            locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                            locations = locations ? "${locations}::${self.env.BUILD_URL}/${publishedReportName}" : "${self.env.BUILD_URL}/${publishedReportName}"
                         }
                     }
 
@@ -718,9 +747,9 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", \
+                        publishReport(self, "${self.env.BUILD_URL}", "OverviewReport", "summary_report.html", \
                             "Test Report", "Summary Report (Overview)", options.storeOnNAS, \
-                            ["jenkinsBuildUrl": self.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
+                            ["jenkinsBuildUrl": self.env.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
                     }
                 }
             }
@@ -873,5 +902,53 @@ class utils {
         }
 
         throw new Exception("Could not determine Ip adress")
+    }
+
+    static def analyzeResults(Object self, def sessionReport, Map options, double threshold = 0.0) {
+        self.println """
+            Total: ${sessionReport.summary.total}
+            Errors: ${sessionReport.summary.error}
+            Skips: ${sessionReport.summary.skipped}
+        """
+
+        // always retry situation when all test cases are errors
+        // if test group is fully errored or number of test cases is equal to zero
+        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+            // check that group isn't fully skipped
+            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+                String errorMessage
+
+                if (options.currentTry < options.nodeReallocateTries) {
+                    errorMessage = "All tests were marked as error. The test group will be restarted."
+                } else {
+                    errorMessage = "All tests were marked as error."
+                }
+
+                self.utils.saveProblemsData(self, options)
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+            }
+        }
+
+        if (threshold < 0) {
+            String errorMessage = "Threshold can't be less than 0."
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+        } else if (threshold > 1) {
+            String errorMessage = "Threshold can't be greater than 1."
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+        }
+
+        if ((sessionReport.summary.total - sessionReport.summary.skipped) * threshold < sessionReport.summary.error) {
+            self.utils.saveProblemsData(self, options)
+
+            // retry problems detected with threshold only once
+            if (options.containsKey("problemsDetected") && options["problemsDetected"]) {
+                self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
+            } else {
+                options["problemsDetected"] = true
+                def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).doubleValue().round(1)
+                String errorMessage = "Detected problems detected with threshold (${errorsPercent}% errors). Test cases will be retried."
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+            }
+        }
     }
 }
