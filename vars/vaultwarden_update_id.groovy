@@ -54,8 +54,7 @@ def call(String collections, String nodes) {
     def sessionKey
     def bwCreds = input message: 'Please enter your Vaultwarden credentials',
         parameters: [string(name: 'BW_EMAIL', trim: true), password(name: 'BW_PASSWORD')]
-
-    // TODO: use special label
+        
     node("BitWarden") {
         try {
             withEnv(["BW_PASSWORD=${bwCreds['BW_PASSWORD']}"]) {
