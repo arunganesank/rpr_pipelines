@@ -34,7 +34,10 @@ def updateNodePassword(String jnNodeName, String itemId, Map tasks) {
                     updateAnydeskPassword(newPassword)
                 }
                 withEnv(["NEW_PASS=${newPassword}"]) {
-                    sh """bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId}"""
+                    sh """
+                        set +x
+                        bw get item ${itemId} | jq ".login.password=\\"\$NEW_PASS\\"" | bw encode | bw edit item ${itemId} > /dev/null
+                    """
                 }
             } catch(e) {
                 currentBuild.result = "UNSTABLE"

@@ -15,15 +15,19 @@ def getAnydeskId() {
 def updateNodeLogin(String jnNodeName, String itemId, Map tasks) {
     tasks[jnNodeName] = {
         stage(jnNodeName) {
+            def newId
             try {
                 if (env.NODE_NAME != jnNodeName) {
                     node(jnNodeName) {
-                        def newId = getAnydeskId()
+                        newId = getAnydeskId()
                     }
                 } else {
-                    def newId = getAnydeskId()
+                    newId = getAnydeskId()
                 }
-                sh """bw get item ${itemId} | jq ".login.login=\\"\${newId}\\"" | bw encode | bw edit item ${itemId}""" 
+                sh """
+                    set +x
+                    bw get item ${itemId} | jq ".login.username=\\"${newId}\\"" | bw encode | bw edit item ${itemId} > /dev/null
+                """
             } catch(e) {
                 currentBuild.result = "UNSTABLE"
                 println("[ERROR] Failed to update anydesk id for ${jnNodeName}")
