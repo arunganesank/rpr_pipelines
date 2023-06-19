@@ -1,6 +1,6 @@
 def call(String EXECUTING_NODE) {
     node(EXECUTING_NODE) {
-        downloadFiles("/volume1/CIS/PDUs/*.csv", "${WORKSPACE}", "", true)
+        downloadFiles("/volume1/CIS/PDUs/*.csv", ".", "", true)
         withCredentials([usernamePassword(credentialsId: 'jenkinsCredentials', passwordVariable: 'JN_PASSWORD', usernameVariable: 'JN_USERNAME')]) {
             if (isUnix()) {
                 python3("-m pip install -r ${CIS_TOOLS}/autoreboot/requirements.txt")
