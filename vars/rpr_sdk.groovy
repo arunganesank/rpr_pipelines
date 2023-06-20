@@ -10,8 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger
 @Field final String PRODUCT_NAME = "AMD%20Radeon™%20ProRender%20Core"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
-    supportedOS: ["Windows", "OSX", "Ubuntu18", "Ubuntu20"],
-    productExtensions: ["Windows": "zip", "OSX": "zip", "Ubuntu18": "zip", "Ubuntu20": "zip"],
+    supportedOS: ["Windows", "MacOS_ARM", "Ubuntu18", "Ubuntu20"],
+    productExtensions: ["Windows": "zip", "MacOS_ARM": "zip", "Ubuntu18": "zip", "Ubuntu20": "zip"],
     artifactNameBase: "binCore",
     testProfile: "engine",
     displayingProfilesMapping: [
@@ -61,7 +61,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
                     """
                     break
                 case 'OSX':
-                case 'MacOS_ARM'
+                case 'MacOS_ARM':
                     sh """
                         ./make_results_baseline.sh ${delete}
                     """
@@ -87,7 +87,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             }
             break
         case 'OSX':
-        case 'MacOS_ARM'
+        case 'MacOS_ARM':
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
@@ -317,9 +317,9 @@ def executeBuildOSX(Map options) {
 
             artifactURL = makeArchiveArtifacts(name: ARTIFACT_NAME, storeOnNAS: options.storeOnNAS)
 
-            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("OSX", options), preZip: false, storeOnNAS: options.storeOnNAS)
+            makeStash(includes: ARTIFACT_NAME, name: getProduct.getStashName("MacOS_ARM", options), preZip: false, storeOnNAS: options.storeOnNAS)
 
-            if (options.hipbinDownloadedOS == "OSX") {
+            if (options.hipbinDownloadedOS == "MacOS_ARM") {
                 dir("../../hipbin") {
                     // the Jenkins plugin can't perform git lfs pull on MacOS machines
                     sh """
@@ -379,6 +379,7 @@ def executeBuild(String osName, Map options)
                     executeBuildWindows(options)
                     break
                 case "OSX":
+                case "MacOS_ARM":
                     executeBuildOSX(options)
                     break
                 default:
@@ -733,7 +734,7 @@ def call(String projectBranch = "",
                             }
                             break
                         case 'OSX':
-                        case 'MacOS_ARM'
+                        case 'MacOS_ARM':
                             if (customBuildLinkOSX) {
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
@@ -786,8 +787,8 @@ def call(String projectBranch = "",
                 hipbinDownloadedOS = "Windows"
             } else if (platforms.contains("Ubuntu20")) {
                 hipbinDownloadedOS = "Ubuntu20"
-            } else if (platforms.contains("OSX")) {
-                hipbinDownloadedOS = "OSX"
+            } else if (platforms.contains("MacOS_ARM")) {
+                hipbinDownloadedOS = "MacOS_ARM"
             }
 
             options << [configuration: PIPELINE_CONFIGURATION,
