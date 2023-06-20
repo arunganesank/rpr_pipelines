@@ -61,7 +61,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
                     """
                     break
                 case 'OSX':
-                case 'MacOS_ARM'
+                case 'MacOS_ARM':
                     sh """
                         ./make_results_baseline.sh ${delete}
                     """
@@ -87,7 +87,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             }
             break
         case 'OSX':
-        case 'MacOS_ARM'
+        case 'MacOS_ARM':
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
@@ -733,7 +733,7 @@ def call(String projectBranch = "",
                             }
                             break
                         case 'OSX':
-                        case 'MacOS_ARM'
+                        case 'MacOS_ARM':
                             if (customBuildLinkOSX) {
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
