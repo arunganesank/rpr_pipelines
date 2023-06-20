@@ -61,6 +61,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
                     """
                     break
                 case 'OSX':
+                case 'MacOS_ARM'
                     sh """
                         ./make_results_baseline.sh ${delete}
                     """
@@ -86,6 +87,7 @@ def executeTestCommand(String osName, String asicName, Map options)
             }
             break
         case 'OSX':
+        case 'MacOS_ARM'
             dir('scripts') {
                 withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
                     sh """
@@ -688,7 +690,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100,AMD_680M;OSX:AMD_RX5700XT,AppleM2;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100,AMD_680M;MacOS_ARM:AppleM2;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String updateRefs = 'No',
          String testsPackage = "Full.json",
          String tests = "",
@@ -731,6 +733,7 @@ def call(String projectBranch = "",
                             }
                             break
                         case 'OSX':
+                        case 'MacOS_ARM'
                             if (customBuildLinkOSX) {
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
