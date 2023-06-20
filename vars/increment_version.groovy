@@ -4,59 +4,54 @@ import utils
 
 
 def incrementVersion() {
-    withNotifications(title: "Jenkins build configuration", configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-        checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git")
-        def version = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
-        println "[INFO] Current RPR Blender version: ${version}"
+    checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git")
+    def blenderVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
+    println "[INFO] Current RPR Blender version: ${blenderVersion}"
 
-        def newMajorVersion = version_inc(version, 1, ', ')
-        println "[INFO] New major version: ${newMajorVersion}"
-        def newMinorVersion = version_inc(version, 2, ', ')
-        println "[INFO] New minor version: ${newMinorVersion}"
-        def newPatchVersion = version_inc(version, 3, ', ')
-        println "[INFO] New minor version: ${newPatchVersion}"
+    def newMajorVersion = version_inc(version, 1, ', ')
+    println "[INFO] New major version: ${newMajorVersion}"
+    def newMinorVersion = version_inc(version, 2, ', ')
+    println "[INFO] New minor version: ${newMinorVersion}"
+    def newPatchVersion = version_inc(version, 3, ', ')
+    println "[INFO] New minor version: ${newPatchVersion}"
 
-        version_write("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', newPatchVersion, ', ')
+    version_write("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', newPatchVersion, ', ')
 
-        version = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
-        println "[INFO] Updated build version: ${version}"
-    }
+    blenderVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
+    println "[INFO] Updated build version: ${blenderVersion}"
 
-    withNotifications(title: "Jenkins build configuration", configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-        checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git")
-        def version = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
-        println "[INFO] Current RPR Maya version: ${version}"
+    checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git")
+    def mayaVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
+    println "[INFO] Current RPR Maya version: ${mayaVersion}"
 
-        def newMajorVersion = version_inc(version, 1)
-        println "[INFO] New major version: ${newMajorVersion}"
-        def newMinorVersion = version_inc(version, 2)
-        println "[INFO] New minor version: ${newMinorVersion}"
-        def newPatchVersion = version_inc(version, 3)
-        println "[INFO] New minor version: ${newPatchVersion}"
+    newMajorVersion = version_inc(version, 1)
+    println "[INFO] New major version: ${newMajorVersion}"
+    newMinorVersion = version_inc(version, 2)
+    println "[INFO] New minor version: ${newMinorVersion}"
+    newPatchVersion = version_inc(version, 3)
+    println "[INFO] New minor version: ${newPatchVersion}"
 
-        version_write("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION', newPatchVersion)
+    version_write("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION', newPatchVersion)
 
-        version = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
-        println "[INFO] Updated build version: ${version}"
-    }
+    mayaVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
+    println "[INFO] Updated build version: ${mayaVersion}"
 
-    withNotifications(title: "Jenkins build configuration", configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
-        checkoutScm(branchName: "main", repositoryUrl: "git@github.com:Radeon-Pro/RenderStudio.git")
-        def version = readFile("VERSION.txt").trim()
-        println "[INFO] Current Render Studio version: ${version}"
 
-        def newMajorVersion = version_inc(version, 1)
-        println "[INFO] New major version: ${newMajorVersion}"
-        def newMinorVersion = version_inc(version, 2)
-        println "[INFO] New minor version: ${newMinorVersion}"
-        def newPatchVersion = version_inc(version, 3)
-        println "[INFO] New minor version: ${newPatchVersion}"
+    checkoutScm(branchName: "main", repositoryUrl: "git@github.com:Radeon-Pro/RenderStudio.git")
+    def studioVersion = readFile("VERSION.txt").trim()
+    println "[INFO] Current Render Studio version: ${studioVersion}"
 
-        writeFile(file: "VERSION.txt", text: newPatchVersion)
+    newMajorVersion = version_inc(version, 1)
+    println "[INFO] New major version: ${newMajorVersion}"
+    newMinorVersion = version_inc(version, 2)
+    println "[INFO] New minor version: ${newMinorVersion}"
+    newPatchVersion = version_inc(version, 3)
+    println "[INFO] New minor version: ${newPatchVersion}"
 
-        version = readFile("VERSION.txt").trim()
-        println "[INFO] Updated build version: ${version}"
-    }
+    writeFile(file: "VERSION.txt", text: newPatchVersion)
+
+    studioVersion = readFile("VERSION.txt").trim()
+    println "[INFO] Updated build version: ${studioVersion}"
 }
 
 
@@ -64,9 +59,7 @@ def call() {
     timestamps {
         stage("Increment version") {
             node("Windows && PreBuild") {
-                ws("WS/VersionIncrement") {
-                    incrementVersion()
-                }
+                incrementVersion()
             }
         }
     }
