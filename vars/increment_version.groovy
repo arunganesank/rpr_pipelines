@@ -99,11 +99,13 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
                                 prefix,
                                 delimiter
                             )
+                            return
                         } catch (e) {
                             println("[ERROR] Failed to increment version")
                             throw e
                         }
                     }
+                    break
                 } catch (e) {
                     if (currentTry + 1 == maxTries) {
                         currentBuild.result = "FAILURE"
