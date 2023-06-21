@@ -79,8 +79,8 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
             node("Windows && PreBuild") {
                 currentBuild.description = ""
 
-                prefix = toolParams.projectRepo.prefix ?: ""
-                delimiter = toolParams.projectRepo.delimiter ?: "."
+                def prefix = toolParams.projectRepo.prefix ?: ""
+                def delimiter = toolParams.projectRepo.delimiter ?: "."
                 incrementVersion(
                     toolParams.projectRepo.toolName,
                     toolParams.projectRepo.repoUrl,
