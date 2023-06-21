@@ -40,7 +40,7 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
         checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
         def version = ""
         if (prefix != ""){
-            version = version_read(versionPath, prefix, delimiter)
+            version = version_read(versionPath, prefix, delimiter, "true")
         } else {
             version = readFile(versionPath).trim()
         }
@@ -74,22 +74,49 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
 
 
 def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
+    int maxTries = 3
+    String nodeLabels = "Windows && PreBuild"
+
     timestamps {
         stage("Increment version") {
-            node("Windows && PreBuild") {
-                currentBuild.description = ""
+            for (int currentTry = 0; currentTry < maxTries; currentTry++) {
+                String nodeName = null
 
-                def prefix = toolParams.("${projectRepo}").prefix ?: ""
-                def delimiter = toolParams.("${projectRepo}").delimiter ?: "."
-                incrementVersion(
-                    toolParams.("${projectRepo}").toolName,
-                    toolParams.("${projectRepo}").repoUrl,
-                    toolParams.("${projectRepo}").branchName,
-                    toolParams.("${projectRepo}").versionPath,,
-                    versionIndex.("${toIncrement}"),
-                    prefix,
-                    delimiter
-                )
+                try {
+                    node(nodeLabels) {
+                        nodeName = env.NODE_NAME
+
+                        try {
+                            currentBuild.description = ""
+                            def prefix = toolParams[projectRepo]["prefix"] ?: ""
+                            def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
+                            incrementVersion(
+                                toolParams[projectRepo]["toolName"],
+                                toolParams[projectRepo]["repoUrl"],
+                                toolParams[projectRepo]["branchName"],
+                                toolParams[projectRepo]["versionPath"],
+                                versionIndex[toIncrement],
+                                prefix,
+                                delimiter
+                            )
+                        } catch (e) {
+                            println("[ERROR] Failed to increment version")
+                            throw e
+                        }
+                    }
+                } catch (e) {
+                    if (currentTry + 1 == maxTries) {
+                        currentBuild.result = "FAILURE"
+                        throw new Exception("Failed to increment version. All attempts exceeded")
+                    }
+
+                    if (nodeName) {
+                        nodeLabels += " && !${nodeName}"
+                        println("New list of labels: ${nodeLabels}")
+                    } else {
+                        println("No node name. Can't update list of labels")
+                    }
+                }
             }
         }
     }
