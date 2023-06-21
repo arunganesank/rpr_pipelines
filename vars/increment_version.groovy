@@ -21,7 +21,7 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
         version_write("${env.WORKSPACE}//${toolName}//${versionPath}", prefix, newVersion, delimiter)
 
         if (prefix != ""){
-            if (delimeter == ", ") {
+            if (delimiter == ", ") {
                 version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
             } else {
                 version = version_read(versionPath, prefix)
