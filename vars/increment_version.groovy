@@ -81,10 +81,10 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
 
                 println(toolParams)
                 println(projectRepo)
-                println(toolParams.(projectRepo))
+                println(toolParams.("${projectRepo}"))
 
-                def prefix = toolParams.(projectRepo).(prefix) ?: ""
-                def delimiter = toolParams.(projectRepo).(delimiter) ?: "."
+                def prefix = toolParams.("${projectRepo}").prefix ?: ""
+                def delimiter = toolParams.("${projectRepo}").delimiter ?: "."
                 incrementVersion(
                     toolParams.projectRepo.toolName,
                     toolParams.projectRepo.repoUrl,
