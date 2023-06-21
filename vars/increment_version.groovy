@@ -3,6 +3,38 @@ import groovy.transform.Field
 import utils
 
 
+@Field final Map versionIndex = [
+    "Patch": 3,
+    "Minor": 2,
+    "Major": 1
+]
+
+
+@Field final Map toolParams = [
+    "RPR Blender": [
+        "toolName": "RadeonProRenderBlenderAddon",
+        "repoUrl": "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
+        "branchName": "master",
+        "versionPath": "src\\rprblender\\__init__.py",
+        "prefix": '"version": (',
+        "delimeter": ", "
+    ],
+    "RPR Maya": [
+        "toolName": "RadeonProRenderMayaPlugin",
+        "repoUrl": "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
+        "branchName": "master",
+        "versionPath": "version.h",
+        "prefix": "#define PLUGIN_VERSION"
+    ],
+    "Render Studio": [
+        "toolName": "AMDRenderStudio",
+        "repoUrl": "git@github.com:Radeon-Pro/RenderStudio.git",
+        "branchName": "main",
+        "versionPath": "VERSION.txt"
+    ]
+]
+
+
 def incrementVersion(String toolName, String repoUrl, String branchName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
     dir(toolName) {
         checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
@@ -41,34 +73,22 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
 }
 
 
-def call() {
+def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
     timestamps {
         stage("Increment version") {
             node("Windows && PreBuild") {
                 currentBuild.description = ""
+
+                prefix = toolParams.projectRepo.prefix ?: ""
+                delimiter = toolParams.projectRepo.delimiter ?: "."
                 incrementVersion(
-                    "RadeonProRenderBlenderAddon",
-                    "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
-                    "master",
-                    "src\\rprblender\\__init__.py",
-                    1,
-                    '"version": (',
-                    ", "
-                )
-                incrementVersion(
-                    "RadeonProRenderMayaPlugin",
-                    "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
-                    "master",
-                    "version.h",
-                    2,
-                    "#define PLUGIN_VERSION",
-                )
-                incrementVersion(
-                    "AMDRenderStudio",
-                    "git@github.com:Radeon-Pro/RenderStudio.git",
-                    "main",
-                    "VERSION.txt",
-                    3
+                    toolParams.projectRepo.toolName,
+                    toolParams.projectRepo.repoUrl,
+                    toolParams.projectRepo.branchName,
+                    toolParams.projectRepo.versionPath,,
+                    versionIndex.toIncrement,
+                    prefix,
+                    delimiter
                 )
             }
         }
