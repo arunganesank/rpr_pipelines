@@ -3,59 +3,40 @@ import groovy.transform.Field
 import utils
 
 
-def incrementVersion() {
-    dir('RadeonProRenderBlenderAddon') {
-        checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git")
-        def blenderVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ')
-        println "[INFO] Current RPR Blender version: ${blenderVersion}"
+def incrementVersion(String toolName, String repoUrl, String branchName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
+    dir(toolName) {
+        checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
+        def version = ""
+        if (prefix != ""){
+            version = version_read(versionPath, prefix, delimiter)
+        } else {
+            version = readFile(versionPath).trim()
+        }
+        println "[INFO] Current ${toolName} version: ${version}"
+        currentBuild.description += "<b>Old ${toolName} version:</b> ${version}<br/>"
 
-        def newMajorVersion = version_inc(blenderVersion, 1, ', ')
-        println "[INFO] New major version: ${newMajorVersion}"
-        def newMinorVersion = version_inc(blenderVersion, 2, ', ')
-        println "[INFO] New minor version: ${newMinorVersion}"
-        def newPatchVersion = version_inc(blenderVersion, 3, ', ')
-        println "[INFO] New minor version: ${newPatchVersion}"
+        def newVersion = version_inc(blenderVersion, index, delimiter)
+        println "[INFO] New version: ${newVersion}"
 
-        version_write("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', newPatchVersion, ', ')
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", prefix, newVersion, delimiter)
 
-        blenderVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
-        println "[INFO] Updated build version: ${blenderVersion}"
-    }
+        if (prefix != ""){
+            if (delimeter == ", ") {
+                version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
+            } else {
+                version = version_read(versionPath, prefix)
+            }
+        } else {
+            version = readFile(versionPath).trim()
+        }
+        println "[INFO] Updated version: ${version}"
+        currentBuild.description += "<b>New ${toolName} version:</b> ${version}<br/><br/>"
 
-    dir('RadeonProRenderMayaPlugin') {
-        checkoutScm(branchName: "master", repositoryUrl: "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git")
-        def mayaVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
-        println "[INFO] Current RPR Maya version: ${mayaVersion}"
-
-        newMajorVersion = version_inc(mayaVersion, 1)
-        println "[INFO] New major version: ${newMajorVersion}"
-        newMinorVersion = version_inc(mayaVersion, 2)
-        println "[INFO] New minor version: ${newMinorVersion}"
-        newPatchVersion = version_inc(mayaVersion, 3)
-        println "[INFO] New minor version: ${newPatchVersion}"
-
-        version_write("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION', newPatchVersion)
-
-        mayaVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
-        println "[INFO] Updated build version: ${mayaVersion}"
-    }
-
-    dir('AMDRenderStudio') {
-        checkoutScm(branchName: "main", repositoryUrl: "git@github.com:Radeon-Pro/RenderStudio.git")
-        def studioVersion = readFile("VERSION.txt").trim()
-        println "[INFO] Current Render Studio version: ${studioVersion}"
-
-        newMajorVersion = version_inc(studioVersion, 1)
-        println "[INFO] New major version: ${newMajorVersion}"
-        newMinorVersion = version_inc(studioVersion, 2)
-        println "[INFO] New minor version: ${newMinorVersion}"
-        newPatchVersion = version_inc(studioVersion, 3)
-        println "[INFO] New minor version: ${newPatchVersion}"
-
-        writeFile(file: "VERSION.txt", text: newPatchVersion)
-
-        studioVersion = readFile("VERSION.txt").trim()
-        println "[INFO] Updated build version: ${studioVersion}"
+//      bat """
+//        git add version.h
+//        git commit -m "buildmaster: version update to ${options.pluginVersion}"
+//        git push origin HEAD:master
+//        """
     }
 }
 
@@ -64,7 +45,31 @@ def call() {
     timestamps {
         stage("Increment version") {
             node("Windows && PreBuild") {
-                incrementVersion()
+                currentBuild.description = ""
+                incrementVersion(
+                    "RadeonProRenderBlenderAddon",
+                    "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderBlenderAddon.git",
+                    "master",
+                    "src\\rprblender\\__init__.py",
+                    1,
+                    '"version": (',
+                    ", "
+                )
+                incrementVersion(
+                    "RadeonProRenderMayaPlugin",
+                    "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
+                    "master",
+                    "version.h",
+                    2,
+                    "#define PLUGIN_VERSION",
+                )
+                incrementVersion(
+                    "AMDRenderStudio",
+                    "git@github.com:Radeon-Pro/RenderStudio.git",
+                    "main",
+                    "VERSION.txt",
+                    3
+                )
             }
         }
     }
