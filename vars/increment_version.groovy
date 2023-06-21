@@ -17,7 +17,7 @@ import utils
         "branchName": "master",
         "versionPath": "src\\rprblender\\__init__.py",
         "prefix": '"version": (',
-        "delimeter": ", "
+        "delimiter": ", "
     ],
     "RPR Maya": [
         "toolName": "RadeonProRenderMayaPlugin",
