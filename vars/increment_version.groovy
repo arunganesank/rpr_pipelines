@@ -40,14 +40,14 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
         checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
         def version = ""
         if (prefix != ""){
-            version = version_read(versionPath, prefix, delimiter, "true")
+            version = version_read(versionPath, prefix, delimiter)
         } else {
             version = readFile(versionPath).trim()
         }
-        println "[INFO] Current ${toolName} version: ${version}"
-        currentBuild.description += "<b>Old ${toolName} version:</b> ${version}<br/>"
+        println "[INFO] Current ${toolName} version: ${version.replace(delimiter, '.')}"
+        currentBuild.description += "<b>Old ${toolName} version:</b> ${version.replace(delimiter, '.')}<br/>"
 
-        def newVersion = version_inc(version, index)
+        def newVersion = version_inc(version, index, delimiter)
         println "[INFO] New version: ${newVersion}"
 
         version_write("${env.WORKSPACE}//${toolName}//${versionPath}", prefix, newVersion, delimiter)
