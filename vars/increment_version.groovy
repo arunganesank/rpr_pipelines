@@ -178,7 +178,8 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
                                     projectRepo,
                                     repoUrl,
                                     "main",
-                                    "VERSION.txt"
+                                    "VERSION.txt",
+                                    toIncrement
                                 )
                             } else {
                                 def prefix = toolParams[projectRepo]["prefix"] ?: ""
