@@ -169,7 +169,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
                                 if (projectRepo == "RenderStudioLiveServer"){
                                     repoUrl = "git@github.com:s1lentssh/WebUsdLiveServer.git"
                                 } else if (projectRepo == "RenderStudioRouteServer"){
-                                    repoUrl = "git@github.com:s1lentssh/WebUsdRouteServer.git "
+                                    repoUrl = "git@github.com:s1lentssh/WebUsdRouteServer.git"
                                 } else {
                                     repoUrl = "git@github.com:Radeon-Pro/${projectRepo}.git"
                                 }
@@ -179,7 +179,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
                                     repoUrl,
                                     "main",
                                     "VERSION.txt",
-                                    toIncrement
+                                    versionIndex[toIncrement],
                                 )
                             } else {
                                 def prefix = toolParams[projectRepo]["prefix"] ?: ""
