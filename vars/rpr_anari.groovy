@@ -493,7 +493,7 @@ def executePreBuild(Map options) {
                 options.anariMinorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_MINOR', ' ')
                 options.anariPatchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', ' ')
 
-                if (true) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -502,7 +502,7 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
 
-                    if (true) {
+                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         increment_version("RPR Anari", "Patch", true)
 

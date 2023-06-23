@@ -542,7 +542,7 @@ def executePreBuild(Map options) {
                 options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
                 options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
-                if (true) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -551,7 +551,7 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
 
-                    if (true) {
+                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         increment_version("USD Houdini", "Patch", true)
 
