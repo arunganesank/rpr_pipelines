@@ -1266,7 +1266,7 @@ def executePreBuild(Map options) {
 
         options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
 
-        if (env.BRANCH_NAME) {
+        if (true) {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                 GithubNotificator githubNotificator = new GithubNotificator(this, options)
                 githubNotificator.init(options)
@@ -1290,23 +1290,18 @@ def executePreBuild(Map options) {
                 }
             }
 
-            if ((env.BRANCH_NAME == "main" || env.BRANCH_NAME == "release") && options.commitAuthor != "radeonprorender") {
+            if (true) {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                println "[INFO] Current build version: ${version}"
 
-                if (env.BRANCH_NAME == "release") {
-                    version = version_inc(version, 2)
+                if (true) {
+                    increment_version("Render Studio", "Minor", true)
                 } else {
-                    version = version_inc(version, 3)
+                    increment_version("Render Studio", "Patch", true)
                 }
-
-                println "[INFO] New build version: ${version}"
                 writeFile(file: "VERSION.txt", text: version)
 
-                bat """
-                    git commit VERSION.txt -m "buildmaster: version update to ${version}"
-                    git push origin HEAD:${env.BRANCH_NAME}
-                """
+                version = readFile("VERSION.txt").trim()
+                println "[INFO] New build version: ${version}"
 
                 //get commit's sha which have to be build
                 options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
