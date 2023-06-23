@@ -104,7 +104,7 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
         println "[INFO] New version: ${newVersion}"
 
         if (toolName == "RadeonProRenderUSD") {
-            newVersions = newVersion.split(delimiter)
+            def newVersions = newVersion.tokenize(delimiter)
             println(newVersions)
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MAJOR_VERSION "', newVersions[0], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MINOR_VERSION "', newVersions[1], '')
@@ -115,7 +115,7 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
             patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
             version = "${majorVersion}.${minorVersion}.${patchVersion}"
         } else if (toolName == "RadeonProRenderAnari") {
-            newVersions = newVersion.split(delimiter)
+            def newVersions = newVersion.tokenize(delimiter)
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MAJOR ", newVersions[0], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MINOR ", newVersions[1], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_PATCH ", newVersions[2], '')
