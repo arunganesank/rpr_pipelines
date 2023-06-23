@@ -1298,7 +1298,6 @@ def executePreBuild(Map options) {
                 } else {
                     increment_version("Render Studio", "Patch", true)
                 }
-                writeFile(file: "VERSION.txt", text: version)
 
                 version = readFile("VERSION.txt").trim()
                 println "[INFO] New build version: ${version}"

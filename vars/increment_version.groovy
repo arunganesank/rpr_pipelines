@@ -44,8 +44,13 @@ import utils
         "toolName": "RPRMayaUSD",
         "repoUrl": "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         "branchName": "main",
-        "versionPath": "installation\\installation_hdrpr_only.iss",
-        "prefix": "#define AppVersionString "
+        "versionPath": [
+            "installation\\installation_hdrpr_only.iss",
+            "RprUsd\\src\\version.h"],
+        "prefix": [
+            "#define AppVersionString ",
+            '#define PLUGIN_VERSION '
+        ]
     ],
     "USD Houdini": [
         "toolName": "RadeonProRenderUSD",
@@ -132,7 +137,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
 }
 
 
-def updateVersion(String toolName, String repoUrl, String branchName, String versionPath, Integer index = 3, String prefix = "", String delimiter = ".") {
+def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix = "", delimiter = ".") {
     if (toolName == "RadeonProRenderInventorPlugin" && index == 3) {
         currentBuild.result = "FAILURE"
         println "[INFO] Version index is out of range"
@@ -141,10 +146,23 @@ def updateVersion(String toolName, String repoUrl, String branchName, String ver
     if (repoUrl) {
         dir(toolName) {
             checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
-            incrementVersion(toolName, versionPath, index, prefix, delimiter)
+
+            if (versionPath instanceof String) {
+                incrementVersion(toolName, versionPath, index, prefix, delimiter)
+            } else {
+                for (int i = 0; i < versionPath.size(); i++) {
+                    incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
+                }
+            }
         }
     } else {
-        incrementVersion(toolName, versionPath, index, prefix, delimiter)
+        if (versionPath instanceof String) {
+            incrementVersion(toolName, versionPath, index, prefix, delimiter)
+        } else {
+            for (int i = 0; i < versionPath.size(); i++) {
+                incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
+            }
+        }
     }
 
 //      bat """

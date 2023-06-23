@@ -657,7 +657,7 @@ def executePreBuild(Map options)
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
-                if (env.BRANCH_NAME) {
+                if (true) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -666,24 +666,12 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ')
+                    if (true) {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.pluginVersion}"
+                        increment_version("USD Blender", "Patch", true)
 
-                        def new_version = version_inc(options.pluginVersion, 3, ', ')
-                        println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', new_version, ', ')
-
+                        // get new version
                         options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
-                        println "[INFO] Updated build version: ${options.pluginVersion}"
-
-                        bat """
-                            git add src/hdusd/__init__.py
-                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:master
-                        """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
