@@ -105,6 +105,7 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
 
         if (toolName == "RadeonProRenderUSD") {
             newVersions = newVersion.split(delimiter)
+            println(newVersions)
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MAJOR_VERSION "', newVersions[0], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MINOR_VERSION "', newVersions[1], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_PATCH_VERSION "', newVersions[2], '')
