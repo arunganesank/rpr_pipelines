@@ -493,7 +493,7 @@ def executePreBuild(Map options) {
                 options.anariMinorVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_MINOR', ' ')
                 options.anariPatchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', ' ')
 
-                if (env.BRANCH_NAME) {
+                if (true) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -502,22 +502,11 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
 
-                    if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
+                    if (true) {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.anariPatchVersion}"
-
-                        def newVersion = version_inc(options.anariPatchVersion, 1, ' ')
-                        println "[INFO] New build version: ${newVersion}"
-                        version_write("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', newVersion, ' ')
+                        increment_version("RPR Anari", "Patch", true)
 
                         options.anariPatchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', ' ')
-                        println "[INFO] Updated build version: ${options.anariPatchVersion}"
-
-                        bat """
-                            git add version.h
-                            git commit -m "buildmaster: version update to ${options.anariPatchVersion}"
-                            git push origin HEAD:develop
-                        """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()

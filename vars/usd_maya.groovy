@@ -635,7 +635,7 @@ def executePreBuild(Map options) {
                 // Temporary hardcode version due to different formats of version in master and PR-8
                 options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
-                if (true) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -644,7 +644,7 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if(true) {
+                    if(env.BRANCH_NAME == "main" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         increment_version("USD Maya", "Patch", true)
@@ -669,12 +669,12 @@ def executePreBuild(Map options) {
 
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
 
-                        //bat """
-                        //    git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
-                        //    git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
-                        //    git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
-                        //    git push origin HEAD:main
-                        //"""
+                        bat """
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
+                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
+                            git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
+                            git push origin HEAD:main
+                        """
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()

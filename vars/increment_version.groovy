@@ -134,6 +134,12 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
         }
     }
     println "[INFO] Updated version: ${version}"
+
+//      bat """
+//        git add version.h
+//        git commit -m "buildmaster: version update to ${version}"
+//        git push origin HEAD:master
+//        """
 }
 
 
@@ -164,12 +170,6 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
             }
         }
     }
-
-//      bat """
-//        git add version.h
-//        git commit -m "buildmaster: version update to ${version}"
-//        git push origin HEAD:master
-//        """
 }
 
 

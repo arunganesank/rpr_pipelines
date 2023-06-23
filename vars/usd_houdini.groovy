@@ -542,7 +542,7 @@ def executePreBuild(Map options) {
                 options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
                 options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
-                if (env.BRANCH_NAME) {
+                if (true) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -551,23 +551,13 @@ def executePreBuild(Map options) {
                         options.projectBranchName = githubNotificator.branchName
                     }
 
-                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
+                    if (true) {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+                        increment_version("USD Houdini", "Patch", true)
 
-                        newVersion = version_inc(options.patchVersion, 1, ' ')
-                        println "[INFO] New build version: ${newVersion}"
-
-                        version_write("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', newVersion, '')
+                        // get new version
                         options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
                         options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-                        println "[INFO] Updated build version: ${options.patchVersion}"
-
-                        bat """
-                            git add cmake/defaults/Version.cmake
-                            git commit -m "buildmaster: version update to ${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
-                            git push origin HEAD:master
-                        """
 
                         //get commit's sha which have to be build
                         options['projectBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")

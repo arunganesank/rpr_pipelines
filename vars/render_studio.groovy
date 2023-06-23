@@ -1266,7 +1266,7 @@ def executePreBuild(Map options) {
 
         options.usdHash = bat (script: "git submodule--helper list", returnStdout: true).split('\r\n')[2].split()[1].trim()
 
-        if (true) {
+        if (env.BRANCH_NAME) {
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                 GithubNotificator githubNotificator = new GithubNotificator(this, options)
                 githubNotificator.init(options)
@@ -1290,10 +1290,10 @@ def executePreBuild(Map options) {
                 }
             }
 
-            if (true) {
+            if ((env.BRANCH_NAME == "main" || env.BRANCH_NAME == "release") && options.commitAuthor != "radeonprorender") {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
 
-                if (true) {
+                if (env.BRANCH_NAME == "release") {
                     increment_version("Render Studio", "Minor", true)
                 } else {
                     increment_version("Render Studio", "Patch", true)
