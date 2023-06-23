@@ -69,151 +69,189 @@ import utils
 ]
 
 
-def incrementVersion(String toolName, String repoUrl, String branchName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
+def incrementVersion(String toolName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
+    def version = ""
+
+    if (toolName == "RadeonProRenderUSD") {
+        def majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
+        def minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
+        def patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
+        version = "${majorVersion}.${minorVersion}.${patchVersion}"
+    } else if (toolName == "RadeonProRenderAnari") {
+        def majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
+        def minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
+        def patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
+        version = "${majorVersion}.${minorVersion}.${patchVersion}"
+    } else {
+        if (prefix != ""){
+            version = version_read(versionPath, prefix, delimiter)
+        } else {
+            version = readFile(versionPath).trim()
+        }
+    }
+
+    println "[INFO] Current ${toolName} version: ${version.replace(delimiter, '.')}"
+
+    def newVersion = version_inc(version, index, delimiter)
+    println "[INFO] New version: ${newVersion}"
+
+    if (toolName == "RadeonProRenderUSD") {
+        def newVersions = newVersion.tokenize(delimiter)
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MAJOR_VERSION "', newVersions[0], '')
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MINOR_VERSION "', newVersions[1], '')
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_PATCH_VERSION "', newVersions[2], '')
+
+        majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
+        minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
+        patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
+        version = "${majorVersion}.${minorVersion}.${patchVersion}"
+    } else if (toolName == "RadeonProRenderAnari") {
+        def newVersions = newVersion.tokenize(delimiter)
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MAJOR ", newVersions[0], '')
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MINOR ", newVersions[1], '')
+        version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_PATCH ", newVersions[2], '')
+
+        majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
+        minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
+        patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
+        version = "${majorVersion}.${minorVersion}.${patchVersion}"
+    } else {
+        version_write(versionPath, prefix, newVersion, delimiter)
+
+        if (prefix != ""){
+            if (delimiter == ", ") {
+                version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
+            } else {
+                version = version_read(versionPath, prefix)
+            }
+        } else {
+            version = readFile(versionPath).trim()
+        }
+    }
+    println "[INFO] Updated version: ${version}"
+}
+
+
+def updateVersion(String toolName, String repoUrl, String branchName, String versionPath, Integer index = 3, String prefix = "", String delimiter = ".") {
     if (toolName == "RadeonProRenderInventorPlugin" && index == 3) {
         currentBuild.result = "FAILURE"
         println "[INFO] Version index is out of range"
         return
     }
-    dir(toolName) {
-        checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
-        def version = ""
-
-        if (toolName == "RadeonProRenderUSD") {
-            def majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
-            def minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
-            def patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
-            version = "${majorVersion}.${minorVersion}.${patchVersion}"
-        } else if (toolName == "RadeonProRenderAnari") {
-            def majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
-            def minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
-            def patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
-            version = "${majorVersion}.${minorVersion}.${patchVersion}"
-        } else {
-            if (prefix != ""){
-                version = version_read(versionPath, prefix, delimiter)
-            } else {
-                version = readFile(versionPath).trim()
-            }
+    if (repoUrl) {
+        dir(toolName) {
+            checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
+            incrementVersion(toolName, versionPath, index, prefix, delimiter)
         }
-
-        println "[INFO] Current ${toolName} version: ${version.replace(delimiter, '.')}"
-        currentBuild.description += "<b>Old ${toolName} version:</b> ${version.replace(delimiter, '.')}<br/>"
-
-        def newVersion = version_inc(version, index, delimiter)
-        println "[INFO] New version: ${newVersion}"
-
-        if (toolName == "RadeonProRenderUSD") {
-            def newVersions = newVersion.tokenize(delimiter)
-            println(newVersions)
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MAJOR_VERSION "', newVersions[0], '')
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MINOR_VERSION "', newVersions[1], '')
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_PATCH_VERSION "', newVersions[2], '')
-
-            majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
-            minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
-            patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
-            version = "${majorVersion}.${minorVersion}.${patchVersion}"
-        } else if (toolName == "RadeonProRenderAnari") {
-            def newVersions = newVersion.tokenize(delimiter)
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MAJOR ", newVersions[0], '')
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MINOR ", newVersions[1], '')
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_PATCH ", newVersions[2], '')
-
-            majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
-            minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
-            patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
-            version = "${majorVersion}.${minorVersion}.${patchVersion}"
-        } else {
-            version_write("${env.WORKSPACE}//${toolName}//${versionPath}", prefix, newVersion, delimiter)
-
-            if (prefix != ""){
-                if (delimiter == ", ") {
-                    version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
-                } else {
-                    version = version_read(versionPath, prefix)
-                }
-            } else {
-                version = readFile(versionPath).trim()
-            }
-        }
-        println "[INFO] Updated version: ${version}"
-        currentBuild.description += "<b>New ${toolName} version:</b> ${version}<br/><br/>"
+    } else {
+        incrementVersion(toolName, versionPath, index, prefix, delimiter)
+    }
 
 //      bat """
 //        git add version.h
 //        git commit -m "buildmaster: version update to ${version}"
 //        git push origin HEAD:master
 //        """
-    }
 }
 
 
-def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
+def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boolean fromPipeline = false) {
     int maxTries = 3
     String nodeLabels = "Windows && PreBuild"
 
-    timestamps {
-        stage("Increment version") {
-            for (int currentTry = 0; currentTry < maxTries; currentTry++) {
-                String nodeName = null
+    if (fromPipeline) {
+        for (int currentTry = 0; currentTry < maxTries; currentTry++) {
+            try {
+                if (!toolParams.keySet().contains(projectRepo)) {
+                    updateVersion(
+                        projectRepo,
+                        null,
+                        null,
+                        "VERSION.txt",
+                        versionIndex[toIncrement],
+                    )
+                } else {
+                    def prefix = toolParams[projectRepo]["prefix"] ?: ""
+                    def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
 
-                try {
-                    node(nodeLabels) {
-                        nodeName = env.NODE_NAME
+                    updateVersion(
+                        toolParams[projectRepo]["toolName"],
+                        null,
+                        null,
+                        toolParams[projectRepo]["versionPath"],
+                        versionIndex[toIncrement],
+                        prefix,
+                        delimiter
+                    )
+                }
+                return
+            } catch (e) {
+                println("[ERROR] Failed to increment version")
+                throw e
+            }
+        }
+    } else {
+        timestamps {
+            stage("Increment version") {
+                for (int currentTry = 0; currentTry < maxTries; currentTry++) {
+                    String nodeName = null
 
-                        try {
-                            currentBuild.description = ""
-                            if (!toolParams.keySet().contains(projectRepo)) {
-                                def repoUrl = ""
+                    try {
+                        node(nodeLabels) {
+                            nodeName = env.NODE_NAME
 
-                                if (projectRepo == "RenderStudioLiveServer"){
-                                    repoUrl = "git@github.com:s1lentssh/WebUsdLiveServer.git"
-                                } else if (projectRepo == "RenderStudioRouteServer"){
-                                    repoUrl = "git@github.com:s1lentssh/WebUsdRouteServer.git"
+                            try {
+                                if (!toolParams.keySet().contains(projectRepo)) {
+                                    def repoUrl = ""
+
+                                    if (projectRepo == "RenderStudioLiveServer"){
+                                        repoUrl = "git@github.com:s1lentssh/WebUsdLiveServer.git"
+                                    } else if (projectRepo == "RenderStudioRouteServer"){
+                                        repoUrl = "git@github.com:s1lentssh/WebUsdRouteServer.git"
+                                    } else {
+                                        repoUrl = "git@github.com:Radeon-Pro/${projectRepo}.git"
+                                    }
+
+                                    updateVersion(
+                                        projectRepo,
+                                        repoUrl,
+                                        "main",
+                                        "VERSION.txt",
+                                        versionIndex[toIncrement],
+                                    )
                                 } else {
-                                    repoUrl = "git@github.com:Radeon-Pro/${projectRepo}.git"
+                                    def prefix = toolParams[projectRepo]["prefix"] ?: ""
+                                    def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
+
+                                    updateVersion(
+                                        toolParams[projectRepo]["toolName"],
+                                        toolParams[projectRepo]["repoUrl"],
+                                        toolParams[projectRepo]["branchName"],
+                                        toolParams[projectRepo]["versionPath"],
+                                        versionIndex[toIncrement],
+                                        prefix,
+                                        delimiter
+                                    )
                                 }
-
-                                incrementVersion(
-                                    projectRepo,
-                                    repoUrl,
-                                    "main",
-                                    "VERSION.txt",
-                                    versionIndex[toIncrement],
-                                )
-                            } else {
-                                def prefix = toolParams[projectRepo]["prefix"] ?: ""
-                                def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
-
-                                incrementVersion(
-                                    toolParams[projectRepo]["toolName"],
-                                    toolParams[projectRepo]["repoUrl"],
-                                    toolParams[projectRepo]["branchName"],
-                                    toolParams[projectRepo]["versionPath"],
-                                    versionIndex[toIncrement],
-                                    prefix,
-                                    delimiter
-                                )
+                                return
+                            } catch (e) {
+                                println("[ERROR] Failed to increment version")
+                                throw e
                             }
-                            return
-                        } catch (e) {
-                            println("[ERROR] Failed to increment version")
-                            throw e
                         }
-                    }
-                    break
-                } catch (e) {
-                    if (currentTry + 1 == maxTries) {
-                        currentBuild.result = "FAILURE"
-                        throw new Exception("Failed to increment version. All attempts exceeded")
-                    }
+                        break
+                    } catch (e) {
+                        if (currentTry + 1 == maxTries) {
+                            currentBuild.result = "FAILURE"
+                            throw new Exception("Failed to increment version. All attempts exceeded")
+                        }
 
-                    if (nodeName) {
-                        nodeLabels += " && !${nodeName}"
-                        println("New list of labels: ${nodeLabels}")
-                    } else {
-                        println("No node name. Can't update list of labels")
+                        if (nodeName) {
+                            nodeLabels += " && !${nodeName}"
+                            println("New list of labels: ${nodeLabels}")
+                        } else {
+                            println("No node name. Can't update list of labels")
+                        }
                     }
                 }
             }
