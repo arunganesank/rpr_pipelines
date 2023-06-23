@@ -164,9 +164,19 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch") {
                         try {
                             currentBuild.description = ""
                             if (!toolParams.keySet().contains(projectRepo)) {
+                                def repoUrl = ""
+
+                                if (projectRepo == "RenderStudioLiveServer"){
+                                    repoUrl = "git@github.com:s1lentssh/WebUsdLiveServer.git"
+                                } else if (projectRepo == "RenderStudioRouteServer"){
+                                    repoUrl = "git@github.com:s1lentssh/WebUsdRouteServer.git"
+                                } else {
+                                    repoUrl = "git@github.com:Radeon-Pro/${projectRepo}.git"
+                                }
+
                                 incrementVersion(
                                     projectRepo,
-                                    "git@github.com:Radeon-Pro/${projectRepo}.git",
+                                    repoUrl,
                                     "main",
                                     "VERSION.txt",
                                     versionIndex[toIncrement],
