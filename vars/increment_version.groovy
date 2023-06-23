@@ -109,9 +109,9 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_MINOR_VERSION "', newVersions[1], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", 'set(HD_RPR_PATCH_VERSION "', newVersions[2], '')
 
-            def majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
-            def minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
-            def patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
+            majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
+            minorVersion = version_read(versionPath, 'set(HD_RPR_MINOR_VERSION "', '')
+            patchVersion = version_read(versionPath, 'set(HD_RPR_PATCH_VERSION "', '')
             version = "${majorVersion}.${minorVersion}.${patchVersion}"
         } else if (toolName == "RadeonProRenderAnari") {
             newVersions = newVersion.split(delimiter)
@@ -119,9 +119,9 @@ def incrementVersion(String toolName, String repoUrl, String branchName, String 
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_MINOR ", newVersions[1], '')
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", "#define RPR_ANARI_VERSION_PATCH ", newVersions[2], '')
 
-            def majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
-            def minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
-            def patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
+            majorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MAJOR ", '')
+            minorVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_MINOR ", '')
+            patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
             version = "${majorVersion}.${minorVersion}.${patchVersion}"
         } else {
             version_write("${env.WORKSPACE}//${toolName}//${versionPath}", prefix, newVersion, delimiter)
