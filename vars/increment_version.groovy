@@ -55,7 +55,7 @@ import utils
     ],
     "USD Inventor": [
         "toolName": "RadeonProRenderInventorPlugin",
-        "repoUrl": "git@github.com:Radeon-Pro/RadeonProRenderInventorPlugin.git",
+        "repoUrl": "git@github.com:Radeon-Pro/RadeonProRenderInventorPluginInstaller.git",
         "branchName": "master",
         "versionPath": "rprplugin_installer.iss",
         "prefix": "AppVersion="
