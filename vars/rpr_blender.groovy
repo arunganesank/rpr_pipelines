@@ -692,6 +692,9 @@ def executePreBuild(Map options)
 
                         // get new version
                         options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
+                        def majorVersion = options.pluginVersion.split('.')[0]
+                        def minorVersion = options.pluginVersion.split('.')[1]
+                        def patchVersion = options.pluginVersion.split('.')[2]
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -715,7 +718,67 @@ def executePreBuild(Map options)
                 }
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>Version:</b>"
+                currentBuild.description += """<form action="{$env.JENKINS_URL}job/BaselinePipelines/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Blender"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Major"
+                />
+                <button
+                      type="submit"
+                      form="major"
+                      value="Major">
+                  {$majorVersion}.</button>
+                </form>
+                """
+                currentBuild.description += """<form action="{$env.JENKINS_URL}job/BaselinePipelines/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Blender"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Minor"
+                />
+                <button
+                      type="submit"
+                      form="minor"
+                      value="Minor">
+                  {$minorVersion}.</button>
+                </form>
+                """
+                currentBuild.description += """<form action="{$env.JENKINS_URL}job/BaselinePipelines/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Blender"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="patch"
+                />
+                <button
+                      type="submit"
+                      form="patch"
+                      value="Patch">
+                  {$patchVersion}</button>
+                </form>
+                """
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
