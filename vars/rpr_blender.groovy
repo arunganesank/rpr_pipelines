@@ -677,7 +677,7 @@ def executePreBuild(Map options)
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
-                if (env.BRANCH_NAME) {
+                if (true) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -686,7 +686,7 @@ def executePreBuild(Map options)
                         options.projectBranchName = githubNotificator.branchName
                     }
                     
-                    if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
+                    if (true) {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                         increment_version("RPR Blender", "Patch", true)
 
