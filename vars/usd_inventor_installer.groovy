@@ -680,7 +680,7 @@ def executePreBuild(Map options) {
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             options.pluginVersion = version_read("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=')
 
-            if (options['incrementVersion']) {
+            if (true) {
                 withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                     GithubNotificator githubNotificator = new GithubNotificator(this, options)
                     githubNotificator.init(options)
@@ -689,23 +689,13 @@ def executePreBuild(Map options) {
                     options.projectBranchName = githubNotificator.branchName
                 }
                 
-                if (env.BRANCH_NAME == "master" && !options.commitMessage.contains("buildmaster: version update to")) {
+                if (true) {
 
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                    println "[INFO] Current build version: ${options.pluginVersion}"
+                    increment_version("USD Inventor", "Minor", true)
 
-                    def new_plugin_version = version_inc(options.pluginVersion, 2)
-                    println "[INFO] New build version: ${new_plugin_version}"
-                    version_write("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=', new_plugin_version)
-
+                    // Get new version
                     options.pluginVersion = version_read("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=')
-                    println "[INFO] Updated build version: ${options.pluginVersion}"
-
-                    bat """
-                        git add ${env.WORKSPACE}\\rprplugin_installer.iss
-                        git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                        git push origin HEAD:master
-                    """
 
                     // Get commit's sha which have to be build
                     options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()

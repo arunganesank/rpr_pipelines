@@ -151,7 +151,7 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
     }
     if (repoUrl) {
         dir(toolName) {
-            checkoutScm(branchName: branchName, repositoryUrl: repoUrl)
+            checkoutScm(branchName: branchName, repositoryUrl: repoUrl, disableSubmodules: true)
 
             if (versionPath instanceof String) {
                 incrementVersion(toolName, versionPath, index, prefix, delimiter)
