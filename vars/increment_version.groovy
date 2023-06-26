@@ -98,7 +98,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
         def patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
         version = "${majorVersion}.${minorVersion}.${patchVersion}"
     } else {
-        if (prefix != ""){
+        if (prefix != "") {
             version = version_read(versionPath, prefix, delimiter)
         } else {
             version = readFile(versionPath).trim()
@@ -133,7 +133,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
     } else {
         version_write(versionPath, prefix, newVersion, delimiter)
 
-        if (prefix != ""){
+        if (prefix != "") {
             if (delimiter == ", ") {
                 version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
             } else {
@@ -147,7 +147,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
 
     if (!versionPath instanceof String) {
         def newPath = ""
-        for path in versionPath {
+        for (path in versionPath) {
             newPath += "${path} "
         }
         versionPath = newPath
