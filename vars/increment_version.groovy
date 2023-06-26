@@ -75,27 +75,11 @@ import utils
 
 
 def addVersionButton(project, version, value) {
-    btn = """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-              method="GET"
-              target="_blank"
-              style="display: inline-block;"
-              id="$version"
-            >
-                <input type="hidden"
-                  name="projectRepo"
-                  value="$project"
-                />
-                <input type="hidden"
-                  name="toIncrement"
-                  value="$version"
-                />
-                <button
-                  type="submit"
-                  form="$version"
-                  value="$version">
-                  $value
-                </button>
-            </form>"""
+    projectRepo = project.replace(' ', '+')
+    btn = """<button
+              onclick="location.href='$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$value'">
+              $value
+            </button>"""
     return btn
 }
 
