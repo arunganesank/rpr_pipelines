@@ -714,6 +714,9 @@ def executePreBuild(Map options)
                     options.projectBranchName = options.projectBranch
                 }
 
+                println(options.pluginVersion)
+                println(options.pluginVersion.split('.'))
+                println(options.pluginVersion.split('.')[0])
                 def majorVersion = options.pluginVersion.split('.')[0]
                 def minorVersion = options.pluginVersion.split('.')[1]
                 def patchVersion = options.pluginVersion.split('.')[2]
