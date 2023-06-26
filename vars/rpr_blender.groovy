@@ -674,7 +674,7 @@ def executePreBuild(Map options)
                 currentBuild.description = "<b>Project branch:</b> ${env.BRANCH_NAME}<br/>"
             }
 
-            // withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
+            withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderBlenderAddon\\src\\rprblender\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
                 if (env.BRANCH_NAME) {
@@ -715,11 +715,11 @@ def executePreBuild(Map options)
                 }
 
                 println(options.pluginVersion)
-                println(options.pluginVersion.split('.'))
-                println(options.pluginVersion.split('.')[0])
-                def majorVersion = options.pluginVersion.split('.')[0]
-                def minorVersion = options.pluginVersion.split('.')[1]
-                def patchVersion = options.pluginVersion.split('.')[2]
+                println(options.pluginVersion.tokenize('.'))
+                println(options.pluginVersion.tokenize('.')[0])
+                def majorVersion = options.pluginVersion.tokenize('.')[0]
+                def minorVersion = options.pluginVersion.tokenize('.')[1]
+                def patchVersion = options.pluginVersion.tokenize('.')[2]
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
                 currentBuild.description += "<b>Version:</b>"
@@ -786,7 +786,7 @@ def executePreBuild(Map options)
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
-            // }
+            }
         }
     }
 
