@@ -680,7 +680,7 @@ def executePreBuild(Map options) {
         withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
             options.pluginVersion = version_read("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=')
 
-            if (true) {
+            if (options['incrementVersion']) {
                 withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                     GithubNotificator githubNotificator = new GithubNotificator(this, options)
                     githubNotificator.init(options)
@@ -689,7 +689,7 @@ def executePreBuild(Map options) {
                     options.projectBranchName = githubNotificator.branchName
                 }
                 
-                if (true) {
+                if (env.BRANCH_NAME == "master" && !options.commitMessage.contains("buildmaster: version update to")) {
 
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
                     increment_version("USD Inventor", "Minor", true)
@@ -717,8 +717,53 @@ def executePreBuild(Map options) {
                 options.projectBranchName = options.projectBranch
             }
 
+            def majorVersion = options.pluginVersion.tokenize('.')[0]
+            def minorVersion = options.pluginVersion.tokenize('.')[1]
+
             currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-            currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+            currentBuild.description += "<b>Version:</b> <br/>"
+            currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                  id="major"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="USD Inventor"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Major"
+                />
+                <button
+                      type="submit"
+                      form="major"
+                      value="Major">
+                  $majorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                  id="minor"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="USD Inventor"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Minor"
+                />
+                <button
+                      type="submit"
+                      form="minor"
+                      value="Minor">
+                  $minorVersion</button>
+                </form><br/>
+                """
             currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
             currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
             currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

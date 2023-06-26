@@ -724,6 +724,7 @@ def executePreBuild(Map options)
                   method="GET"
                   target="_blank"
                   style="display: inline-block;"
+                  id="major"
                 >
                 <input type="hidden"
                       name="projectRepo"
@@ -744,6 +745,7 @@ def executePreBuild(Map options)
                   method="GET"
                   target="_blank"
                   style="display: inline-block;"
+                  id="minor"
                 >
                 <input type="hidden"
                       name="projectRepo"
@@ -764,6 +766,7 @@ def executePreBuild(Map options)
                   method="GET"
                   target="_blank"
                   style="display: inline-block;"
+                  id="patch"
                 >
                 <input type="hidden"
                       name="projectRepo"

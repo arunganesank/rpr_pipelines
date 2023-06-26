@@ -524,7 +524,70 @@ def executePreBuild(Map options) {
 
             currentBuild.description = "<b>Anari SDK branch:</b> ${options.anariSdkBranch}<br/>"
             currentBuild.description = "<b>RPR Anari branch:</b> ${options.rprAnariBranch}<br/>"
-            currentBuild.description += "<b>Version:</b> ${options.anariMajorVersion}.${options.anariMinorVersion}.${options.anariPatchVersion}<br/>"
+            currentBuild.description += "<b>Version:</b> <br/>"
+            currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                  id="major"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Anari"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Major"
+                />
+                <button
+                      type="submit"
+                      form="major"
+                      value="Major">
+                  $options.anariMajorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                  id="minor"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Anari"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Minor"
+                />
+                <button
+                      type="submit"
+                      form="minor"
+                      value="Minor">
+                  $options.anariMinorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="GET"
+                  target="_blank"
+                  style="display: inline-block;"
+                  id="patch"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="RPR Anari"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="patch"
+                />
+                <button
+                      type="submit"
+                      form="patch"
+                      value="Patch">
+                  $options.anariPatchVersion</button>
+                </form><br/>
+                """
             currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
             currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
             currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
