@@ -676,10 +676,7 @@ def executePreBuild(Map options)
                     
                     if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        increment_version("RPR Maya", "Patch", true)
-
-                        // get new version
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RadeonProRenderMayaPlugin\\version.h", '#define PLUGIN_VERSION')
+                        options.pluginVersion = increment_version("RPR Maya", "Patch", true)
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -708,69 +705,10 @@ def executePreBuild(Map options)
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
                 currentBuild.description += "<b>Version: </b>"
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="major"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="RPR Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Major"
-                />
-                <button
-                      type="submit"
-                      form="major"
-                      value="Major">
-                  $majorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="minor"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="RPR Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Minor"
-                />
-                <button
-                      type="submit"
-                      form="minor"
-                      value="Minor">
-                  $minorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="patch"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="RPR Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="patch"
-                />
-                <button
-                      type="submit"
-                      form="patch"
-                      value="Patch">
-                  $patchVersion</button>
-                </form><br/>
-                """
+                currentBuild.description += increment_version.addVersionButton("RPR Maya", "Major", majorVersion)
+                currentBuild.description += increment_version.addVersionButton("RPR Maya", "Minor", minorVersion)
+                currentBuild.description += increment_version.addVersionButton("RPR Maya", "Patch", patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

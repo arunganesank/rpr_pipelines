@@ -647,10 +647,7 @@ def executePreBuild(Map options) {
                     if(env.BRANCH_NAME == "main" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        increment_version("USD Maya", "Patch", true)
-
-                        // get new version
-                        def newPluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ')
+                        def newPluginVersion = increment_version("USD Maya", "Patch", true)
 
                         String modProdFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod"
                         String modDevFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod"
@@ -667,7 +664,7 @@ def executePreBuild(Map options) {
 
                         writeFile(file: modDevFilePath, text: modFileContentParts.join(" "))
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
+                        options.pluginVersion = newPluginVersion
 
                         bat """
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
@@ -703,69 +700,10 @@ def executePreBuild(Map options) {
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
                 currentBuild.description += "<b>Version: </b>"
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="major"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="USD Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Major"
-                />
-                <button
-                      type="submit"
-                      form="major"
-                      value="Major">
-                  $majorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="minor"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="USD Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Minor"
-                />
-                <button
-                      type="submit"
-                      form="minor"
-                      value="Minor">
-                  $minorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="patch"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="USD Maya"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="patch"
-                />
-                <button
-                      type="submit"
-                      form="patch"
-                      value="Patch">
-                  $patchVersion</button>
-                </form><br/>
-                """
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Major", majorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Minor", minorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Patch", patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

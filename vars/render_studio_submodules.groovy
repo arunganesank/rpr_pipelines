@@ -10,11 +10,12 @@ def call(String projectName, String projectRepo) {
 
                 println("Current version of submodule: " + version)
 
+                def newVersion = version
+
                 if (env.BRANCH_NAME == "main") {
-                    increment_version("${projectName}", "Patch", true)
+                    newVersion = increment_version("${projectName}", "Patch", true)
                 }
 
-                def newVersion = this.readFile("VERSION.txt")
                 println("Newest version of submodule: " + newVersion)
 
             }

@@ -74,6 +74,32 @@ import utils
 ]
 
 
+def addVersionButton(project, version, value) {
+    btn = """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+              method="GET"
+              target="_blank"
+              style="display: inline-block;"
+              id="$version"
+            >
+                <input type="hidden"
+                  name="projectRepo"
+                  value="$project"
+                />
+                <input type="hidden"
+                  name="toIncrement"
+                  value="$version"
+                />
+                <button
+                  type="submit"
+                  form="$version"
+                  value="$version">
+                  $value
+                </button>
+            </form>"""
+    return btn
+}
+
+
 def incrementVersion(String toolName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
     def version = ""
 
@@ -135,11 +161,21 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
     }
     println "[INFO] Updated version: ${version}"
 
+    if (!versionPath instanceof String) {
+        def newPath = ""
+        for path in versionPath {
+            newPath += "${path} "
+        }
+        versionPath = newPath
+    }
+
 //      bat """
-//        git add version.h
+//        git add ${versionPath}
 //        git commit -m "buildmaster: version update to ${version}"
 //        git push origin HEAD:master
 //        """
+
+    return version
 }
 
 
@@ -149,19 +185,8 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
         println "[INFO] Version index is out of range"
         return
     }
-    if (repoUrl) {
-        dir(toolName) {
-            checkoutScm(branchName: branchName, repositoryUrl: repoUrl, disableSubmodules: true)
 
-            if (versionPath instanceof String) {
-                incrementVersion(toolName, versionPath, index, prefix, delimiter)
-            } else {
-                for (int i = 0; i < versionPath.size(); i++) {
-                    incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
-                }
-            }
-        }
-    } else {
+    increment = {
         if (versionPath instanceof String) {
             incrementVersion(toolName, versionPath, index, prefix, delimiter)
         } else {
@@ -169,6 +194,15 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
                 incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
             }
         }
+    }
+
+    if (repoUrl) {
+        dir(toolName) {
+            checkoutScm(branchName: branchName, repositoryUrl: repoUrl, disableSubmodules: true)
+            return increment
+        }
+    } else {
+        return increment
     }
 }
 
@@ -180,8 +214,9 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
     if (fromPipeline) {
         for (int currentTry = 0; currentTry < maxTries; currentTry++) {
             try {
+                // For Render Studio submodules version increment
                 if (!toolParams.keySet().contains(projectRepo)) {
-                    updateVersion(
+                    return updateVersion(
                         projectRepo,
                         null,
                         null,
@@ -192,7 +227,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                     def prefix = toolParams[projectRepo]["prefix"] ?: ""
                     def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
 
-                    updateVersion(
+                    return updateVersion(
                         toolParams[projectRepo]["toolName"],
                         null,
                         null,
@@ -202,7 +237,6 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                         delimiter
                     )
                 }
-                return
             } catch (e) {
                 println("[ERROR] Failed to increment version")
                 throw e
@@ -219,6 +253,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                             nodeName = env.NODE_NAME
 
                             try {
+                                // For Render Studio submodules version increment
                                 if (!toolParams.keySet().contains(projectRepo)) {
                                     def repoUrl = ""
 
@@ -230,7 +265,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                                         repoUrl = "git@github.com:Radeon-Pro/${projectRepo}.git"
                                     }
 
-                                    updateVersion(
+                                    return updateVersion(
                                         projectRepo,
                                         repoUrl,
                                         "main",
@@ -241,7 +276,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                                     def prefix = toolParams[projectRepo]["prefix"] ?: ""
                                     def delimiter = toolParams[projectRepo]["delimiter"] ?: "."
 
-                                    updateVersion(
+                                    return updateVersion(
                                         toolParams[projectRepo]["toolName"],
                                         toolParams[projectRepo]["repoUrl"],
                                         toolParams[projectRepo]["branchName"],
@@ -251,7 +286,6 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                                         delimiter
                                     )
                                 }
-                                return
                             } catch (e) {
                                 println("[ERROR] Failed to increment version")
                                 throw e

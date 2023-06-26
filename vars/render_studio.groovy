@@ -1176,69 +1176,10 @@ def fillDescription(Map options) {
     def patchVersion = options.version.tokenize('.')[2]
 
     currentBuild.description += "<b>Render Studio version: </b>"
-    currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="major"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="Render Studio"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Major"
-                />
-                <button
-                      type="submit"
-                      form="major"
-                      value="Major">
-                  $majorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="minor"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="Render Studio"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Minor"
-                />
-                <button
-                      type="submit"
-                      form="minor"
-                      value="Minor">
-                  $minorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="patch"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="Render Studio"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="patch"
-                />
-                <button
-                      type="submit"
-                      form="patch"
-                      value="Patch">
-                  $patchVersion</button>
-                </form><br/>
-                """
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Major", majorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Minor", minorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Patch", patchVersion)
+    currentBuild.description += "<br/>"
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
@@ -1361,12 +1302,11 @@ def executePreBuild(Map options) {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
 
                 if (env.BRANCH_NAME == "release") {
-                    increment_version("Render Studio", "Minor", true)
+                    version = increment_version("Render Studio", "Minor", true)
                 } else {
-                    increment_version("Render Studio", "Patch", true)
+                    version = increment_version("Render Studio", "Patch", true)
                 }
 
-                version = readFile("VERSION.txt").trim()
                 println "[INFO] New build version: ${version}"
 
                 //get commit's sha which have to be build

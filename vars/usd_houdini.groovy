@@ -553,11 +553,8 @@ def executePreBuild(Map options) {
 
                     if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        increment_version("USD Houdini", "Patch", true)
-
-                        // get new version
-                        options.patchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderUSD\\cmake\\defaults\\Version.cmake", 'set(HD_RPR_PATCH_VERSION "', '')
-                        options.pluginVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
+                        options.pluginVersion = increment_version("USD Houdini", "Patch", true)
+                        options.patchVersion = options.pluginVersion.tokenize('.')[2]
 
                         //get commit's sha which have to be build
                         options['projectBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
@@ -568,70 +565,11 @@ def executePreBuild(Map options) {
                 }
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Version:</b> <br/>"
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="major"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="USD Houdini"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Major"
-                />
-                <button
-                      type="submit"
-                      form="major"
-                      value="Major">
-                  $options.majorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="minor"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="Render Studio"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="Minor"
-                />
-                <button
-                      type="submit"
-                      form="minor"
-                      value="Minor">
-                  $options.minorVersion</button>
-                </form>
-                """
-                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
-                  target="_blank"
-                  style="display: inline-block;"
-                  id="patch"
-                >
-                <input type="hidden"
-                      name="projectRepo"
-                      value="Render Studio"
-                />
-                <input type="hidden"
-                      name="toIncrement"
-                      value="patch"
-                />
-                <button
-                      type="submit"
-                      form="patch"
-                      value="Patch">
-                  $options.patchVersion</button>
-                </form><br/>
-                """
+                currentBuild.description += "<b>Version:</b> "
+                currentBuild.description += increment_version.addVersionButton("USD Houdini", "Major", options.majorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Houdini", "Minor", options.minorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Houdini", "Patch", options.patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
