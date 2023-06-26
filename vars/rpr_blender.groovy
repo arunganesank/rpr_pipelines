@@ -714,16 +714,13 @@ def executePreBuild(Map options)
                     options.projectBranchName = options.projectBranch
                 }
 
-                println(options.pluginVersion)
-                println(options.pluginVersion.tokenize('.'))
-                println(options.pluginVersion.tokenize('.')[0])
                 def majorVersion = options.pluginVersion.tokenize('.')[0]
                 def minorVersion = options.pluginVersion.tokenize('.')[1]
                 def patchVersion = options.pluginVersion.tokenize('.')[2]
 
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Version:</b>"
-                currentBuild.description += """<form action="{$env.JENKINS_URL}job/DevJobs/job/VersionIncrement/buildWithParameters"
+                currentBuild.description += "<b>Version: </b>"
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
                   method="POST"
                   target="_blank"
                   style="display: inline-block;"
@@ -743,7 +740,7 @@ def executePreBuild(Map options)
                   $majorVersion</button>
                 </form>
                 """
-                currentBuild.description += """<form action="{$env.JENKINS_URL}job/DevJobs/job/VersionIncrement/buildWithParameters"
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
                   method="POST"
                   target="_blank"
                   style="display: inline-block;"
@@ -763,7 +760,7 @@ def executePreBuild(Map options)
                   $minorVersion</button>
                 </form>
                 """
-                currentBuild.description += """<form action="{$env.JENKINS_URL}job/DevJobs/job/VersionIncrement/buildWithParameters"
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
                   method="POST"
                   target="_blank"
                   style="display: inline-block;"
