@@ -740,7 +740,7 @@ def executePreBuild(Map options)
                       type="submit"
                       form="major"
                       value="Major">
-                  {$majorVersion}.</button>
+                  $majorVersion\.</button>
                 </form>
                 """
                 currentBuild.description += """<form action="{$env.JENKINS_URL}job/DevJobs/job/VersionIncrement/buildWithParameters"
@@ -760,7 +760,7 @@ def executePreBuild(Map options)
                       type="submit"
                       form="minor"
                       value="Minor">
-                  {$minorVersion}.</button>
+                  $minorVersion\.</button>
                 </form>
                 """
                 currentBuild.description += """<form action="{$env.JENKINS_URL}job/DevJobs/job/VersionIncrement/buildWithParameters"
@@ -780,8 +780,8 @@ def executePreBuild(Map options)
                       type="submit"
                       form="patch"
                       value="Patch">
-                  {$patchVersion}</button>
-                </form>
+                  $patchVersion</button>
+                </form><br/>
                 """
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
