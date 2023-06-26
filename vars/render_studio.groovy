@@ -1171,7 +1171,71 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
+    def majorVersion = options.version.tokenize('.')[0]
+    def minorVersion = options.version.tokenize('.')[1]
+    def patchVersion = options.version.tokenize('.')[2]
+
+    currentBuild.description += "<b>Render Studio version: </b>"
+    currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="Render Studio"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Major"
+                />
+                <button
+                      type="submit"
+                      form="major"
+                      value="Major">
+                  $majorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="Render Studio"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Minor"
+                />
+                <button
+                      type="submit"
+                      form="minor"
+                      value="Minor">
+                  $minorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="Render Studio"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="patch"
+                />
+                <button
+                      type="submit"
+                      form="patch"
+                      value="Patch">
+                  $patchVersion</button>
+                </form><br/>
+                """
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()

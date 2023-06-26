@@ -697,8 +697,72 @@ def executePreBuild(Map options) {
                     options.projectBranchName = options.projectBranch
                 }
 
+                def majorVersion = options.pluginVersion.tokenize('.')[0]
+                def minorVersion = options.pluginVersion.tokenize('.')[1]
+                def patchVersion = options.pluginVersion.tokenize('.')[2]
+
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Plugin version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>Version: </b>"
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="USD Maya"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Major"
+                />
+                <button
+                      type="submit"
+                      form="major"
+                      value="Major">
+                  $majorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="USD Maya"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="Minor"
+                />
+                <button
+                      type="submit"
+                      form="minor"
+                      value="Minor">
+                  $minorVersion</button>
+                </form>
+                """
+                currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
+                  method="POST"
+                  target="_blank"
+                  style="display: inline-block;"
+                >
+                <input type="hidden"
+                      name="projectRepo"
+                      value="USD Maya"
+                />
+                <input type="hidden"
+                      name="toIncrement"
+                      value="patch"
+                />
+                <button
+                      type="submit"
+                      form="patch"
+                      value="Patch">
+                  $patchVersion</button>
+                </form><br/>
+                """
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
