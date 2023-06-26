@@ -1177,7 +1177,7 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<b>Render Studio version: </b>"
     currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >
@@ -1197,7 +1197,7 @@ def fillDescription(Map options) {
                 </form>
                 """
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >
@@ -1217,7 +1217,7 @@ def fillDescription(Map options) {
                 </form>
                 """
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >

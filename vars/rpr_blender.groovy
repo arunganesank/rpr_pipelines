@@ -721,7 +721,7 @@ def executePreBuild(Map options)
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
                 currentBuild.description += "<b>Version: </b>"
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >
@@ -741,7 +741,7 @@ def executePreBuild(Map options)
                 </form>
                 """
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >
@@ -761,7 +761,7 @@ def executePreBuild(Map options)
                 </form>
                 """
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="POST"
+                  method="GET"
                   target="_blank"
                   style="display: inline-block;"
                 >
