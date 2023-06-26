@@ -172,10 +172,10 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
 
     increment = {
         if (versionPath instanceof String) {
-            incrementVersion(toolName, versionPath, index, prefix, delimiter)
+            return incrementVersion(toolName, versionPath, index, prefix, delimiter)
         } else {
             for (int i = 0; i < versionPath.size(); i++) {
-                incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
+                return incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
             }
         }
     }
@@ -183,10 +183,10 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
     if (repoUrl) {
         dir(toolName) {
             checkoutScm(branchName: branchName, repositoryUrl: repoUrl, disableSubmodules: true)
-            return increment
+            increment()
         }
     } else {
-        return increment
+        increment()
     }
 }
 
