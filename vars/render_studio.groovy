@@ -1180,6 +1180,7 @@ def fillDescription(Map options) {
                   method="GET"
                   target="_blank"
                   style="display: inline-block;"
+                  id="major"
                 >
                 <input type="hidden"
                       name="projectRepo"
@@ -1200,6 +1201,7 @@ def fillDescription(Map options) {
                   method="GET"
                   target="_blank"
                   style="display: inline-block;"
+                  id="minor"
                 >
                 <input type="hidden"
                       name="projectRepo"
@@ -1217,9 +1219,10 @@ def fillDescription(Map options) {
                 </form>
                 """
                 currentBuild.description += """<form action="$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters"
-                  method="GET"
+                  method="POST"
                   target="_blank"
                   style="display: inline-block;"
+                  id="patch"
                 >
                 <input type="hidden"
                       name="projectRepo"
