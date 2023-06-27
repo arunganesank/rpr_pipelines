@@ -207,7 +207,7 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(String engineName, Map options) {
-    return """Core ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" 10000"""
+    return """Core \"${options.commitSHA}\" \"${options.projectBranchName}\" \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" 10000"""
 }
 
 
