@@ -304,14 +304,14 @@ def executeTestCommand(String osName, String asicName, Map options, String clien
             }
         } else {
             dir('scripts') {
-                String key = getLiveModeKey(clientType, clientNumber)
+                String modeKey = getLiveModeKey(clientType, clientNumber)
                 String primaryClientIP = options["liveModeInfo"]["primary"]["ip"]
                 String primaryClientPort = options["liveModeInfo"]["primary"]["port"]
 
                 bat """
                     set TOOL_VERSION=${options.version}
-                    run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" Desktop ${key} ${primaryClientIP} ${primaryClientPort} ^
-                    ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                    run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" desktop ${modeKey} ${primaryClientIP} ${primaryClientPort} ^
+                    ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${modeKey}_${options.currentTry}.log\"  2>&1
                 """
             }
         }
@@ -385,7 +385,8 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
     // TODO: use clientType variable
     options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
 
-    outputEnvironmentInfo("Windows", "", options.currentTry)
+    String logName = clientType == "offline" ? "" : "${STAGE_NAME}_${clientType}"
+    outputEnvironmentInfo("Windows", logName, options.currentTry)
 
     if (options["updateRefs"].contains("Update")) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
@@ -453,7 +454,6 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
         stashPostfix = "_${modeKey}"
     }
 
-    // TODO: implement merging on the side of the primary client
     if (clientType == "primary") {
         for (key in options["liveModeInfo"].keySet()) {
             if (key == "primary") {
@@ -469,7 +469,27 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
             }
         }
 
-        return
+        println("All secondary clients stashed results. Start results merge")
+
+        List secondaryResutlsDirs = []
+
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            dir("Work") {
+                makeUnstash(name: "${options.testResultsName}_${key}_artifacts", storeOnNAS: options.storeOnNAS)
+            }
+            dir(key) {
+                makeUnstash(name: "${options.testResultsName}_${key}_data", storeOnNAS: options.storeOnNAS)
+                secondaryResutlsDirs.add("..\\${key}")
+            }
+        }
+
+        dir ("scripts") {
+            python3("unite_results.py --primary_results_dir ..\\Work --secondary_results_dirs ${secondaryResutlsDirs.join(',')}")
+        }
     }
 
     try {
@@ -486,7 +506,8 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
 
                     if (clientType == "secondary") {
                         // save results to merge them on the primary client
-                        makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*_second_client.log,**/*.jpg,**/*.webp', name: "${options.testResultsName}${stashPostfix}_artifacts", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: "**/*.json", name: "${options.testResultsName}${stashPostfix}_data", storeOnNAS: options.storeOnNAS)
                         options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
                         def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
@@ -559,8 +580,8 @@ def syncLMClients(String osName, Map options, String clientType, int clientNumbe
     String modeKey = getLiveModeKey(clientType, clientNumber)
 
     if (clientType == "primary") {
-        options["liveModeInfo"][key]["ip"] = getIpAddress()
-        options["liveModeInfo"][key]["port"] = getCommunicationPort()
+        options["liveModeInfo"][modeKey]["ip"] = getIpAddress()
+        options["liveModeInfo"][modeKey]["port"] = getCommunicationPort()
     }
 
     options["liveModeInfo"][modeKey]["ready"] = true
@@ -585,8 +606,8 @@ def getIpAddress() {
 
 
 def getCommunicationPort() {
-    // always use port 10000 to synchronize autotests
-    return "10000"
+    // always use port 20000 to synchronize autotests
+    return "20000"
 }
 
 
@@ -635,7 +656,7 @@ def executeTests(String osName, String asicName, Map options) {
     options["stashResults"] = true
 
     // reboot to prevent appearing of Windows activation watermark
-    utils.reboot(this, osName)
+    //utils.reboot(this, osName)
 
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
