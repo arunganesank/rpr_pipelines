@@ -258,7 +258,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 }
 
 
-def executeTestCommand(String osName, String asicName, Map options) {
+def executeTestCommand(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
     def testTimeout = options.timeouts["${options.tests}"]
     String testsNames
     String testsPackageName
@@ -281,23 +281,39 @@ def executeTestCommand(String osName, String asicName, Map options) {
     println "Set timeout to ${testTimeout}"
 
     timeout(time: testTimeout, unit: 'MINUTES') {
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            case 'Web':
-                // TODO: rename system name
-                dir("scripts") {
-                    sh """
-                        set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
+        if (clientType == "offline") {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                case 'Web':
+                    // TODO: rename system name
+                    dir("scripts") {
+                        sh """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+            }
+        } else {
+            dir('scripts') {
+                String key = getLiveModeKey(clientType, clientNumber)
+                String primaryClientIP = options["liveModeInfo"]["primary"]["ip"]
+                String primaryClientPort = options["liveModeInfo"]["primary"]["port"]
+
+                bat """
+                    set TOOL_VERSION=${options.version}
+                    run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" Desktop ${key} ${primaryClientIP} ${primaryClientPort} ^
+                    ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                """
+            }
         }
     }
 }
@@ -373,7 +389,7 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
 
     if (options["updateRefs"].contains("Update")) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-            executeTestCommand("Windows", asicName, options)
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
             executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
             uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
             // delete generated baselines when they're sent 
@@ -394,7 +410,7 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             }
         }
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-            executeTestCommand("Windows", asicName, options)
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
         }
     }
 }
@@ -541,6 +557,12 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 
 def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
     String modeKey = getLiveModeKey(clientType, clientNumber)
+
+    if (clientType == "primary") {
+        options["liveModeInfo"][key]["ip"] = getIpAddress()
+        options["liveModeInfo"][key]["port"] = getCommunicationPort()
+    }
+
     options["liveModeInfo"][modeKey]["ready"] = true
 
     for (key in options["liveModeInfo"].keySet()) {
@@ -557,7 +579,12 @@ def syncLMClients(String osName, Map options, String clientType, int clientNumbe
 }
 
 
-def getCommunicationPort(Map options) {
+def getIpAddress() {
+    return bat(script: "ipconfig",returnStdout: true).split("IPv4 Address")[1].split(":")[1].split()[0].trim()
+}
+
+
+def getCommunicationPort() {
     // always use port 10000 to synchronize autotests
     return "10000"
 }
