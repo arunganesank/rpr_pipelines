@@ -1742,7 +1742,7 @@ def call(
         || env.BRANCH_NAME)
     boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "superkomar/inv_integration") {
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-202") {
         rebuildUSD = true
     }
 
