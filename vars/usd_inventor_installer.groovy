@@ -457,21 +457,24 @@ def executeBuildWindows(Map options) {
         dir("RenderStudio") {
             // build Render Studio installer
             options.deployEnvironment = "prod"
+            options.rebuildUSD = true
+            options.saveUSD = false
+
             render_studio.patchEngine(options)
             render_studio.executeBuildWindows(options, false)
         }
 
-        utils.moveFiles(this, "Windows", "Frontend\\dist_electron\\*", ".")
+        utils.moveFiles(this, "Windows", "RenderStudio\\Frontend\\dist_electron\\*.msi", ".")
         utils.renameFile(this, "Windows", "*.msi", "AMD_RenderStudio.msi")
 
-        dir("tools") {
-            bat """
-                build_releases.cmd >> ..\\${STAGE_NAME}.BuildReleases.log 2>&1
-            """
-        }
+        utils.reboot(this, "Windows")
 
         bat """
-            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.RPRInventorPluginInstaller.log 2>&1
+            tools\\build_releases.cmd >> ${STAGE_NAME}.BuildReleases.Inventor.log 2>&1
+        """
+
+        bat """
+            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.BuildInstaller.Inventor.log 2>&1
         """
 
         makeStash(includes: "RPRInventorPlugin_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)

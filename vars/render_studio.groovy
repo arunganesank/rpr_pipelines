@@ -822,7 +822,7 @@ def executeBuildWindows(Map options, boolean saveBinaries = true) {
                         cmake --version >> ${STAGE_NAME}.Build.log 2>&1
                         python--version >> ${STAGE_NAME}.Build.log 2>&1
                         python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
-                        mkdir Build
+                        if not exist Build mkdir Build
                         echo [WebRTC] >> Build\\LocalBuildConfig.txt
                         echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                         echo [AMF] >> Build/LocalBuildConfig.txt
