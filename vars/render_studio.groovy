@@ -775,7 +775,7 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
 }
 
 
-def executeBuildWindows(Map options) {
+def executeBuildWindows(Map options, boolean saveBinaries = true) {
     options["stage"] = "Build"
 
     withEnv(["PATH=C:\\Cmake326\\bin;${PATH}"]) {
@@ -789,10 +789,10 @@ def executeBuildWindows(Map options) {
             downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
             if (options.projectBranchName.contains("demo/november")) {
-                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "Frontend", "--quiet")
                 bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
             } else {
-                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "Frontend", "--quiet")
                 bat "move Frontend\\env.desktop.template Frontend\\.env.production"
             }
 
@@ -862,10 +862,14 @@ def executeBuildWindows(Map options) {
                                     rename "${file}" "${renamedFilename}"
                                 """  
 
-                                makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                                if (saveBinaries) {
+                                    makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                                }
                             }
 
-                            makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                            if (saveBinaries) {
+                                makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                            }
                         }
                     }
                 }
@@ -1050,43 +1054,47 @@ def executeBuildLinux(Map options) {
 }
 
 
+def patchEngine(Map options) {
+    if (options.customHybridLinux && isUnix()) {
+        downloadFiles(options.customHybridLinux, ".")
+
+        sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
+
+        sh """
+            yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
+            yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+            yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+        """
+
+        dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
+        }
+    } else if (options.customHybridWin && !isUnix()) {
+        downloadFiles(options.customHybridWin, ".")
+
+        unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
+
+        bat """
+            copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
+            copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+            copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
+            copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
+        """
+
+        dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+            downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
+        }
+    }
+}
+
+
 def executeBuild(String osName, Map options) {  
     try {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
             patchVersions(options)
-
-            if (options.customHybridLinux && isUnix()) {
-                downloadFiles(options.customHybridLinux, ".")
-
-                sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
-
-                sh """
-                    yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
-                    yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                    yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                """
-
-                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-                    downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
-                }
-            } else if (options.customHybridWin && !isUnix()) {
-                downloadFiles(options.customHybridWin, ".")
-
-                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
-
-                bat """
-                    copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
-                    copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
-                """
-
-                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-                    downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
-                }
-            }
+            patchEngine(options)
         }
 
         utils.removeFile(this, osName, "*.log")
@@ -1128,7 +1136,7 @@ def notifyByTg(Map options){
     String branchURL = isPR ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"env.BUILD_URL\":\"${env.env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
@@ -1200,6 +1208,39 @@ def fillDescription(Map options) {
 }
 
 
+def saveHybridProLinks(Map options) {
+    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
+
+    def rawInfo = httpRequest(
+        url: url,
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    Integer hybridBuildNumber
+    String hybridBuildUrl
+
+    if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+        hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
+        hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
+        options.hybridProSHA = parsedInfo.lastSuccessfulBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+    } else {
+        hybridBuildNumber = parsedInfo.lastUnstableBuild.number
+        hybridBuildUrl = parsedInfo.lastUnstableBuild.url
+        options.hybridProSHA = parsedInfo.lastUnstableBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+    }
+
+    withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+    }
+
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+}
+
+
 def executePreBuild(Map options) {
     options.executeTests = true
 
@@ -1214,36 +1255,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
-
-        def rawInfo = httpRequest(
-            url: url,
-            authentication: 'jenkinsCredentials',
-            httpMode: 'GET'
-        )
-
-        def parsedInfo = parseResponse(rawInfo.content)
-
-
-        Integer hybridBuildNumber
-        String hybridBuildUrl
-
-        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
-            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
-            options.hybridProSHA = parsedInfo.lastSuccessfulBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
-        } else {
-            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
-            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
-            options.hybridProSHA = parsedInfo.lastUnstableBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
-        }
-
-        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-        }
-
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+        saveHybridProLinks(options)
 
         // branch postfix
         options["branchPostfix"] = ""

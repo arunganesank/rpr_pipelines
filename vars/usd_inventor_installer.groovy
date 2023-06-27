@@ -454,10 +454,15 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     withEnv(["PATH=c:\\python37\\;c:\\CMake323\\bin;c:\\python37\\scripts\\;${PATH}", "WORKSPACE=${env.WORKSPACE.toString().replace('\\', '/')}"]) {
-        // download built Render Studio installer
-        String rsInstallerLink = "/volume1/web/RenderStudio-Auto/superkomar_inv_integration/4/Artifacts/AMD_RenderStudio_0.1.62(auto_superkomar-inv_integration_4).msi"
-        downloadFiles(rsInstallerLink, ".")
-        utils.renameFile(this, "Windows", "AMD_RenderStudio_0.1.62(auto_superkomar-inv_integration_4).msi", "AMD_RenderStudio.msi")
+        dir("RenderStudio") {
+            // build Render Studio installer
+            options.deployEnvironment = "prod"
+            render_studio.patchEngine(options)
+            render_studio.executeBuildWindows(options, false)
+        }
+
+        utils.moveFiles(this, "Windows", "Frontend\\dist_electron\\*", ".")
+        utils.renameFile(this, "Windows", "*.msi", "AMD_RenderStudio.msi")
 
         dir("tools") {
             bat """
@@ -619,6 +624,8 @@ def executePreBuild(Map options) {
         options.commitMessage = utils.getBatOutput(this, "git log --format=%%s -n 1").replace('\n', '')
         options.commitSHA = utils.getBatOutput(this, "git log --format=%%H -1 ")
         options.branchName = env.BRANCH_NAME ?: options.projectBranch
+
+        render_studio.saveHybridProLinks(options)
 
         println """
             The last commit was written by ${options.commitAuthor}.
