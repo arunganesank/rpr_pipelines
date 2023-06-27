@@ -330,8 +330,6 @@ def checkoutAutotests(Map options) {
 
 
 def prepareAMDRenderStudio(String osName, Map options, String clientType, int clientNumber = -1) {
-    // TODO: use clientType variable
-    // TODO: do specific steps for Live Mode activation
     if (osName == "Windows") {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
             timeout(time: "10", unit: "MINUTES") {
@@ -382,8 +380,12 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 
 
 def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
-    // TODO: use clientType variable
-    options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+    if (clientType == "offline") {
+        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+    } else {
+        String modeKey = getLiveModeKey(clientType, clientNumber)
+        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}-${modeKey}"
+    }
 
     String logName = clientType == "offline" ? "" : "${STAGE_NAME}_${clientType}"
     outputEnvironmentInfo("Windows", logName, options.currentTry)
@@ -506,7 +508,7 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
 
                     if (clientType == "secondary") {
                         // save results to merge them on the primary client
-                        makeStash(includes: '**/*_second_client.log,**/*.jpg,**/*.webp', name: "${options.testResultsName}${stashPostfix}_artifacts", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*.log,**/*.jpg,**/*.webp', name: "${options.testResultsName}${stashPostfix}_artifacts", storeOnNAS: options.storeOnNAS)
                         makeStash(includes: "**/*.json", name: "${options.testResultsName}${stashPostfix}_data", storeOnNAS: options.storeOnNAS)
                         options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
