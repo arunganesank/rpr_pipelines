@@ -520,7 +520,7 @@ def launchAndWaitTests(Map options) {
                 parameters: [
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
-                    string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "ProjectBranchName", value: env.BRANCH_NAME ? env.BRANCH_NAME : options.projectBranch),
                     string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "TestsBranch", value: options.rprSdkTestsBranch),
@@ -544,7 +544,7 @@ def launchAndWaitTests(Map options) {
                 parameters: [
                     string(name: "PipelineBranch", value: options.pipelineBranch),
                     string(name: "CommitSHA", value: options.commitSHA),
-                    string(name: "ProjectBranchName", value: options.projectBranch),
+                    string(name: "ProjectBranchName", value: env.BRANCH_NAME ? env.BRANCH_NAME : options.projectBranch),
                     string(name: "CommitMessage", value: options.commitMessage),
                     string(name: "OriginalBuildLink", value: env.BUILD_URL),
                     string(name: "TestsBranch", value: options.mtlxTestsBranch),
