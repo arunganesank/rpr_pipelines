@@ -77,7 +77,7 @@ import utils
 def addVersionButton(project, version, value) {
     projectRepo = project.replace(' ', '+')
     btn = """<button
-              onclick="location.href='$env.JENKINS_URL/job/DevJobs/job/VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'">
+              onclick="location.href='$env.JENKINS_URL/job//VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'">
               $value
             </button>"""
     return btn
@@ -153,11 +153,17 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
         versionPath = newPath
     }
 
-//      bat """
-//        git add ${versionPath}
-//        git commit -m "buildmaster: version update to ${version}"
-//        git push origin HEAD:master
-//        """
+    if (versionPath instanceof String) {
+        bat "git add ${versionPath}"
+    } else {
+        for (path in versionPath) {
+            bat "git add ${path}"
+        }
+    }
+
+    bat """
+        git commit -m "buildmaster: version update to ${version}"
+    """
 
     return version
 }
