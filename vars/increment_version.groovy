@@ -163,6 +163,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
 
     bat """
         git commit -m "buildmaster: version update to ${version}"
+        git push origin HEAD:master
     """
 
     return version
