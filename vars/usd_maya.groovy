@@ -647,12 +647,7 @@ def executePreBuild(Map options) {
                     if(env.BRANCH_NAME == "main" && options.commitAuthor != "radeonprorender") {
                         // Do not have permissions to make a new commit
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current plugin version: ${options.pluginVersion}"
-
-                        def newPluginVersion = version_inc(options.pluginVersion, 3)
-                        println "[INFO] New plugin version: ${newPluginVersion}"
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ', "${newPluginVersion}")
-                        version_write("${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h", '#define PLUGIN_VERSION ', "${newPluginVersion}")
+                        def newPluginVersion = increment_version("USD Maya", "Patch", true)
 
                         String modProdFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod"
                         String modDevFilePath = "${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod"
@@ -669,12 +664,9 @@ def executePreBuild(Map options) {
 
                         writeFile(file: modDevFilePath, text: modFileContentParts.join(" "))
 
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss", '#define AppVersionString ').replace("\'", "")
-                        println "[INFO] Updated plugin version: ${options.pluginVersion}"
+                        options.pluginVersion = newPluginVersion
 
                         bat """
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\installation\\installation_hdrpr_only.iss
-                            git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\src\\version.h
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd.mod
                             git add ${env.WORKSPACE}\\RPRMayaUSD\\RprUsd\\mod\\rprUsd_dev.mod
                             git commit -m "buildmaster: plugin version update to ${options.pluginVersion}."
@@ -702,8 +694,16 @@ def executePreBuild(Map options) {
                     options.projectBranchName = options.projectBranch
                 }
 
+                def majorVersion = options.pluginVersion.tokenize('.')[0]
+                def minorVersion = options.pluginVersion.tokenize('.')[1]
+                def patchVersion = options.pluginVersion.tokenize('.')[2]
+
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-                currentBuild.description += "<b>Plugin version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>Version: </b>"
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Major", majorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Minor", minorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Maya", "Patch", patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

@@ -667,23 +667,8 @@ def executePreBuild(Map options)
                     }
                     
                     if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ')
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.pluginVersion}"
-
-                        def new_version = version_inc(options.pluginVersion, 3, ', ')
-                        println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', new_version, ', ')
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
-                        println "[INFO] Updated build version: ${options.pluginVersion}"
-
-                        bat """
-                            git add src/hdusd/__init__.py
-                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:master
-                        """
+                        options.pluginVersion = increment_version("USD Blender", "Patch", true)
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -730,8 +715,16 @@ def executePreBuild(Map options)
                     options.projectBranchName = options.projectBranch
                 }
 
+                def majorVersion = options.pluginVersion.tokenize('.')[0]
+                def minorVersion = options.pluginVersion.tokenize('.')[1]
+                def patchVersion = options.pluginVersion.tokenize('.')[2]
+
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
-                currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>Version: </b>"
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Major", majorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Minor", minorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Patch", patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

@@ -504,20 +504,8 @@ def executePreBuild(Map options) {
 
                     if (env.BRANCH_NAME == "develop" && options.commitAuthor != "radeonprorender") {
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.anariPatchVersion}"
-
-                        def newVersion = version_inc(options.anariPatchVersion, 1, ' ')
-                        println "[INFO] New build version: ${newVersion}"
-                        version_write("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', newVersion, ' ')
-
-                        options.anariPatchVersion = version_read("${env.WORKSPACE}\\RadeonProRenderAnari\\version.h", '#define RPR_ANARI_VERSION_PATCH', ' ')
-                        println "[INFO] Updated build version: ${options.anariPatchVersion}"
-
-                        bat """
-                            git add version.h
-                            git commit -m "buildmaster: version update to ${options.anariPatchVersion}"
-                            git push origin HEAD:develop
-                        """
+                        def newVersion = increment_version("RPR Anari", "Patch", true)
+                        options.anariPatchVersion = newVersion.tokenize('.')[2]
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -535,7 +523,11 @@ def executePreBuild(Map options) {
 
             currentBuild.description = "<b>Anari SDK branch:</b> ${options.anariSdkBranch}<br/>"
             currentBuild.description = "<b>RPR Anari branch:</b> ${options.rprAnariBranch}<br/>"
-            currentBuild.description += "<b>Version:</b> ${options.anariMajorVersion}.${options.anariMinorVersion}.${options.anariPatchVersion}<br/>"
+            currentBuild.description += "<b>Version:</b> "
+            currentBuild.description += increment_version.addVersionButton("RPR Anari", "Major", options.anariMajorVersion)
+            currentBuild.description += increment_version.addVersionButton("RPR Anari", "Minor", options.anariMinorVersion)
+            currentBuild.description += increment_version.addVersionButton("RPR Anari", "Patch", options.anariPatchVersion)
+            currentBuild.description += "<br/>"
             currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
             currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
             currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"

@@ -1171,7 +1171,15 @@ def fillDescription(Map options) {
 
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
+    def majorVersion = options.version.tokenize('.')[0]
+    def minorVersion = options.version.tokenize('.')[1]
+    def patchVersion = options.version.tokenize('.')[2]
+
+    currentBuild.description += "<b>Render Studio version: </b>"
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Major", majorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Minor", minorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Patch", patchVersion)
+    currentBuild.description += "<br/>"
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
@@ -1292,21 +1300,14 @@ def executePreBuild(Map options) {
 
             if ((env.BRANCH_NAME == "main" || env.BRANCH_NAME == "release") && options.commitAuthor != "radeonprorender") {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                println "[INFO] Current build version: ${version}"
 
                 if (env.BRANCH_NAME == "release") {
-                    version = version_inc(version, 2)
+                    version = increment_version("Render Studio", "Minor", true)
                 } else {
-                    version = version_inc(version, 3)
+                    version = increment_version("Render Studio", "Patch", true)
                 }
 
                 println "[INFO] New build version: ${version}"
-                writeFile(file: "VERSION.txt", text: version)
-
-                bat """
-                    git commit VERSION.txt -m "buildmaster: version update to ${version}"
-                    git push origin HEAD:${env.BRANCH_NAME}
-                """
 
                 //get commit's sha which have to be build
                 options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
