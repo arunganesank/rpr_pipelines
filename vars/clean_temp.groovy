@@ -16,7 +16,7 @@ def getNodes(String label) {
 def cleanTemp(String agentName) {
     node("${agentName}") {
         File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
-        if (dir.exists()) {
+        if (temp.exists()) {
             println("Cleaning %TEMP% on ${agentName}")
             try {
                 FileUtils.cleanDirectory(temp)
