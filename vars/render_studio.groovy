@@ -134,6 +134,7 @@ def uninstallAMDRenderStudio(String osName, Map options) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
 
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\Documents\\AMD RenderStudio Home")
     }
 }
 
@@ -658,7 +659,7 @@ def executeTests(String osName, String asicName, Map options) {
     options["stashResults"] = true
 
     // reboot to prevent appearing of Windows activation watermark
-    //utils.reboot(this, osName)
+    utils.reboot(this, osName)
 
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
