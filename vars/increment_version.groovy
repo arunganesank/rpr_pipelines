@@ -84,7 +84,7 @@ def addVersionButton(project, version, value) {
 }
 
 
-def incrementVersion(String toolName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
+def incrementVersion(String toolName, String branchName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
     def version = ""
 
     if (toolName == "RadeonProRenderUSD") {
@@ -163,7 +163,7 @@ def incrementVersion(String toolName, String versionPath, Integer index=3, Strin
 
     bat """
         git commit -m "buildmaster: version update to ${version}"
-        git push origin HEAD:master
+        git push origin HEAD:${branchName}
     """
 
     return version
@@ -179,10 +179,10 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
 
     increment = {
         if (versionPath instanceof String) {
-            return incrementVersion(toolName, versionPath, index, prefix, delimiter)
+            return incrementVersion(toolName, branchName, versionPath, index, prefix, delimiter)
         } else {
             for (int i = 0; i < versionPath.size(); i++) {
-                return incrementVersion(toolName, versionPath[i], index, prefix[i], delimiter)
+                return incrementVersion(toolName, branchName, versionPath[i], index, prefix[i], delimiter)
             }
         }
     }
