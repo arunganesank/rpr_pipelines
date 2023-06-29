@@ -15,7 +15,7 @@ def getNodes(String label) {
 
 def cleanTemp(String agentName) {
     node("${agentName}") {
-        stage("Cleaning Temp on ${agentName}") {
+        stage("Cleaning Temp directory on ${agentName}") {
             File temp = new File("%APPDATA%\\Local\\Temp")
             FileUtils.cleanDirectory(temp)
         }
@@ -28,12 +28,11 @@ def clean() {
     
     for(i = 0; i < nodeList.size(); i++) {
         def agentName = nodeList[i]
-        println(agentName)
 
-        //if (agentName != null) {
-            //println "Cleaning %TEMP% on " + agentName
-            //cleanTemp(agentName)
-        //}
+        if (agentName != null) {
+            println "Cleaning %TEMP% on " + agentName
+            cleanTemp(agentName)
+        }
     }
 }
 
