@@ -38,7 +38,7 @@ def clean() {
     for(i = 0; i < nodeList.size(); i++) {
         def agentName = nodeList[i]
 
-        if ((agentName != null) and (agentName != env.NODE_NAME)) {
+        if (agentName != env.NODE_NAME && agentName != null) {
             println "Cleaning %TEMP% on " + agentName
             nodesTasks[agentName] = {
                 cleanTemp(agentName)
