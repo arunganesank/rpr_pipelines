@@ -439,7 +439,7 @@ def call(String jobName,
                             generateDescription(updateInfo, profile)
 
                             dir("jobs_launcher") {
-                                checkoutScm(branchName: "inemankov/live_mode", repositoryUrl: "git@github.com:luxteam/jobs_launcher.git")
+                                checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/jobs_launcher.git")
                             }
 
                             List directories
