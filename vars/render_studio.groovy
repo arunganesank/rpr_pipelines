@@ -662,9 +662,6 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
 
-    // reboot to prevent appearing of Windows activation watermark
-    utils.reboot(this, osName)
-
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
 
@@ -672,8 +669,8 @@ def executeTests(String osName, String asicName, Map options) {
             // run offline autotests
             throw new Exception("Required 0 clients. Unexpected situation")
         } else if (requiredClientsNumber == 1) {
-            // run Live Mode autotests
-            // take one client as primary-client, and other clients as secondary-clients
+            // reboot to prevent appearing of Windows activation watermark
+            utils.reboot(this, osName)
             executeOfflineTests(osName, asicName, options)
         } else if (requiredClientsNumber > 1) {
             // run Live Mode autotests
@@ -686,6 +683,8 @@ def executeTests(String osName, String asicName, Map options) {
 
             threads["${options.stageName}-primary"] = { 
                 options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
+                // reboot to prevent appearing of Windows activation watermark
+                utils.reboot(this, osName)
                 executeLMTestsPrimary(osName, asicName, options)
             }
 
@@ -702,6 +701,8 @@ def executeTests(String osName, String asicName, Map options) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
                                 println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${clientNumber}")
+                                // reboot to prevent appearing of Windows activation watermark
+                                utils.reboot(this, osName)
                                 executeLMTestsSecondary(osName, asicName, options, clientNumber)
                             }
                         }
