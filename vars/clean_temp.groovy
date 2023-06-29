@@ -15,9 +15,14 @@ def getNodes(String label) {
 
 def cleanTemp(String agentName) {
     node("${agentName}") {
-        stage("Cleaning Temp directory on ${agentName}") {
-            File temp = new File("%APPDATA%\\Local\\Temp")
-            FileUtils.cleanDirectory(temp)
+        File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
+        if (dir.exists()) {
+            println("Cleaning %TEMP% on ${agentName}")
+            try {
+                FileUtils.cleanDirectory(temp)
+            } catch (Exception e) {
+                println("An error occured: ${e}")
+            }
         }
     }
 }
@@ -25,15 +30,21 @@ def cleanTemp(String agentName) {
 
 def clean() {
     def nodeList = getNodes("Windows")
+
+    Map nodesTasks = [:]
     
     for(i = 0; i < nodeList.size(); i++) {
         def agentName = nodeList[i]
 
         if (agentName != null) {
             println "Cleaning %TEMP% on " + agentName
-            cleanTemp(agentName)
+            nodesTasks[agentName] = {
+                cleanTemp(agentName)
+            }
         }
     }
+
+    parallel nodesTasks
 }
 
 
