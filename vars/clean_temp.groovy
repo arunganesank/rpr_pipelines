@@ -4,12 +4,16 @@ import jenkins.model.*
 
 
 @NonCPS
-def getNodes(String label) {
+def getNodes(List labels) {
+    List nodeNames = []
     jenkins.model.Jenkins.instance.nodes.collect { thisAgent ->
-        if (thisAgent.labelString.contains("${label}")) {
-            return thisAgent.name
+        labels.any {
+            if (thisAgent.labelString.contains("${it}")) {
+                nodeNames.add(thisAgent.name)
+            }
         }
     }
+    return nodeNames
 }
 
 
@@ -31,7 +35,7 @@ def cleanTemp(String agentName) {
 
 
 def clean() {
-    def nodeList = getNodes("Windows && Tester")
+    def nodeList = getNodes(["Windows", "Tester"])
 
     Map nodesTasks = [:]
     
