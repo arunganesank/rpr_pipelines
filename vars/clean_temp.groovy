@@ -7,7 +7,7 @@ import jenkins.model.*
 def getNodes(List labels) {
     jenkins.model.Jenkins.instance.nodes.collect { thisAgent ->
         println(thisAgent.labelString)
-        if (thisAgent.labelString.contains("${label}")) {
+        if (thisAgent.labelString.contains("${labels}")) {
             return thisAgent.name
         }
     }
