@@ -6,7 +6,6 @@ import jenkins.model.*
 @NonCPS
 def getNodes(String labels) {
     jenkins.model.Jenkins.instance.nodes.collect { thisAgent ->
-        println(thisAgent.labelString)
         if (thisAgent.labelString.contains("${labels}")) {
             return thisAgent.name
         }
@@ -16,16 +15,17 @@ def getNodes(String labels) {
 
 def cleanTemp(String agentName) {
     node("${agentName}") {
-        File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
-        if (temp.exists()) {
-            println("Cleaning %TEMP% on ${agentName}")
-            println("Files in directory (before): ${temp.list().length}")
-            try {
-                FileUtils.cleanDirectory(temp)
-            } catch (Exception e) {
-                println("An error occured: ${e}")
+        timeout(time: 20, unit: "MINUTES") {
+            File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
+            if (temp.exists()) {
+                println("Cleaning %TEMP% on ${agentName}")
+                try {
+                    FileUtils.cleanDirectory(temp)
+                    println("Cleaned ${agentName}")
+                } catch (Exception e) {
+                    println("An error occured: ${e}")
+                }
             }
-            println("Files in directory (after): ${temp.list().length}")
         }
     }
 }
