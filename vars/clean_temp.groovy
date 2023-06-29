@@ -18,25 +18,27 @@ def cleanTemp(String agentName) {
         File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
         if (temp.exists()) {
             println("Cleaning %TEMP% on ${agentName}")
+            println("Files in directory (before): ${temp.list().length}")
             try {
                 FileUtils.cleanDirectory(temp)
             } catch (Exception e) {
                 println("An error occured: ${e}")
             }
+            println("Files in directory (after): ${temp.list().length}")
         }
     }
 }
 
 
 def clean() {
-    def nodeList = getNodes("Windows")
+    def nodeList = getNodes("Windows && Tester")
 
     Map nodesTasks = [:]
     
     for(i = 0; i < nodeList.size(); i++) {
         def agentName = nodeList[i]
 
-        if (agentName != null) {
+        if ((agentName != null) and (agentName != env.NODE_NAME)) {
             println "Cleaning %TEMP% on " + agentName
             nodesTasks[agentName] = {
                 cleanTemp(agentName)
