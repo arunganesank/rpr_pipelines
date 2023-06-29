@@ -350,7 +350,7 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
         List filesNames = []
 
         dir("baselines") {
-            def files = findFiles(glob: "*")
+            def files = findFiles()
 
             for (file in files) {
                 filesNames << file.name
@@ -361,11 +361,11 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
             println("Detected baselines only for one client")
             uploadFiles("baselines/", baselinesPathProfile)
         } else {
-            println("Detected baselines only for multiple clients. Upload them separately")
+            println("Detected baselines for multiple clients. Upload them separately")
 
             dir("baselines") {
                 for (file in filesNames) {
-                    uploadFiles(file, "${baselinesPathProfile}-${file}")
+                    uploadFiles("${file}/", "${baselinesPathProfile}-${file}")
                 }
             }
         }
