@@ -4,7 +4,7 @@ import jenkins.model.*
 
 
 @NonCPS
-def getNodes(List labels) {
+def getNodes(String labels) {
     jenkins.model.Jenkins.instance.nodes.collect { thisAgent ->
         println(thisAgent.labelString)
         if (thisAgent.labelString.contains("${labels}")) {
