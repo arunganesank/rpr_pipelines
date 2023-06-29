@@ -30,21 +30,15 @@ def cleanTemp(String agentName) {
 
 def clean() {
     def nodeList = getNodes("Windows")
-
-    Map nodesTasks = [:]
     
     for(i = 0; i < nodeList.size(); i++) {
         def agentName = nodeList[i]
 
         if (agentName != null) {
             println "Cleaning %TEMP% on " + agentName
-            nodesTasks[agentName] = {
-                cleanTemp(agentName)
-            }
+            cleanTemp(agentName)
         }
     }
-
-    parallel nodesTasks
 }
 
 
