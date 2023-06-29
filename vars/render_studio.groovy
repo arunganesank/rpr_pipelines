@@ -61,6 +61,7 @@ String getLabels(Map options) {
 }
 
 
+// TODO: add possibility to use with priorities
 Boolean hasIdleClients(Map options) {
     int requiredClientsNumber = getNumberOfRequiredClients(options)
     println("Required ${requiredClientsNumber} client(s)")
@@ -1831,7 +1832,6 @@ def call(
                                 testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
-                                testsPreCondition: this.&hasIdleClients,
                                 testCaseRetries:testCaseRetries,
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,
