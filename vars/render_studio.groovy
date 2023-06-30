@@ -1299,11 +1299,11 @@ def saveHybridProLinks(Map options) {
     }
 
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/56/Artifacts/BaikalNext_Build-Windows.zip"
+        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/56/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
     }
 
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="https://rpr.cis.luxoft.com/job/HybridPro-Build-Auto/job/master/56/">[HybridPro] Link to the used HybridPro build</a></h3>""")
 }
 
 
