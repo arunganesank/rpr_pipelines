@@ -61,6 +61,7 @@ String getLabels(Map options) {
 }
 
 
+// TODO: add possibility to use with priorities
 Boolean hasIdleClients(Map options) {
     int requiredClientsNumber = getNumberOfRequiredClients(options)
     println("Required ${requiredClientsNumber} client(s)")
@@ -134,6 +135,7 @@ def uninstallAMDRenderStudio(String osName, Map options) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
 
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\Documents\\AMD RenderStudio Home")
     }
 }
 
@@ -258,7 +260,7 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 }
 
 
-def executeTestCommand(String osName, String asicName, Map options) {
+def executeTestCommand(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
     def testTimeout = options.timeouts["${options.tests}"]
     String testsNames
     String testsPackageName
@@ -281,23 +283,39 @@ def executeTestCommand(String osName, String asicName, Map options) {
     println "Set timeout to ${testTimeout}"
 
     timeout(time: testTimeout, unit: 'MINUTES') {
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
-                    bat """
-                        set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
-                break
-            case 'Web':
-                // TODO: rename system name
-                dir("scripts") {
-                    sh """
-                        set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
+        if (clientType == "offline") {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                case 'Web':
+                    // TODO: rename system name
+                    dir("scripts") {
+                        sh """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+            }
+        } else {
+            dir('scripts') {
+                String modeKey = getLiveModeKey(clientType, clientNumber)
+                String primaryClientIP = options["liveModeInfo"]["primary"]["ip"]
+                String primaryClientPort = options["liveModeInfo"]["primary"]["port"]
+
+                bat """
+                    set TOOL_VERSION=${options.version}
+                    run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" desktop ${modeKey} ${primaryClientIP} ${primaryClientPort} ^
+                    ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${modeKey}_${options.currentTry}.log\"  2>&1
+                """
+            }
         }
     }
 }
@@ -314,8 +332,6 @@ def checkoutAutotests(Map options) {
 
 
 def prepareAMDRenderStudio(String osName, Map options, String clientType, int clientNumber = -1) {
-    // TODO: use clientType variable
-    // TODO: do specific steps for Live Mode activation
     if (osName == "Windows") {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
             timeout(time: "10", unit: "MINUTES") {
@@ -366,14 +382,19 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 
 
 def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
-    // TODO: use clientType variable
-    options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+    if (clientType == "offline") {
+        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+    } else {
+        String modeKey = getLiveModeKey(clientType, clientNumber)
+        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}-${modeKey}"
+    }
 
-    outputEnvironmentInfo("Windows", "", options.currentTry)
+    String logName = clientType == "offline" ? "" : "${STAGE_NAME}_${clientType}"
+    outputEnvironmentInfo("Windows", logName, options.currentTry)
 
     if (options["updateRefs"].contains("Update")) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-            executeTestCommand("Windows", asicName, options)
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
             executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
             uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
             // delete generated baselines when they're sent 
@@ -394,7 +415,7 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             }
         }
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-            executeTestCommand("Windows", asicName, options)
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
         }
     }
 }
@@ -437,7 +458,6 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
         stashPostfix = "_${modeKey}"
     }
 
-    // TODO: implement merging on the side of the primary client
     if (clientType == "primary") {
         for (key in options["liveModeInfo"].keySet()) {
             if (key == "primary") {
@@ -453,14 +473,34 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
             }
         }
 
-        return
+        println("All secondary clients stashed results. Start results merge")
+
+        List secondaryResutlsDirs = []
+
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            dir("Work") {
+                makeUnstash(name: "${options.testResultsName}_${key}_artifacts", storeOnNAS: options.storeOnNAS)
+            }
+            dir(key) {
+                makeUnstash(name: "${options.testResultsName}_${key}_data", storeOnNAS: options.storeOnNAS)
+                secondaryResutlsDirs.add("..\\${key}")
+            }
+        }
+
+        dir ("scripts") {
+            python3("unite_results.py --primary_results_dir ..\\Work --secondary_results_dirs ${secondaryResutlsDirs.join(',')}")
+        }
     }
 
     try {
         dir(options.stageName) {
             utils.moveFiles(this, "Windows", "../*.log", ".")
             utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
-            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_${options.currentTry}.log")
+            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_engine_${options.currentTry}.log")
         }
         archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
         if (options["stashResults"]) {
@@ -470,7 +510,8 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
 
                     if (clientType == "secondary") {
                         // save results to merge them on the primary client
-                        makeStash(includes: "**/*", name: "${options.testResultsName}${stashPostfix}", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*.log,**/*.jpg,**/*.webp', name: "${options.testResultsName}${stashPostfix}_artifacts", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: "**/*.json", name: "${options.testResultsName}${stashPostfix}_data", storeOnNAS: options.storeOnNAS)
                         options["liveModeInfo"][modeKey]["stashed"] = true
                     } else {
                         def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
@@ -541,6 +582,12 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 
 def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
     String modeKey = getLiveModeKey(clientType, clientNumber)
+
+    if (clientType == "primary") {
+        options["liveModeInfo"][modeKey]["ip"] = getIpAddress()
+        options["liveModeInfo"][modeKey]["port"] = getCommunicationPort()
+    }
+
     options["liveModeInfo"][modeKey]["ready"] = true
 
     for (key in options["liveModeInfo"].keySet()) {
@@ -557,9 +604,18 @@ def syncLMClients(String osName, Map options, String clientType, int clientNumbe
 }
 
 
-def getCommunicationPort(Map options) {
-    // always use port 10000 to synchronize autotests
-    return "10000"
+def getIpAddress() {
+    for (line in bat(script: "ipconfig",returnStdout: true).split("\n")) {
+        if (line.contains("172.19")) {
+            return line.split("IPv4 Address")[1].split(":")[1].split()[0].trim()
+        }
+    }
+}
+
+
+def getCommunicationPort() {
+    // always use port 20000 to synchronize autotests
+    return "20000"
 }
 
 
@@ -607,9 +663,6 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     options["stashResults"] = true
 
-    // reboot to prevent appearing of Windows activation watermark
-    utils.reboot(this, osName)
-
     try {
         int requiredClientsNumber = getNumberOfRequiredClients(options)
 
@@ -617,8 +670,8 @@ def executeTests(String osName, String asicName, Map options) {
             // run offline autotests
             throw new Exception("Required 0 clients. Unexpected situation")
         } else if (requiredClientsNumber == 1) {
-            // run Live Mode autotests
-            // take one client as primary-client, and other clients as secondary-clients
+            // reboot to prevent appearing of Windows activation watermark
+            utils.reboot(this, osName)
             executeOfflineTests(osName, asicName, options)
         } else if (requiredClientsNumber > 1) {
             // run Live Mode autotests
@@ -631,6 +684,8 @@ def executeTests(String osName, String asicName, Map options) {
 
             threads["${options.stageName}-primary"] = { 
                 options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
+                // reboot to prevent appearing of Windows activation watermark
+                utils.reboot(this, osName)
                 executeLMTestsPrimary(osName, asicName, options)
             }
 
@@ -647,6 +702,8 @@ def executeTests(String osName, String asicName, Map options) {
                         timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                             ws("WS/${options.PRJ_NAME}_Test") {
                                 println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${clientNumber}")
+                                // reboot to prevent appearing of Windows activation watermark
+                                utils.reboot(this, osName)
                                 executeLMTestsSecondary(osName, asicName, options, clientNumber)
                             }
                         }
@@ -1789,7 +1846,6 @@ def call(
                                 testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
-                                testsPreCondition: this.&hasIdleClients,
                                 testCaseRetries:testCaseRetries,
                                 executeBuild: !skipBuild,
                                 customBuildLinkWindows:customBuildLinkWindows,

@@ -346,7 +346,29 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
     ]) {
 
         python3("${WORKSPACE}\\jobs_launcher\\common\\scripts\\generate_baselines.py --results_root ${resultsDirectory} --baseline_root baselines")
-        uploadFiles("baselines/", baselinesPathProfile)
+
+        List filesNames = []
+
+        dir("baselines") {
+            def files = findFiles()
+
+            for (file in files) {
+                filesNames << file.name
+            }
+        }
+
+        if (filesNames.contains("Color")) {
+            println("Detected baselines only for one client")
+            uploadFiles("baselines/", baselinesPathProfile)
+        } else {
+            println("Detected baselines for multiple clients. Upload them separately")
+
+            dir("baselines") {
+                for (file in filesNames) {
+                    uploadFiles("${file}/", "${baselinesPathProfile}-${file}")
+                }
+            }
+        }
 
         bat """
             if exist ${resultsDirectory} rmdir /Q /S ${resultsDirectory}
