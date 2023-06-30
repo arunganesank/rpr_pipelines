@@ -40,11 +40,15 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
         return true
     }
 
-    if (engine == "HybridPro" && osName == "OSX") {
+    if (engine == "HybridPro" && osName == "MacOS_ARM") {
         return true
     }
 
     return false
+}
+
+Boolean hipbinSaved(Map options) {
+    return options.hipbinSaved
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
@@ -286,6 +290,7 @@ def executeBuildWindows(Map options) {
                 dir("../../hipbin") {
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                    options.hipbinSaved = true
                 }
             }
         }
@@ -329,6 +334,7 @@ def executeBuildOSX(Map options) {
 
                     sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                    options.hipbinSaved = true
                 }
             }
         }
@@ -356,6 +362,7 @@ def executeBuildLinux(String osName, Map options) {
                 dir("../../hipbin") {
                     sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
+                    options.hipbinSaved = true
                 }
             }
         }
@@ -827,7 +834,8 @@ def call(String projectBranch = "",
                         storeOnNAS: true,
                         flexibleUpdates: true,
                         skipCallback: this.&filter,
-                        hipbinDownloadedOS: hipbinDownloadedOS
+                        hipbinDownloadedOS: hipbinDownloadedOS,
+                        testsPreCondition: this.&hipbinSaved
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
