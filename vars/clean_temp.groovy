@@ -16,8 +16,9 @@ def cleanTemp(String agentName) {
     node("${agentName}") {
         timeout(time: 20, unit: "MINUTES") {
             try {
-                utils.removeDir(this, "Windows", "C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
-                println("Cleaned ${agentName}")
+                String temp = "C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp"
+                utils.removeDir(this, "Windows", temp)
+                println(bat (script: "if exist \"${temp}\" dir \"${temp}\" else echo \"Temp dir doesn't exist\"", returnStdout: true))
             } catch (Exception e) {
                 println("An error occured: ${e}")
             }
