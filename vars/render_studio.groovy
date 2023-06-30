@@ -1130,13 +1130,10 @@ def patchEngine(Map options) {
     } else if (options.customHybridWin && !isUnix()) {
         downloadFiles(options.customHybridWin, ".")
 
-        unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
+        unzip dir: '.', glob: '', zipFile: 'RenderStudioRPRSDK.zip'
 
         bat """
-            copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
-            copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-            copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-            copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
+            xcopy /Y/E RadeonProRender\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender
         """
 
         dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
@@ -1275,7 +1272,7 @@ def fillDescription(Map options) {
 
 
 def saveHybridProLinks(Map options) {
-    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/56/api/json?tree=number,url,description"
+    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
 
     def rawInfo = httpRequest(
         url: url,
@@ -1285,16 +1282,13 @@ def saveHybridProLinks(Map options) {
 
     def parsedInfo = parseResponse(rawInfo.content)
 
-    Integer hybridBuildNumber = parsedInfo.number
-    String hybridBuildUrl = parsedInfo.url
-    options.hybridProSHA = parsedInfo.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
+    options.hybridProSHA = "RRPSDK 46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa"
 
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+        options.customHybridWin = "/volume1/CIS/bin-storage/RenderStudioRPRSDK.zip"
     }
 
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="https://github.com/GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK/commit/46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa">[HybridPro] Link to the used HybridPro build</a></h3>""")
 }
 
 
