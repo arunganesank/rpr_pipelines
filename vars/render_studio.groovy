@@ -1275,7 +1275,7 @@ def fillDescription(Map options) {
 
 
 def saveHybridProLinks(Map options) {
-    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
+    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/56/api/json?tree=number,url,description"
 
     def rawInfo = httpRequest(
         url: url,
@@ -1285,25 +1285,16 @@ def saveHybridProLinks(Map options) {
 
     def parsedInfo = parseResponse(rawInfo.content)
 
-    Integer hybridBuildNumber
-    String hybridBuildUrl
-
-    if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-        hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
-        hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
-        options.hybridProSHA = parsedInfo.lastSuccessfulBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
-    } else {
-        hybridBuildNumber = parsedInfo.lastUnstableBuild.number
-        hybridBuildUrl = parsedInfo.lastUnstableBuild.url
-        options.hybridProSHA = parsedInfo.lastUnstableBuild.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
-    }
+    Integer hybridBuildNumber = parsedInfo.number
+    String hybridBuildUrl = parsedInfo.url
+    options.hybridProSHA = parsedInfo.description.split("Commit SHA:</b>")[1].split("<br/>")[0]
 
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/56/Artifacts/BaikalNext_Build-Windows.zip"
-        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/56/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
+        options.customHybridWin = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
+        options.customHybridLinux = "/volume1/web/HybridPro-Build-Auto/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
     }
 
-    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="https://rpr.cis.luxoft.com/job/HybridPro-Build-Auto/job/master/56/">[HybridPro] Link to the used HybridPro build</a></h3>""")
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
 }
 
 
