@@ -1,5 +1,4 @@
 import groovy.transform.Field
-import org.apache.commons.io.FileUtils
 import jenkins.model.*
 
 
@@ -16,15 +15,11 @@ def getNodes(String labels) {
 def cleanTemp(String agentName) {
     node("${agentName}") {
         timeout(time: 20, unit: "MINUTES") {
-            File temp = new File("C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
-            if (temp.exists()) {
-                println("Cleaning %TEMP% on ${agentName}")
-                try {
-                    FileUtils.cleanDirectory(temp)
-                    println("Cleaned ${agentName}")
-                } catch (Exception e) {
-                    println("An error occured: ${e}")
-                }
+            try {
+                utils.removeDir(this, "Windows", "C:\\Users\\${env.USERNAME}\\AppData\\Local\\Temp")
+                println("Cleaned ${agentName}")
+            } catch (Exception e) {
+                println("An error occured: ${e}")
             }
         }
     }
@@ -40,7 +35,7 @@ def clean() {
         def agentName = nodeList[i]
 
         if (agentName != env.NODE_NAME && agentName != null) {
-            println "Cleaning %TEMP% on " + agentName
+            println "Removing %TEMP% on " + agentName
             nodesTasks[agentName] = {
                 cleanTemp(agentName)
             }
@@ -53,7 +48,7 @@ def clean() {
 
 def call(){
     timestamps {
-        stage("Clean Temp directory") {
+        stage("Remove Temp directory") {
             node("Windows && PreBuild") {
                 clean()
             }
