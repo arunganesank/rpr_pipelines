@@ -739,12 +739,12 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
         if (isUnix()) {
             sh """
                 export OS=
-                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.RS.log 2>&1
             """
         } else {
             bat """
-                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.RS.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.RS.log 2>&1
             """
         }
 
@@ -764,12 +764,12 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     if (isUnix()) {
         sh """
             export OS=
-            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.RS.log 2>&1
         """
     } else {
         bat """
-            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.RS.log 2>&1
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.RS.log 2>&1
         """
     }
 }
@@ -819,10 +819,11 @@ def executeBuildWindows(Map options, boolean saveBinaries = true) {
             try {
                 withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
                     bat """
-                        cmake --version >> ${STAGE_NAME}.Build.log 2>&1
-                        python--version >> ${STAGE_NAME}.Build.log 2>&1
-                        python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
-                        if not exist Build mkdir Build
+                        cmake --version >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        python--version >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        python -m pip install conan >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        if exist Build rmdir Build /q /s
+                        mkdir Build
                         echo [WebRTC] >> Build\\LocalBuildConfig.txt
                         echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
                         echo [AMF] >> Build/LocalBuildConfig.txt
@@ -834,7 +835,7 @@ def executeBuildWindows(Map options, boolean saveBinaries = true) {
                     println("[INFO] Start building installer")
 
                     bat """
-                        python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
+                        python Tools/Package.py -v >> ${STAGE_NAME}.Package.RS.log 2>&1
                     """
 
                     println("[INFO] Saving exe files to NAS")
@@ -880,7 +881,7 @@ def executeBuildWindows(Map options, boolean saveBinaries = true) {
                 def exception = e
 
                 try {
-                    String buildLogContent = readFile("${STAGE_NAME}.Build.log")
+                    String buildLogContent = readFile("${STAGE_NAME}.Build.RS.log")
                     if (buildLogContent.contains("CMake error : Cannot restore timestamp")) {
                         exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
 
