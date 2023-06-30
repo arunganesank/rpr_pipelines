@@ -454,69 +454,27 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     withEnv(["PATH=c:\\python37\\;c:\\CMake323\\bin;c:\\python37\\scripts\\;${PATH}", "WORKSPACE=${env.WORKSPACE.toString().replace('\\', '/')}"]) {
-        dir("RPRViewer") {
-            outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
+        dir("RenderStudio") {
+            // build Render Studio installer
+            options.deployEnvironment = "prod"
+            options.rebuildUSD = true
+            options.saveUSD = false
 
-            // vcvars64.bat sets VS/msbuild env
-            withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.HdRPRPlugin.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-
-                    RPRViewer\\tools\\build_usd_windows.bat >> ..\\${STAGE_NAME}.USDPixar.log 2>&1
-                """
-
-                bat """
-                    RPRViewer\\tools\\build_hdrpr_windows.bat >> ..\\${STAGE_NAME}.HdRPRPlugin.log 2>&1
-                """
-
-                bat """
-                    RPRViewer\\tools\\build_compatibility_checker_windows.bat >> ..\\${STAGE_NAME}.CompatibilityChecker.log 2>&1
-                """
-            }
-            String buildName = "RadeonProUSDViewer_Windows.zip"
-            withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_PACKAGE_USD_VIEWER)  {
-                // delete files before zipping
-                bat """
-                    del RPRViewer\\binary\\windows\\inst\\pxrConfig.cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\include
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\lib\\cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\lib\\pkgconfig
-                    del RPRViewer\\binary\\windows\\inst\\bin\\*.lib
-                    del RPRViewer\\binary\\windows\\inst\\bin\\*.pdb
-                    del RPRViewer\\binary\\windows\\inst\\lib\\*.lib
-                    del RPRViewer\\binary\\windows\\inst\\lib\\*.pdb
-                    del RPRViewer\\binary\\windows\\inst\\plugin\\usd\\*.lib
-                """
-
-                withEnv(["PYTHONPATH=%INST%\\lib\\python;%INST%\\lib"]) {
-                    bat """
-                        RPRViewer\\tools\\build_package_windows.bat >> ..\\${STAGE_NAME}.USDViewerPackage.log 2>&1
-                    """
-
-                    //TODO: remove after fix
-                    bat """
-                        copy LICENSE.txt RPRViewer\\LICENSE.txt
-                    """
-
-                    dir("RPRViewer") {
-                        bat """
-                            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" installer.iss >> ..\\..\\${STAGE_NAME}.USDViewerInstaller.log 2>&1
-                            move RPRViewer_Setup.exe ..\\..\\RPRViewer_Setup.exe
-                        """
-                    }
-                }
-            }
+            render_studio.patchEngine(options)
+            render_studio.executeBuildWindows(options, false)
         }
 
-        dir("tools") {
-            bat """
-                build_releases.cmd >> ..\\${STAGE_NAME}.BuildReleases.log 2>&1
-            """
-        }
+        utils.moveFiles(this, "Windows", "RenderStudio\\Frontend\\dist_electron\\*.msi", ".")
+        utils.renameFile(this, "Windows", "*.msi", "AMD_RenderStudio.msi")
+
+        utils.reboot(this, "Windows")
 
         bat """
-            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.RPRInventorPluginInstaller.log 2>&1
+            tools\\build_releases.cmd >> ${STAGE_NAME}.BuildReleases.Inventor.log 2>&1
+        """
+
+        bat """
+            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.BuildInstaller.Inventor.log 2>&1
         """
 
         makeStash(includes: "RPRInventorPlugin_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
@@ -669,6 +627,8 @@ def executePreBuild(Map options) {
         options.commitMessage = utils.getBatOutput(this, "git log --format=%%s -n 1").replace('\n', '')
         options.commitSHA = utils.getBatOutput(this, "git log --format=%%H -1 ")
         options.branchName = env.BRANCH_NAME ?: options.projectBranch
+
+        render_studio.saveHybridProLinks(options)
 
         println """
             The last commit was written by ${options.commitAuthor}.
