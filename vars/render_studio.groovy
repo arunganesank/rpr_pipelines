@@ -336,7 +336,7 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
             timeout(time: "10", unit: "MINUTES") {
                 try {
-                    getProduct("Windows", options, "", false)
+                    getProduct("Windows", options)
                     runApplicationTests(osName, options)
                 } catch (e) {
                     if (e instanceof ExpectedExceptionWrapper) {

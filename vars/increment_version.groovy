@@ -210,7 +210,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                     return updateVersion(
                         projectRepo,
                         null,
-                        null,
+                        "main",
                         "VERSION.txt",
                         versionIndex[toIncrement],
                     )
@@ -221,7 +221,7 @@ def call(String projectRepo = "RPR Blender", String toIncrement = "Patch", Boole
                     return updateVersion(
                         toolParams[projectRepo]["toolName"],
                         null,
-                        null,
+                        toolParams[projectRepo]["branchName"],
                         toolParams[projectRepo]["versionPath"],
                         versionIndex[toIncrement],
                         prefix,
