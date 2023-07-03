@@ -25,8 +25,9 @@ def checkComputer(node) {
 
         // Check if all executors on the node are stuck
         if (node.getNumExecutors() == stuckExecutors) {
-            echo "Node ${node.displayName} is likely stuck"
-            SlackUtils.sendMessageToWorkspaceChannel(self, '', oldDriverMessage, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'cis_notifications')
+            def message = "Node ${node.displayName} is likely stuck"
+            echo message
+            SlackUtils.sendMessageToWorkspaceChannel('', message, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'cis_notifications')
         }
     }
 }
