@@ -1,4 +1,4 @@
-static def checkNodes() {
+def checkNodes() {
     // Get all the nodes
     def nodes = Jenkins.instance.nodes
 
