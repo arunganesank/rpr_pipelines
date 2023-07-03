@@ -310,11 +310,13 @@ def executeTestCommand(String osName, String asicName, Map options, String clien
                 String primaryClientIP = options["liveModeInfo"]["primary"]["ip"]
                 String primaryClientPort = options["liveModeInfo"]["primary"]["port"]
 
-                bat """
-                    set TOOL_VERSION=${options.version}
-                    run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" desktop ${modeKey} ${primaryClientIP} ${primaryClientPort} ^
-                    ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${modeKey}_${options.currentTry}.log\"  2>&1
-                """
+                withEnv(["RENDER_STUDIO_LIVE_CHANNEL_NAME=auto_${primaryClientIP}"]) {
+                    bat """
+                        set TOOL_VERSION=${options.version}
+                        run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" desktop ${modeKey} ${primaryClientIP} ${primaryClientPort} ^
+                        ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${modeKey}_${options.currentTry}.log\"  2>&1
+                    """
+                }
             }
         }
     }
