@@ -357,7 +357,9 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
             }
         }
 
-        if (filesNames.contains("Color")) {
+        println(filesNames)
+
+        if (!filesNames.contains("primary")) {
             println("Detected baselines only for one client")
             uploadFiles("baselines/", baselinesPathProfile)
         } else {
@@ -370,10 +372,7 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
             }
         }
 
-        bat """
-            if exist ${resultsDirectory} rmdir /Q /S ${resultsDirectory}
-            if exist baselines rmdir /Q /S baselines
-        """
+
     }
 }
 
