@@ -357,17 +357,21 @@ def saveBaselines(String jobName, String buildID, String baselinesPathProfile, S
             }
         }
 
-        if (!filesNames.contains("primary")) {
-            println("Detected baselines only for one client")
-            uploadFiles("baselines/", baselinesPathProfile)
-        } else {
-            println("Detected baselines for multiple clients. Upload them separately")
+        if (filesNames.size() > 0) {
+            if (!filesNames.contains("primary")) {
+                println("Detected baselines only for one client")
+                uploadFiles("baselines/", baselinesPathProfile)
+            } else {
+                println("Detected baselines for multiple clients. Upload them separately")
 
-            dir("baselines") {
-                for (file in filesNames) {
-                    uploadFiles("${file}/", "${baselinesPathProfile}-${file}")
+                dir("baselines") {
+                    for (file in filesNames) {
+                        uploadFiles("${file}/", "${baselinesPathProfile}-${file}")
+                    }
                 }
             }
+        } else {
+            println("No baselines were generated")
         }
 
         bat """
