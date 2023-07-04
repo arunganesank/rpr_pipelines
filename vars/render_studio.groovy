@@ -1449,7 +1449,7 @@ def executePreBuild(Map options) {
                 options.tests = tempTests
 
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.modes.each { mode ->
@@ -1486,7 +1486,7 @@ def executePreBuild(Map options) {
             } else if (options.tests) {
                 options.tests =  options.tests.split(" ") as List
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.modes.each { mode ->
