@@ -128,7 +128,20 @@ def executeTests(String osName, String asicName, Map options)
 
                 if (options.engine == "Northstar64") {
                     dir("rprSdk/hipbin") {
-                        downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
+                        if (options.customHipBin) {
+                            if (isUnix()) {
+                                sh """
+                                    curl --retry 5 -L -J -o hipbin.zip "${options.customHipBin}"
+                                """
+                            } else {
+                                bat """
+                                    curl --retry 5 -L -J -o hipbin.zip "${options.customHipBin}"
+                                """
+                            }
+                        } else {
+                            downloadFiles("/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/hipbin.zip", ".")
+                        }
+                        
                         utils.unzip(this, "hipbin.zip")
                     }
                 }
@@ -705,7 +718,7 @@ def call(String projectBranch = "",
          String customBuildLinkWindows = "",
          String customBuildLinkUbuntu18 = "",
          String customBuildLinkUbuntu20 = "",
-         String customBuildLinkOSX = "",
+         String customBuildLinkMacOSARM = "",
          String customHipBin = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
@@ -725,7 +738,7 @@ def call(String projectBranch = "",
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
             enginesNamesList = enginesNames.split(',') as List
 
-            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkOSX || customBuildLinkUbuntu18 || customBuildLinkUbuntu20
+            Boolean isPreBuilt = customBuildLinkWindows || customBuildLinkMacOSARM || customBuildLinkUbuntu18 || customBuildLinkUbuntu20
 
             if (isPreBuilt) {
                 //remove platforms for which pre built plugin is not specified
@@ -743,7 +756,7 @@ def call(String projectBranch = "",
                             break
                         case 'OSX':
                         case 'MacOS_ARM':
-                            if (customBuildLinkOSX) {
+                            if (customBuildLinkMacOSARM) {
                                 filteredPlatforms = appendPlatform(filteredPlatforms, platform)
                             }
                             break
@@ -831,7 +844,7 @@ def call(String projectBranch = "",
                         customBuildLinkUbuntu18: customBuildLinkUbuntu18,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
                         customHipBin: customHipBin,
-                        customBuildLinkOSX: customBuildLinkOSX,
+                        customBuildLinkMacOSARM: customBuildLinkMacOSARM,
                         splitTestsExecution: false,
                         storeOnNAS: true,
                         flexibleUpdates: true,
