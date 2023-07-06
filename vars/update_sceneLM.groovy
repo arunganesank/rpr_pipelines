@@ -3,13 +3,10 @@ import groovy.transform.Field
 import utils
 
 
-@Field final String folderPath = "/volume1/Shared/Art NAS files/USDScenes"
-
-
 def getLatestName() {
     withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
         def fileNames = bat(returnStdout: true, script: '%CIS_TOOLS%\\' 
-            + "listFiles.bat \"${folderPath}\" " + '%REMOTE_HOST% %SSH_PORT% -t').split("\n") as List
+            + "listFiles.bat \"/volume1/Shared/Art_NAS_files/USDScenes\" " + '%REMOTE_HOST% %SSH_PORT% -t').split("\n") as List
             println(fileNames)
         return fileNames[0]
     }
@@ -22,7 +19,7 @@ def call() {
             node("Windows && PreBuild") {
                 def fileName = getLatestName()
                 println(fileName)
-                downloadFiles("${folderPath}/${fileName}", ".")
+                downloadFiles("/volume1/Shared/Art_NAS_files/USDScenes/${fileName}", ".")
 
                 unzip(zipFile: fileName)
 
