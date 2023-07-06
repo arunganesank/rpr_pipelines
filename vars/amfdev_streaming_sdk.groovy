@@ -1126,7 +1126,7 @@ def executeTests(String osName, String asicName, Map options) {
 
     try {
 
-        amdDriverUpdate(productionDriver = False, platforms = options.platforms)
+        utils.updateDriver(options, osName, "")
 
         if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
