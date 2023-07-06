@@ -147,11 +147,18 @@ def uninstallAMDRenderStudio(String osName, Map options) {
         println("[INFO] Clearing caches...")
         for (cache in caches) {
             if (fileExists(cache)) {
-                dir(cache) {
-                    utils.clearCurrentDir(this, "Windows")
+                try {
+                    bat """
+                        del /q ${cache}\\*.*
+                        for /d %i in (${cache}\\*.*) do @rmdir /s /q "%i"
+                    """
+                    println("[INFO] Path \"${cache}\" is cleared.")
+                    println(e.toString())
+                    println(e.getMessage())
+                } catch(Exception e) {
+                    println("[ERROR] Can't clear directory")
                 }
             }
-            println("[INFO] Path \"${cache}\" is cleared.")
         }
     }
 }
