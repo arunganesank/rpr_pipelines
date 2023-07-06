@@ -838,7 +838,7 @@ def call(String projectBranch = "",
                         skipCallback: this.&filter,
                         hipbinDownloadedOS: hipbinDownloadedOS,
                         testsPreCondition: this.&hipbinSaved,
-                        state: []
+                        state: [:]
                         ]
 
             options["state"]["hipbinSaved"] = customHipBin != ""

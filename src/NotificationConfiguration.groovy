@@ -785,5 +785,5 @@ public class NotificationConfiguration {
 
     def static UPDATE_USD_WITHOUT_REBUILD = "<b>The saveUSD parameter is selected, but the rebuildUSD parameter is unselected.</b> Please, check the correctness of the selected values and restart the build."
 
-    def static EMPTY_HIPBIN_LINK = "<b>The customHipBin parameter is empty</b> This parameter is mandatory in case of prebuilt RPR SDK."
+    def static EMPTY_HIPBIN_LINK = "<b>The customHipBin parameter is empty</b> This parameter is mandatory in case of prebuilt RPR SDK. Please, provide it in a new build."
 }
