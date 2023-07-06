@@ -25,7 +25,8 @@ def call() {
 
                 def folderName = fileName.take(fileName.lastIndexOf("."))
                 println(folderName)
-                uploadFiles("./${folderName}", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
+                uploadFiles("./${folderName}/usd", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
+                uploadFiles("./${folderName}/Scene002.blend", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
             }
         }
     }
