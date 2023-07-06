@@ -24,6 +24,13 @@ import TestsExecutionType
     ]
 )
 
+@Field final List caches = [
+    "C:\\Program Files\\AMD\\AMD RenderStudio",
+    "C:\\ProgramData\\AMD\\AMD RenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\RenderStudio"
+]
+
 
 int getNumberOfRequiredClients(Map options) {
     // at least one client is required for offline autotests
@@ -136,6 +143,16 @@ def uninstallAMDRenderStudio(String osName, Map options) {
 
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\Documents\\AMD RenderStudio Home")
+
+        println("[INFO] Clearing caches...")
+        for (cache in caches) {
+            if (fileExists(cache)) {
+                dir(cache) {
+                    utils.clearCurrentDir(this, "Windows")
+                }
+            }
+            println("[INFO] Path \"${cache}\" is cleared.")
+        }
     }
 }
 
