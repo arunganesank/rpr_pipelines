@@ -48,7 +48,7 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
 }
 
 Boolean hipbinSaved(Map options) {
-    return options.hipbinSaved
+    return options["state"]["hipbinSaved"]
 }
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
@@ -290,7 +290,7 @@ def executeBuildWindows(Map options) {
                 dir("../../hipbin") {
                     bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
-                    options.hipbinSaved = true
+                    options["state"]["hipbinSaved"] = true
                 }
             }
         }
@@ -334,7 +334,7 @@ def executeBuildOSX(Map options) {
 
                     sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
-                    options.hipbinSaved = true
+                    options["state"]["hipbinSaved"] = true
                 }
             }
         }
@@ -362,7 +362,7 @@ def executeBuildLinux(String osName, Map options) {
                 dir("../../hipbin") {
                     sh(script: 'zip -r' + " hipbin.zip .")
                     makeArchiveArtifacts(name: "hipbin.zip", storeOnNAS: options.storeOnNAS)
-                    options.hipbinSaved = true
+                    options["state"]["hipbinSaved"] = true
                 }
             }
         }
@@ -706,6 +706,7 @@ def call(String projectBranch = "",
          String customBuildLinkUbuntu18 = "",
          String customBuildLinkUbuntu20 = "",
          String customBuildLinkOSX = "",
+         String customHipBin = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
@@ -829,14 +830,18 @@ def call(String projectBranch = "",
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu18: customBuildLinkUbuntu18,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
+                        customHipBin: customHipBin,
                         customBuildLinkOSX: customBuildLinkOSX,
                         splitTestsExecution: false,
                         storeOnNAS: true,
                         flexibleUpdates: true,
                         skipCallback: this.&filter,
                         hipbinDownloadedOS: hipbinDownloadedOS,
-                        testsPreCondition: this.&hipbinSaved
+                        testsPreCondition: this.&hipbinSaved,
+                        state: []
                         ]
+
+            options["state"]["hipbinSaved"] = customHipBin != ""
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
                 validateParameters(options)

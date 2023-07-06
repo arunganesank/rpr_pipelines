@@ -26,11 +26,15 @@ def call(Map options) {
         "customBuildLinkMacOSARM",
         "customBuildLinkLinux",
         "customBuildLinkUbuntu18",
-        "customBuildLinkUbuntu20"
+        "customBuildLinkUbuntu20",
+        "customHipBin"
     ]
+
+    Boolean isPreBuilt = false
 
     for (paramName in customLinkParams) {
         if (options.containsKey(paramName) && options[paramName]) {
+            isPreBuilt = true
             // check only that URL is valid (ignore status code and timeout exceptions)
             try {
                 def response = httpRequest(
@@ -48,6 +52,11 @@ def call(Map options) {
                 // ignore any other exception
             }
         }
+    }
+
+    if (isPreBuilt && options.containsKey("customHipBin") && !options["customHipBin"]) {
+        options.problemMessageManager.saveSpecificFailReason(NotificationConfiguration.EMPTY_HIPBIN_LINK, "Init")
+        validationPassed = false
     }
 
     if (options.containsKey("engines") && (options["engines"].size() == 0 || options["engines"][0] == "")) {
