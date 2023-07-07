@@ -153,10 +153,10 @@ def uninstallAMDRenderStudio(String osName, Map options) {
                         for /d %i in (\"${cache}\\*.*\") do @rmdir /s /q "%i"
                     """
                     println("[INFO] Path \"${cache}\" is cleared.")
-                    println(e.toString())
-                    println(e.getMessage())
                 } catch(Exception e) {
                     println("[ERROR] Can't clear directory")
+                    println(e.toString())
+                    println(e.getMessage())
                 }
             }
         }
