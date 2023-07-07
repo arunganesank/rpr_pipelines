@@ -150,7 +150,7 @@ def uninstallAMDRenderStudio(String osName, Map options) {
                 try {
                     bat """
                         del /q \"${cache}\"
-                        for /d %i in (\"${cache}\\*.*\") do @rmdir /s /q "%i"
+                        for /d %i in (\"${cache}\") do @rmdir /s /q "%i"
                     """
                     println("[INFO] Path \"${cache}\" is cleared.")
                 } catch(Exception e) {
