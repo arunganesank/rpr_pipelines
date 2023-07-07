@@ -2,16 +2,6 @@ import groovy.transform.Field
 import jenkins.model.*
 
 
-@NonCPS
-def getNodes(String labels) {
-    jenkins.model.Jenkins.instance.nodes.collect { thisAgent ->
-        if (thisAgent.labelString.contains("${labels}")) {
-            return thisAgent.name
-        }
-    }
-}
-
-
 def cleanTemp(String agentName) {
     node("${agentName}") {
         timeout(time: 20, unit: "MINUTES") {
@@ -28,7 +18,7 @@ def cleanTemp(String agentName) {
 
 
 def clean() {
-    def nodeList = getNodes("Windows Tester")
+    List nodeList = nodesByLabel label: "Windows && Tester", offline: false
 
     Map nodesTasks = [:]
     
