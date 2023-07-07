@@ -149,8 +149,8 @@ def uninstallAMDRenderStudio(String osName, Map options) {
             if (fileExists(cache)) {
                 try {
                     bat """
-                        del /q ${cache}\\*.*
-                        for /d %i in (${cache}\\*.*) do @rmdir /s /q "%i"
+                        del /q \"${cache}\"
+                        for /d %i in (\"${cache}\\*.*\") do @rmdir /s /q "%i"
                     """
                     println("[INFO] Path \"${cache}\" is cleared.")
                     println(e.toString())
