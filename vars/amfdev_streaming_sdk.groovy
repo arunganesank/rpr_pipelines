@@ -1126,7 +1126,9 @@ def executeTests(String osName, String asicName, Map options) {
 
     try {
 
-        driversSelection(options, osName, "")
+        options["driverVersion"] = ""
+        // options["driverVersion"] = "23.5.1"
+        driversSelection(options.driverVersion, osName, "")
 
         if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
