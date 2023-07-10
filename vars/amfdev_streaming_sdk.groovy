@@ -2174,7 +2174,7 @@ def call(String projectBranch = "",
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
-                        retriesForTestStage:1,
+                        retriesForTestStage:2,
                         collectStreamingDump:collectStreamingDump
                         ]
         }
