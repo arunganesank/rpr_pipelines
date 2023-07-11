@@ -731,6 +731,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        driversSelection(options.driverVersion, osName, "server")
         killAdbServer()
 
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
@@ -1128,8 +1129,6 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        driversSelection(options.driverVersion, osName, "server")
-
         if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
             options["serverInfo"] = new ConcurrentHashMap()
