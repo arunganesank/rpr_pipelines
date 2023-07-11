@@ -2047,7 +2047,8 @@ def call(String projectBranch = "",
     Boolean collectInternalDriverVersion = false,
     String skipBuild = "",
     String inGameResolution = "1920x1080",
-    Boolean collectStreamingDump = false
+    Boolean collectStreamingDump = false,
+    String driverVersion = ""
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2180,7 +2181,8 @@ def call(String projectBranch = "",
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                         retriesForTestStage:1,
-                        collectStreamingDump:collectStreamingDump
+                        collectStreamingDump:collectStreamingDump,
+                        driverVersion:driverVersion
                         ]
         }
 
