@@ -615,6 +615,8 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        driversSelection(options.driverVersion, osName, "client")
+
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
@@ -872,6 +874,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     Boolean stashResults = true
 
     try {
+        driversSelection(options.driverVersion, osName, "mcClient")
 
         timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
@@ -1125,8 +1128,7 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-
-        driversSelection(options.driverVersion, osName, "")
+        driversSelection(options.driverVersion, osName, "server")
 
         if (osName == "Windows" || osName == "Ubuntu20") {
             options["clientInfo"] = new ConcurrentHashMap()
