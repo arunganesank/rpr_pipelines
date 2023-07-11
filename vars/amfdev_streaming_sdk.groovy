@@ -731,9 +731,9 @@ def executeTestsServer(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        driversSelection(options.driverVersion, osName, "server")
         killAdbServer()
 
+        driversSelection(options.driverVersion, osName, "server")
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
