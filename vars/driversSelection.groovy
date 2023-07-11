@@ -19,7 +19,7 @@ def updateDriver(driverVersion, osName, computer){
                     if (status == 0) {
                         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
                         println("[INFO] ${driverVersion} driver was found. Trying to install...")
-                        bat "${driverPath}\\Setup.exe -INSTALL -BOOT -LOG ${WORKSPACE}\\installation_result_${computer}.log"
+                        bat "${driverPath}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\drivers\amf\stable\tools\tests\StreamingSDKTests\\installation_result_${computer}.log"
                     }
                     break
                 case "Ubuntu20":
@@ -82,13 +82,13 @@ def downloadDriverOnWindows(String driverVersion, driverPath, computer) {
         status = 0
     } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
         // public driver download
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" ${env.WORKSPACE}\\page.html >> page_download_${computer}.log 2>&1 "
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" ${env.WORKSPACE}\\older_page.html >> older_page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" ${env.WORKSPACE}\drivers\amf\stable\tools\tests\StreamingSDKTests\\page.html >> page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" ${env.WORKSPACE}\drivers\amf\stable\tools\tests\StreamingSDKTests\\older_page.html >> older_page_download_${computer}.log 2>&1 "
 
         withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
             python3("-m pip install -r ${CIS_TOOLS}\\driver_detection\\requirements.txt >> parse_stage_${computer}.log 2>&1")
-            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${env.WORKSPACE}\\page.html \
-                --installer_dst ${env.WORKSPACE}\\driver.exe --win_driver_path ${driverPath} --driver_version ${driverVersion} --older_html_path ${env.WORKSPACE}\\older_page.html >> parse_stage_${computer}.log 2>&1")
+            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path $${env.WORKSPACE}\drivers\amf\stable\tools\tests\StreamingSDKTests\\page.html \
+                --installer_dst ${env.WORKSPACE}\\driver.exe --win_driver_path ${driverPath} --driver_version ${driverVersion} --older_html_path ${env.WORKSPACE}\drivers\amf\stable\tools\tests\StreamingSDKTests\\older_page.html >> parse_stage_${computer}.log 2>&1")
         }
     } else {
         // other values of driverVersion
