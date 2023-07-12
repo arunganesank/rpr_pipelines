@@ -615,6 +615,14 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+
+        try {
+            bat "taskkill /im adb.exe /f"
+        } catch (e) {
+            println(e.toString());
+            println(e.getMessage());
+        }
+
         driversSelection(options.driverVersion, osName, "client")
 
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
