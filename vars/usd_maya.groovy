@@ -66,19 +66,58 @@ def uninstallRPRMayaPlugin(String osName, Map options) {
     }
 }
 
-def installRPRMayaUSDPlugin(String osName, Map options) {
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
 
-    if (options['isPreBuilt']) {
-        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
-    } else {
-        options['pluginWinSha'] = "${options.commitSHA}"
+def downloadLatestPlugin(String osName, Map options, String pluginName = null) {
+    if (!options["mayaUSDBuildNumber"]) {
+        String url = "${env.JENKINS_URL}/job/USD-MayaPlugin-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+
+        def rawInfo = httpRequest(
+            url: url,
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
+
+        def parsedInfo = parseResponse(rawInfo.content)
+
+        String buildUrl
+
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            options["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+            buildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            options["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
+            buildUrl = parsedInfo.lastUnstableBuild.url
+        }
+
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[MayaUSD] Link to the used MayaUSD plugin</a></h3>""")
+    }
+
+    downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
+    utils.renameFile(this, osName, "RPRMayaUSD_2024*", pluginName)
+}
+
+def installRPRMayaUSDPlugin(String osName, Map options, String pluginName = null) {
+
+    if (!pluginName) {
+        if (options['isPreBuilt']) {
+            options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
+        } else {
+            options['pluginWinSha'] = "${options.commitSHA}"
+        }
+
+        pluginName = "${options.pluginWinSha}.exe"
     }
 
     try {
         println "[INFO] Install RPR Maya USD Plugin"
 
         bat """
-            start /wait ${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
+            start /wait ${pluginName} /SILENT /NORESTART /LOG=${options.stageName}_MayaUSD_${options.currentTry}.install.log
         """
 
         // FIXME: actualize Maya.env file check

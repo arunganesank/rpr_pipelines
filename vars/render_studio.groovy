@@ -383,6 +383,42 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 }
 
 
+def prepareTools(String osName, Map options, String clientType, int clientNumber = -1) {
+    prepareAMDRenderStudio(osName, options, clientType, clientNumber)
+
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+    List testGroups
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        // some parts of regression contain live mode tests
+        int partNumber = options.tests.split("\\.")[1] as int
+
+        testGroups = options.packageInfo["groups"][partNumber].keySet() as List
+    } else {
+        testGroups = options.tests.split("-")[0].split() as List
+    }
+
+    // check that should USD Maya plugin be installed
+    boolean shouldInstallUSDMaya = false
+
+    for (testGroup in testGroups) {
+        if (options["liveModeConfiguration"].live_mode_client.containsKey(testGroup) && options["liveModeConfiguration"].live_mode_client[testGroup][modeKey] == "usd_maya") {
+            shouldInstallUSDMaya = true
+            break
+        }
+    }
+
+    if (shouldInstallUSDMaya) {
+        timeout(time: "15", unit: "MINUTES") {
+            usd_maya.uninstallRPRMayaPlugin(osName, options)
+            usd_maya.uninstallRPRMayaUSDPlugin(osName, options)
+            usd_maya.downloadLatestPlugin(osName, options, "MayaUSD.exe")
+            usd_maya.installRPRMayaUSDPlugin(osName, options, "MayaUSD.exe")
+        }
+    }
+}
+
+
 def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
     if (clientType == "offline") {
         options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
@@ -582,6 +618,14 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 }
 
 
+def disableFirewallNotifications() {
+    // disable notifications about disabled firewall
+    powershell """
+        reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\Notifications" /v DisableNotifications -t REG_DWORD /d 1 /f
+    """
+}
+
+
 def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
     String modeKey = getLiveModeKey(clientType, clientNumber)
 
@@ -627,7 +671,8 @@ def executeLMTestsPrimary(String osName, String asicName, Map options) {
 
     try {
         checkoutAutotests(options)
-        prepareAMDRenderStudio(osName, options, "primary")
+        prepareTools(osName, options, "primary")
+        disableFirewallNotifications()
         syncLMClients(osName, options, "primary")
         executeTestsOnClient(osName, asicName, options, "primary")
 
@@ -646,7 +691,8 @@ def executeLMTestsSecondary(String osName, String asicName, Map options, int cli
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     try {
         checkoutAutotests(options)
-        prepareAMDRenderStudio(osName, options, "secondary", clientNumber)
+        prepareTools(osName, options, "secondary", clientNumber)
+        disableFirewallNotifications()
         syncLMClients(osName, options, "secondary", clientNumber)
         executeTestsOnClient(osName, asicName, options, "secondary", clientNumber)
 
