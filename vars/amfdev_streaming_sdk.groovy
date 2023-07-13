@@ -619,8 +619,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         try {
             bat "taskkill /im adb.exe /f"
         } catch (e) {
-            println(e.toString());
-            println(e.getMessage());
         }
 
         driversSelection(options.driverVersion, osName, "client")

@@ -13,13 +13,12 @@ def updateDriver(driverVersion, osName, computer){
             cleanWS()
             switch(osName) {
                 case "Windows":
-                    driverPath = "C:\\AMD\\driver\\"
-                    status = downloadDriverOnWindows(driverVersion, driverPath, computer)
+                    status = downloadDriverOnWindows(driverVersion, computer)
                     // driver install
                     if (status == 0) {
                         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
                         println("[INFO] ${driverVersion} driver was found. Trying to install...")
-                        bat "${driverPath}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+                        bat "$${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
                     }
                     break
                 case "Ubuntu20":
@@ -72,13 +71,14 @@ def updateDriver(driverVersion, osName, computer){
     }
 }
 
-def downloadDriverOnWindows(String driverVersion, driverPath, computer) {
+def downloadDriverOnWindows(String driverVersion, computer) {
     if (driverVersion.startsWith("/volume1")) {
         // private driver download
-        driverPath = "/mnt/c/amd/driver"
         println("Downloading a private driver")
-        downloadFiles(driverVersion, driverPath)
+        downloadFiles(driverVersion, "${env.WORKSPACE}/drivers/amf/stable/tools/tests/StreamingSDKTests/driver.7z")
         println("Privat driver was downloaded")
+        // unzip driver
+        utils.unzip(this, "${env.WORKSPACE}/drivers/amf/stable/tools/tests/StreamingSDKTests/driver.7z")
         status = 0
     } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
         // public driver download
@@ -88,7 +88,9 @@ def downloadDriverOnWindows(String driverVersion, driverPath, computer) {
         withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
             python3("-m pip install -r ${CIS_TOOLS}\\driver_detection\\requirements.txt >> parse_stage_${computer}.log 2>&1")
             status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\page.html \
-                --installer_dst ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\driver.exe --win_driver_path ${driverPath} --driver_version ${driverVersion} --older_html_path ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\older_page.html >> parse_stage_${computer}.log 2>&1")
+                --installer_dst ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\driver.exe --driver_version ${driverVersion} --older_html_path ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\older_page.html >> parse_stage_${computer}.log 2>&1")
+            // unzip driver
+            utils.unzip(this, "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\driver.exe")
         }
     } else {
         // other values of driverVersion
