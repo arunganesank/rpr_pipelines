@@ -204,11 +204,20 @@ def cloneTestsRepository(String osName, Map options) {
 }
 
 
+def downloadMayaPrefs(String osName, String toolVersion) {
+    timeout(time: "5", unit: "MINUTES") {
+        String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${toolVersion}/prefs"
+        String customKeys = isUnix() ? "--protect-args" : ""
+        downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
+    }
+}
+
+
 def executeTests(String osName, String asicName, Map options)
 {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
-    
+
     try {
         utils.removeEnvVars(this)
 
@@ -243,11 +252,7 @@ def executeTests(String osName, String asicName, Map options)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
-            timeout(time: "5", unit: "MINUTES") {
-                String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${options.toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${options.toolVersion}/prefs"
-                String customKeys = isUnix() ? "--protect-args" : ""
-                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
-            }
+            downloadMayaPrefs(osName, options.toolVersion)
         }
 
         try {

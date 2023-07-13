@@ -412,6 +412,7 @@ def prepareTools(String osName, Map options, String clientType, int clientNumber
         timeout(time: "15", unit: "MINUTES") {
             usd_maya.uninstallRPRMayaPlugin(osName, options)
             usd_maya.uninstallRPRMayaUSDPlugin(osName, options)
+            rpr_maya.downloadMayaPrefs(osName, "2024")
             usd_maya.downloadLatestPlugin(osName, options, "MayaUSD.exe")
             usd_maya.installRPRMayaUSDPlugin(osName, options, "MayaUSD.exe")
         }
