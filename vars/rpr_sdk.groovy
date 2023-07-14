@@ -81,35 +81,45 @@ def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
 
 def executeTestCommand(String osName, String asicName, Map options) 
 {
-    switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
-                    run.bat ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                """
-            }
-            break
-        case 'OSX':
-        case 'MacOS_ARM':
-            dir('scripts') {
-                withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+    def tracesVariable = []
+
+    if (options.collectTraces) {
+        tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+        tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+        utils.createDir(this, "traces")
+    }
+
+    withEnv(tracesVariable) {
+        switch(osName) {
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        ${options.engine.contains("HIP") ? "set TH_FORCE_HIP=1" : ""}
+                        run.bat ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
-            }
-            break
-        default:
-            dir('scripts') {
-                withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    sh """
-                        ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                    """
+                break
+            case 'OSX':
+            case 'MacOS_ARM':
+                dir('scripts') {
+                    withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
+                        sh """
+                            ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                            ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
                 }
-            }
+                break
+            default:
+                dir('scripts') {
+                    withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
+                        sh """
+                            ${options.engine.contains("HIP") ? "export TH_FORCE_HIP=1" : ""}
+                            ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} ${options.engine} >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
+                }
+        }
     }
 }
 
@@ -723,7 +733,8 @@ def call(String projectBranch = "",
          String tester_tag = 'Tester',
          String mergeablePR = "",
          String parallelExecutionTypeString = "TakeOneNodePerGPU",
-         String enginesNames = "Northstar64,HybridPro")
+         String enginesNames = "Northstar64,HybridPro",
+         Boolean collectTraces = false)
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -851,7 +862,8 @@ def call(String projectBranch = "",
                         skipCallback: this.&filter,
                         hipbinDownloadedOS: hipbinDownloadedOS,
                         testsPreCondition: this.&hipbinSaved,
-                        state: [:]
+                        state: [:],
+                        collectTraces: collectTraces
                         ]
 
             options["state"]["hipbinSaved"] = customHipBin != ""
