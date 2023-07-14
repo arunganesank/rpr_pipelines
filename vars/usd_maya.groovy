@@ -72,33 +72,45 @@ def parseResponse(String response) {
     return jsonSlurper.parseText(response)
 }
 
-def downloadLatestPlugin(String osName, Map options, String pluginName = null) {
-    if (!options["mayaUSDBuildNumber"]) {
-        String url = "${env.JENKINS_URL}/job/USD-MayaPlugin-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+def downloadLiveModePlugin(String osName, Map options, String pluginName = null) {
+    if (options["PRJ_NAME"] == "RPRMayaUSD") {
+        // download the USD Maya plugin installer associated with this build
+        getProduct(osName, options, "", false)
 
-        def rawInfo = httpRequest(
-            url: url,
-            authentication: 'jenkinsCredentials',
-            httpMode: 'GET'
-        )
+        if (pluginName) {
+            utils.renameFile(this, osName, "*.exe", pluginName)
+        }
+    } else {
+        // this function is called from other pipeline
+        // download the latest stable plugin from the main branch of the auto job
+        if (!options["mayaUSDBuildNumber"]) {
+            String url = "${env.JENKINS_URL}/job/USD-MayaPlugin-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
-        def parsedInfo = parseResponse(rawInfo.content)
+            def rawInfo = httpRequest(
+                url: url,
+                authentication: 'jenkinsCredentials',
+                httpMode: 'GET'
+            )
 
-        String buildUrl
+            def parsedInfo = parseResponse(rawInfo.content)
 
-        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            options["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
-            buildUrl = parsedInfo.lastSuccessfulBuild.url
-        } else {
-            options["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
-            buildUrl = parsedInfo.lastUnstableBuild.url
+            String buildUrl
+
+            if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+                options["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+                buildUrl = parsedInfo.lastSuccessfulBuild.url
+            } else {
+                options["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
+                buildUrl = parsedInfo.lastUnstableBuild.url
+            }
         }
 
-        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[MayaUSD] Link to the used MayaUSD plugin</a></h3>""")
-    }
+        downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
 
-    downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
-    utils.renameFile(this, osName, "RPRMayaUSD_2024*", pluginName)
+        if (pluginName) {
+            utils.renameFile(this, osName, "*.exe", pluginName)
+        }
+    }
 }
 
 def installRPRMayaUSDPlugin(String osName, Map options, String pluginName = null) {
@@ -254,6 +266,14 @@ def executeTestCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
+    if (render_studio.getNumberOfRequiredClients(options) > 0) {
+        // TODO read live mode config
+        options["testRepo"] = render_studio.TEST_REPO
+        options["testsBranch"] = "inemankov/rs_usd_maya"
+        render_studio.executeTests(osName, asicName, options)
+        break
+    }
+
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
@@ -880,6 +900,13 @@ def executePreBuild(Map options) {
         if (env.BRANCH_NAME && options.githubNotificator) {
             options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
         }
+
+        dir("jobs_test_web_viewer") {
+            // save RS repo information for possible Live Mode tests
+            checkoutScm(branchName: options.renderStudioTestsBranch, repositoryUrl: render_studio.TEST_REPO, disableSubmodules: true)
+            options["renderStudioTestsBranch"] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            options["liveModeConfiguration"] = readJSON(file: "jobs/live_mode_configuration.json")
+        }    
     }
 }
 
@@ -1104,6 +1131,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
+        String renderStudioTestsBranch = "master",
         String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100,AMD_680M',
         String updateRefs = 'No',
         String testsPackage = "",
@@ -1116,7 +1144,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5,
         Boolean buildOldInstaller = false,
-        Boolean collectTraces = false)
+        Boolean collectTraces = false,
+        String customRenderStudioInstaller = "")
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1192,6 +1221,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         projectBranch:projectBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_usdmaya.git",
                         testsBranch:testsBranch,
+                        renderStudioTestsBranch:renderStudioTestsBranch,
                         updateRefs:updateRefs,
                         PRJ_NAME:"RPRMayaUSD",
                         PRJ_ROOT:"rpr-plugins",
@@ -1229,7 +1259,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         skipCallback: this.&filter,
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
-                        saveTrackedMetrics:saveTrackedMetrics
+                        saveTrackedMetrics:saveTrackedMetrics,
+                        customRenderStudioInstaller:customRenderStudioInstaller
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
