@@ -1782,6 +1782,10 @@ def call(
     Boolean rebuildUSD = false,
     Boolean saveUSD = false
 ) {
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-206") {
+        testsBranch = "sshikalova/pr_206"
+    }
+
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     if (env.BRANCH_NAME) {
