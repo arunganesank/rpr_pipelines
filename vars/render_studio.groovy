@@ -817,7 +817,11 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     }
 
     dir("Build/Downloads/lights") {
-        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-210") {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR210/", ".", , "--quiet")
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        }
     }
 
     if (options.rebuildUSD) {
