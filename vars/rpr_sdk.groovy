@@ -90,6 +90,7 @@ def executeTestCommand(String osName, String asicName, Map options)
     }
 
     withEnv(tracesVariable) {
+        println("Traces variable: ${tracesVariable}")
         switch(osName) {
             case 'Windows':
                 dir('scripts') {
