@@ -6,6 +6,8 @@ class Constants {
 }
 
 def status, driverPath
+def workdir = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
+
 
 def updateDriver(driverVersion, osName, computer){
     timeout(time: "60", unit: "MINUTES") {
@@ -14,6 +16,7 @@ def updateDriver(driverVersion, osName, computer){
             switch(osName) {
                 case "Windows":
                     downloadDriverOnWindows(driverVersion, computer)
+                    installDriverOnWindows(driverVersion, computer)
                     break
                 case "Ubuntu20":
                     driverPath = "${env.WORKSPACE}/amdgpu-install.deb"
@@ -68,42 +71,19 @@ def updateDriver(driverVersion, osName, computer){
 def downloadDriverOnWindows(String driverVersion, computer) {
     if (driverVersion.startsWith("/volume1")) {
         // private driver download
-        println("Downloading a private driver")
+        println("[INFO] Downloading a private driver")
         downloadFiles(driverVersion, "/mnt/c/jn/ws/StreamingSDK_Test/drivers/amf/stable/tools/tests/StreamingSDKTests")
-        println("Private driver was downloaded")
-
-        // unzip driver
-        def archiveName = driverVersion.substring(driverVersion.lastIndexOf('/') + 1)
-        utils.unzip(this, "${env.WORKSPACE}/drivers/amf/stable/tools/tests/StreamingSDKTests/${archiveName}")
-
-        // driver install
-        def parts = archiveName.split("_")
-        def dirName = parts[0] + "_" + parts[1]
+        println("[INFO] Private driver was downloaded")
         status = 0
-        if (status == 0) {
-            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
-            bat "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
-        }
     } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
         // public driver download
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\page.html >> page_download_${computer}.log 2>&1 "
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\older_page.html >> older_page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" ${workdir}\\page.html >> page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" ${workdir}\\older_page.html >> older_page_download_${computer}.log 2>&1 "
 
         withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
             python3("-m pip install -r ${CIS_TOOLS}\\driver_detection\\requirements.txt >> parse_stage_${computer}.log 2>&1")
-            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\page.html \
-                --installer_dst ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\driver.exe --driver_version ${driverVersion} --older_html_path ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\older_page.html >> parse_stage_${computer}.log 2>&1")
-        }
-
-        // unzip driver
-        utils.unzip(this, "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\driver.exe")
-        
-        // driver install
-        if (status == 0) {
-            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
-            bat "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${workdir}\\page.html \
+                --installer_dst ${workdir}\\driver.exe --driver_version ${driverVersion} --older_html_path ${workdir}\\older_page.html >> parse_stage_${computer}.log 2>&1")
         }
     } else {
         // other values of driverVersion
@@ -111,9 +91,40 @@ def downloadDriverOnWindows(String driverVersion, computer) {
     }
 }
 
+
+def installDriverOnWindows(String driverVersion, computer) {
+    if (driverVersion.startsWith("/volume1")) {
+        // private driver unzip
+        def archiveName = driverVersion.substring(driverVersion.lastIndexOf('/') + 1)
+        utils.unzip(this, "${workdir}\\${archiveName}")
+
+        // private driver install
+        def parts = archiveName.split("_")
+        def dirName = parts[0] + "_" + parts[1]
+
+        if (status == 0) {
+            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
+            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
+            bat "${workdir}\\${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
+        }
+    } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
+        // public driver unzip
+        utils.unzip(this, "${workdir}\\driver.exe")
+
+        // public driver install
+        if (status == 0) {
+            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
+            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
+            bat "${workdir}\\Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
+        }
+    } else {
+        throw new Exception("[WARNING] doesn't match any known pattern")
+    }
+}
+
 def call(String driverVersion = "", String osName, String computer) {
     // check if driverVersion was given
-    if (driverVersion != "") {
+    if (driverVersion != "") { 
         updateDriver(driverVersion, osName, computer)
     } else {
         println("[INFO] Parameter driverVersion was not set. No driver will be installed on ${computer}")
