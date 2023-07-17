@@ -42,6 +42,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
+    if (engine == "HybridPro" && osName == "AMD_RX5700XT") {
+        return true
+    }
+
     return false
 }
 
@@ -1066,7 +1070,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaPlugin.git",
         String projectBranch = "",
         String testsBranch = "master",
-        String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100,AMD_680M',
+        String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100',
         String updateRefs = 'No',
         String testsPackage = "",
         String tests = "",
