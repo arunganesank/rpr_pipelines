@@ -1,22 +1,24 @@
 class Constants {
     static final DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
     static final OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
-    // regex for Adrenalin driver versions like 23.18.5
-    static final DRIVER_VERSION_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
+    // regex for Adrenalin driver revision number like "23.18.5"
+    static final REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
 }
 
-def status, driverPath
-def workdir = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
+def status, driverPath, dirName
+// def workdir = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
 
 
-def updateDriver(driverVersion, osName, computer){
+def updateDriver(revisionNumber, osName, computer, driverVersion){
     timeout(time: "60", unit: "MINUTES") {
         try {
             cleanWS()
             switch(osName) {
                 case "Windows":
-                    downloadDriverOnWindows(driverVersion, computer)
-                    installDriverOnWindows(driverVersion, computer)
+                    if driverVersion != getCurrentDriverVersion(driverVersion) {
+                        downloadDriverOnWindows(revisionNumber, computer)
+                        installDriverOnWindows(revisionNumber, computer)
+                    }
                     break
                 case "Ubuntu20":
                     driverPath = "${env.WORKSPACE}/amdgpu-install.deb"
@@ -45,7 +47,7 @@ def updateDriver(driverVersion, osName, computer){
             }
             switch(status) {
                 case 0:
-                    println("[INFO] ${driverVersion} driver was installed on ${computer}")
+                    println("[INFO] ${revisionNumber} driver was installed on ${computer}")
                     newerDriverInstalled = true
                     utils.reboot(this, isUnix() ? "Unix" : "Windows")
                     break
@@ -53,7 +55,7 @@ def updateDriver(driverVersion, osName, computer){
                     throw new Exception("Error during parsing stage")
                     break
                 case 404:
-                    println("[INFO] ${driverVersion} driver not found for ${computer}")
+                    println("[INFO] ${revisionNumber} driver not found for ${computer}")
                     break
                 default:
                     throw new Exception("Unknown exit code")
@@ -68,65 +70,77 @@ def updateDriver(driverVersion, osName, computer){
     }
 }
 
-def downloadDriverOnWindows(String driverVersion, computer) {
-    if (driverVersion.startsWith("/volume1")) {
+def downloadDriverOnWindows(String revisionNumber, computer) {
+    if (revisionNumber.startsWith("/volume1")) {
         // private driver download
         println("[INFO] Downloading a private driver")
-        downloadFiles(driverVersion, "/mnt/c/jn/ws/StreamingSDK_Test/drivers/amf/stable/tools/tests/StreamingSDKTests")
+        downloadFiles(revisionNumber, ".")
         println("[INFO] Private driver was downloaded")
         status = 0
-    } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
+
+        // private driver unzip
+        def archiveName = revisionNumber.substring(revisionNumber.lastIndexOf('/') + 1)
+        def parts = archiveName.split("_")
+        dirName = parts[0] + "_" + parts[1]
+        utils.unzip(this, "${archiveName}")
+
+        // return driver's Setup.exe directory
+        return "${env.WORKSPACE}//${dirName}"
+    } else if (revisionNumber ==~ Constants.DRIVER_VERSION_PATTERN) {
         // public driver download
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" ${workdir}\\page.html >> page_download_${computer}.log 2>&1 "
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" ${workdir}\\older_page.html >> older_page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" older_page.html >> older_page_download_${computer}.log 2>&1 "
 
         withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
             python3("-m pip install -r ${CIS_TOOLS}\\driver_detection\\requirements.txt >> parse_stage_${computer}.log 2>&1")
-            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path ${workdir}\\page.html \
-                --installer_dst ${workdir}\\driver.exe --driver_version ${driverVersion} --older_html_path ${workdir}\\older_page.html >> parse_stage_${computer}.log 2>&1")
+            status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path page.html \
+                --installer_dst driver.exe --driver_version ${revisionNumber} --older_html_path older_page.html >> parse_stage_${computer}.log 2>&1")
         }
+
+        // public driver unzip
+        utils.unzip(this, "\\driver.exe")
+
+        // return driver's Setup.exe directory
+        return "."
     } else {
-        // other values of driverVersion
+        // other values of revisionNumber
         throw new Exception("[WARNING] doesn't match any known pattern")
     }
 }
 
 
-def installDriverOnWindows(String driverVersion, computer) {
-    if (driverVersion.startsWith("/volume1")) {
-        // private driver unzip
-        def archiveName = driverVersion.substring(driverVersion.lastIndexOf('/') + 1)
-        utils.unzip(this, "${workdir}\\${archiveName}")
-
+def installDriverOnWindows(String revisionNumber, computer) {
+    if (revisionNumber.startsWith("/volume1")) {
         // private driver install
-        def parts = archiveName.split("_")
-        def dirName = parts[0] + "_" + parts[1]
-
         if (status == 0) {
             bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
-            bat "${workdir}\\${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
+            println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
+            bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
         }
-    } else if (driverVersion ==~ Constants.DRIVER_VERSION_PATTERN) {
-        // public driver unzip
-        utils.unzip(this, "${workdir}\\driver.exe")
-
+    } else if (revisionNumber ==~ Constants.DRIVER_VERSION_PATTERN) {
         // public driver install
         if (status == 0) {
             bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${driverVersion} driver was found. Trying to install on ${computer}...")
-            bat "${workdir}\\Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
+            println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
+            bat "\\Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
         }
     } else {
         throw new Exception("[WARNING] doesn't match any known pattern")
     }
 }
 
-def call(String driverVersion = "", String osName, String computer) {
-    // check if driverVersion was given
-    if (driverVersion != "") { 
-        updateDriver(driverVersion, osName, computer)
+
+def getCurrentDriverVersion(String newDriverVersion) {
+    // possible variation instead of using extra python script
+    return powershell("Get-WmiObject Win32_PnPSignedDriver | Where-Object { $_.Description -like \"*Radeon*\" -and $_.DeviceClass -like \"*DISPLAY*\" } | Select-Object DriverVersion | Format-Table -HideTableHeaders", returnStdout=true)
+}
+
+
+def call(String revisionNumber = "", String osName, String computer, String driverVersion, String workdirPath) {
+    // check if revisionNumber was given
+    if (revisionNumber != "") { 
+        updateDriver(revisionNumber, osName, computer, driverVersion)
     } else {
-        println("[INFO] Parameter driverVersion was not set. No driver will be installed on ${computer}")
+        println("[INFO] Parameter revisionNumber was not set. No driver will be installed on ${computer}")
     }
 }
