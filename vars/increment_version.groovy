@@ -162,10 +162,10 @@ def incrementVersion(def toolName, def branchName, def versionPath, def index=3,
         }
     }
 
-    //bat """
-    //    git commit -m "buildmaster: version update to ${version}"
-    //    git push origin HEAD:${branchName}
-    //"""
+    bat """
+        git commit -m "buildmaster: version update to ${version}"
+        git push origin HEAD:${branchName}
+    """
 
     return version
 }
