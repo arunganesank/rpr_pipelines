@@ -410,11 +410,13 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 
 
 def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
+    String refPathProfile
+
     if (clientType == "offline") {
-        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+        refPathProfile = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
     } else {
         String modeKey = getLiveModeKey(clientType, clientNumber)
-        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}-${modeKey}"
+        refPathProfile = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}-${modeKey}"
     }
 
     String logName = clientType == "offline" ? "" : "${STAGE_NAME}_${clientType}"
@@ -424,7 +426,7 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
             executeTestCommand("Windows", asicName, options, clientType, clientNumber)
             executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
-            uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
+            uploadFiles("./Work/GeneratedBaselines/", refPathProfile)
             // delete generated baselines when they're sent 
             bat """
                 if exist Work\\GeneratedBaselines rmdir /Q /S Work\\GeneratedBaselines
@@ -436,9 +438,9 @@ def executeTestsOnClient(String osName, String asicName, Map options, String cli
             println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
             options.tests.split(" ").each() {
                 if (it.contains(".json")) {
-                    downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                    downloadFiles("${refPathProfile}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 } else {
-                    downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                    downloadFiles("${refPathProfile}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
                 }
             }
         }
