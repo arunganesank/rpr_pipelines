@@ -24,6 +24,13 @@ import TestsExecutionType
     ]
 )
 
+@Field final List caches = [
+    "C:\\Program Files\\AMD\\AMD RenderStudio",
+    "C:\\ProgramData\\AMD\\AMD RenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\RenderStudio"
+]
+
 
 int getNumberOfRequiredClients(Map options) {
     // at least one client is required for offline autotests
@@ -126,7 +133,7 @@ def removeClosedPRs(Map options) {
  }
 
 
-def uninstallAMDRenderStudio(String osName, Map options) {
+def uninstallAMDRenderStudio(String osName, Map options, Boolean clearCaches = true) {
     def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
     // TODO: compare product code of built application and installed application
@@ -136,6 +143,25 @@ def uninstallAMDRenderStudio(String osName, Map options) {
 
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\Documents\\AMD RenderStudio Home")
+
+        if (clearCaches) {
+            println("[INFO] Clearing caches...")
+            for (cache in caches) {
+                if (fileExists(cache)) {
+                    try {
+                        bat """
+                            del /q \"${cache}\"
+                            for /d %i in (\"${cache}\") do @rmdir /s /q "%i"
+                        """
+                        println("[INFO] Path \"${cache}\" is cleared.")
+                    } catch(Exception e) {
+                        println("[ERROR] Can't clear directory")
+                        println(e.toString())
+                        println(e.getMessage())
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -227,7 +253,7 @@ def runApplicationTests(String osName, Map options) {
     runApplication(appLink, osName, options)
 
     // Step 5: try to uninstall app (should be unsuccessfull, issue on Render Studio side)
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 6: close app window
     try {
@@ -243,7 +269,7 @@ def runApplicationTests(String osName, Map options) {
     // }
 
     // Step 8: uninstall app
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 9: check processes after uninstalling
     Boolean processFound = utils.isProcessExists(this, "AMD RenderStudio", osName, options)
@@ -375,7 +401,7 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "10", unit: "MINUTES") {
-                uninstallAMDRenderStudio(osName, options)
+                uninstallAMDRenderStudio(osName, options, true)
                 installAMDRenderStudio(osName, options)
 
                 // open application once to generate Storage files
@@ -866,7 +892,11 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     }
 
     dir("Build/Downloads/lights") {
-        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-210") {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR210/", ".", , "--quiet")
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        }
     }
 
     if (options.rebuildUSD) {
@@ -1863,6 +1893,10 @@ def call(
     Boolean rebuildUSD = false,
     Boolean saveUSD = false
 ) {
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-206") {
+        testsBranch = "sshikalova/pr_206"
+    }
+
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     if (env.BRANCH_NAME) {

@@ -74,10 +74,10 @@ import utils
 ]
 
 
-def addVersionButton(project, version, value) {
+def addVersionButton(String project, String version, String value) {
     projectRepo = project.replace(' ', '+')
     btn = """<button
-              onclick="location.href='$env.JENKINS_URL/job//VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'">
+              onclick="location.href='$env.JENKINS_URL/job//VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'" id="version-${version.toLowerCase()}">
               $value
             </button>"""
     return btn
