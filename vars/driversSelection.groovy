@@ -15,11 +15,14 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
             cleanWS()
             switch(osName) {
                 case "Windows":
-                    if (driverVersion != getCurrentDriverVersion(driverVersion)) {
+                    def currentDriverVersion = getCurrentDriverVersion(driverVersion)
+                    if (driverVersion != currentDriverVersion) {
+                        println("[DEBUG] ${driverVersion} differs from ${currentDriverVersion} on ${computer}")
                         downloadDriverOnWindows(revisionNumber, computer)
                         installDriverOnWindows(revisionNumber, computer)
                     } else {
-                        println("[DEBUG] Proposed driver is already installed")
+                        status = 0
+                        println("Proposed driver is already installed")
                     }
                     break
                 case "Ubuntu20":
@@ -67,7 +70,10 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
             println(e.getMessage());
             currentBuild.result = "FAILURE";
         } finally {
-            archiveArtifacts "*.log, *.LOG"
+            try {
+                // in case if proposed driver is already installed
+                archiveArtifacts "*.log, *.LOG"
+            } catch(e) {}
         }
     }
 }
@@ -87,7 +93,7 @@ def downloadDriverOnWindows(String revisionNumber, computer) {
         utils.unzip(this, "${archiveName}")
 
         // return driver's Setup.exe directory
-        return "${env.WORKSPACE}//${dirName}"
+        return ".//${dirName}"
     } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver download
         bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
@@ -119,12 +125,12 @@ def installDriverOnWindows(String revisionNumber, computer) {
             println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
             bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
         }
-    } else if (revisionNumber ==~ Constants.DRIVER_VERSION_PATTERN) {
+    } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver install
         if (status == 0) {
             bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
             println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-            bat "\\Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
+            bat "Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
         }
     } else {
         throw new Exception("[WARNING] doesn't match any known pattern")
@@ -134,8 +140,13 @@ def installDriverOnWindows(String revisionNumber, computer) {
 
 def getCurrentDriverVersion(String newDriverVersion) {
     // possible variation instead of using extra python script
-    def out = powershell(script: "Get-WmiObject Win32_PnPSignedDriver | Where-Object { \$_.Description -like \"*Radeon*\" -and \$_.DeviceClass -like \"*DISPLAY*\" } | Select-Object DriverVersion | Format-Table -HideTableHeaders", returnStdout: true)
-    println("[DEBUG] Driver Version on test machine is ${out}")
+    def command = """
+        (Get-WmiObject Win32_PnPSignedDriver  |
+        Where-Object { \$_.Description -like \"*Radeon*\" -and \$_.DeviceClass -like \"*DISPLAY*\" }  |
+        Select-Object DriverVersion).DriverVersion
+    """
+    def out = powershell(script: command, returnStdout: true).trim()
+    println("Driver Version on test machine is ${out}")
     return out
 }
 
@@ -143,6 +154,7 @@ def getCurrentDriverVersion(String newDriverVersion) {
 def call(String revisionNumber = "", String osName, String computer, String driverVersion) {
     // check if revisionNumber was given
     if (revisionNumber != "") { 
+        println("[DEBUG] revisionNumber is given on ${computer}")
         updateDriver(revisionNumber, osName, computer, driverVersion)
     } else {
         println("[INFO] Parameter revisionNumber was not set. No driver will be installed on ${computer}")
