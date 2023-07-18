@@ -271,6 +271,10 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String gpuName = directory.split("-")[0]
     String osName = directory.split("-")[1].replace("/", "")
 
+    if (targetGroup.contains("LiveMode")) {
+        profile = "Desktop"
+    }
+
     if (profile) {
         String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile
         machineConfiguration = profileBaselineName ? "${gpuName}-${osName}-${profileBaselineName}" : "${gpuName}-${osName}"
