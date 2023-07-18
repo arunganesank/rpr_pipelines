@@ -1,4 +1,5 @@
 import groovy.transform.Field
+import java.util.concurrent.ConcurrentHashMap
 import groovy.json.JsonOutput;
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
@@ -83,7 +84,7 @@ def downloadLiveModePlugin(String osName, Map options, String pluginName = null)
     } else {
         // this function is called from other pipeline
         // download the latest stable plugin from the main branch of the auto job
-        if (!options["mayaUSDBuildNumber"]) {
+        if (!options["globalStorage"]["mayaUSDBuildNumber"]) {
             String url = "${env.JENKINS_URL}/job/USD-MayaPlugin-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
             def rawInfo = httpRequest(
@@ -97,15 +98,17 @@ def downloadLiveModePlugin(String osName, Map options, String pluginName = null)
             String buildUrl
 
             if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-                options["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+                options["globalStorage"]["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
                 buildUrl = parsedInfo.lastSuccessfulBuild.url
             } else {
-                options["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
+                options["globalStorage"]["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
                 buildUrl = parsedInfo.lastUnstableBuild.url
             }
+
+            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[MayaUSD] Link to the used MayaUSD plugin</a></h3>""")
         }
 
-        downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
+        downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['globalStorage']['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
 
         if (pluginName) {
             utils.renameFile(this, osName, "*.exe", pluginName)
@@ -266,12 +269,12 @@ def executeTestCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
-    if (render_studio.getNumberOfRequiredClients(options) > 0) {
-        // TODO read live mode config
+    if (render_studio.getNumberOfRequiredClients(options) > 1) {
+        // execute LiveMode test group
         options["testRepo"] = render_studio.TEST_REPO
         options["testsBranch"] = "inemankov/rs_usd_maya"
         render_studio.executeTests(osName, asicName, options)
-        break
+        return
     }
 
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
@@ -1260,7 +1263,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
                         saveTrackedMetrics:saveTrackedMetrics,
-                        customRenderStudioInstaller:customRenderStudioInstaller
+                        customRenderStudioInstaller:customRenderStudioInstaller,
+                        globalStorage: new ConcurrentHashMap()
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {

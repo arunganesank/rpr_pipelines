@@ -143,10 +143,14 @@ def uninstallAMDRenderStudio(String osName, Map options) {
 def installAMDRenderStudio(String osName, Map options) {
     if (options["installerPath"]) {
         // install custom Render Studio installer
-        bat "msiexec.exe /i ${options['installerPath']}.msi /qb"
+        bat "msiexec.exe /i ${options['installerPath']} /qb"
     } else {
         dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-            bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+            if (options["customRenderStudioHash"]) {
+                bat "msiexec.exe /i ${options['customRenderStudioHash']}.msi /qb"
+            } else {
+                bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+            }
         }
     }
 }
@@ -352,7 +356,9 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
                         Map newOptions = options.clone()
                         newOptions["isPreBuilt"] = true
                         newOptions["customBuildLinkWindows"] = options["customRenderStudioInstaller"]
+                        newOptions["configuration"] = PIPELINE_CONFIGURATION
                         getProduct("Windows", newOptions)
+                        options["customRenderStudioHash"] = newOptions[getProduct.getIdentificatorKey("Windows", options)]
                     } else {
                         // use the latest Render Studio installer for Live Mode
                         options["installerPath"] = "RS.msi"
@@ -588,7 +594,11 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                         utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.mode)
+                            if (options.engine) {
+                                options.reportUpdater.updateReport(options.engine)
+                            } else {
+                                options.reportUpdater.updateReport(options.mode)
+                            }
                         }
 
                         try {
@@ -1587,28 +1597,32 @@ def executePreBuild(Map options) {
 
 
 def downloadLiveModeInstaller(String osName, Map options, String installerName = null) {
-    String url = "${env.JENKINS_URL}/job/RenderStudio-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+    // download the latest stable installer from the main branch of the auto job
+    if (!options["globalStorage"]["rsBuildNumber"]) {
+        String url = "${env.JENKINS_URL}/job/RenderStudio-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
 
-    def rawInfo = httpRequest(
-        url: url,
-        authentication: 'jenkinsCredentials',
-        httpMode: 'GET'
-    )
+        def rawInfo = httpRequest(
+            url: url,
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
 
-    def parsedInfo = parseResponse(rawInfo.content)
+        def parsedInfo = parseResponse(rawInfo.content)
 
-    Integer buildNumber
-    String buildUrl
+        String buildUrl
 
-    if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-        buildNumber = parsedInfo.lastSuccessfulBuild.number
-        buildUrl = parsedInfo.lastSuccessfulBuild.url
-    } else {
-        buildNumber = parsedInfo.lastUnstableBuild.number
-        buildUrl = parsedInfo.lastUnstableBuild.url
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+            buildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastUnstableBuild.number
+            buildUrl = parsedInfo.lastUnstableBuild.url
+        }
+
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[RS] Link to the used Render Studio</a></h3>""")
     }
 
-    downloadFiles("/volume1/web/RenderStudio-Auto/main/${buildNumber}/Artifacts/AMD_RenderStudio*", ".")
+    downloadFiles("/volume1/web/RenderStudio-Auto/main/${options['globalStorage']['rsBuildNumber']}/Artifacts/AMD_RenderStudio*", ".")
 
     utils.renameFile(this, osName, "AMD_RenderStudio*", installerName)
 }
@@ -1936,7 +1950,8 @@ def call(
                                 finishedBuildStages: new ConcurrentHashMap(),
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
-                                saveTrackedMetrics:saveTrackedMetrics
+                                saveTrackedMetrics:saveTrackedMetrics,
+                                globalStorage: new ConcurrentHashMap()
                                 ]
 
     withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
