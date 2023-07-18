@@ -278,10 +278,12 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         machineConfiguration = "${gpuName}-${osName}"
     }
 
+    String baselinesPathProfile
+
     if (targetGroup.contains("LiveMode")) {
-        String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING['render_studio']}/${machineConfiguration}"
+        baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING['render_studio']}/${machineConfiguration}"
     } else {
-        String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
+        baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
     }
 
     if (updateType == "Cases") {
@@ -459,7 +461,14 @@ def call(String jobName,
 
                             for (targetGroup in groupsNames.split(",")) {
                                 directories.each() { directory ->
-                                    String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                                    String remoteResultPath
+
+                                    if (targetGroup.contains("LiveMode")) {
+                                        remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING['render_studio']}"
+                                    } else {
+                                        remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                                    }
+
                                     if (!isSuitableDir(updateInfo, directory, targetGroup, remoteResultPath)) {
                                         return
                                     }
