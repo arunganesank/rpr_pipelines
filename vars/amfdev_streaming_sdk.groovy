@@ -1695,7 +1695,10 @@ def executePreBuild(Map options) {
         if (!options.tests && options.testsPackage == "none") {
             options.executeTests = false
         }
-        options["driverVersion"] = getProposedDriverVersion(options.revisionNumber, osName, "preBuild")
+
+        // TODO передавать не захардкоженную ось
+        options["driverVersion"] = getProposedDriverVersion(options.revisionNumber, "Windows", "preBuild")
+        println("[DEBUG] Proposed driver version is ${options.driverVersion}")
 
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
         multiplatform_pipeline.initProfiles(options)

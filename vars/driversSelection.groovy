@@ -15,9 +15,11 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
             cleanWS()
             switch(osName) {
                 case "Windows":
-                    if driverVersion != getCurrentDriverVersion(driverVersion) {
+                    if (driverVersion != getCurrentDriverVersion(driverVersion)) {
                         downloadDriverOnWindows(revisionNumber, computer)
                         installDriverOnWindows(revisionNumber, computer)
+                    } else {
+                        println("[DEBUG] Proposed driver is already installed")
                     }
                     break
                 case "Ubuntu20":
@@ -86,7 +88,7 @@ def downloadDriverOnWindows(String revisionNumber, computer) {
 
         // return driver's Setup.exe directory
         return "${env.WORKSPACE}//${dirName}"
-    } else if (revisionNumber ==~ Constants.DRIVER_VERSION_PATTERN) {
+    } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver download
         bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
         bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" older_page.html >> older_page_download_${computer}.log 2>&1 "
@@ -98,7 +100,7 @@ def downloadDriverOnWindows(String revisionNumber, computer) {
         }
 
         // public driver unzip
-        utils.unzip(this, "\\driver.exe")
+        utils.unzip(this, "driver.exe")
 
         // return driver's Setup.exe directory
         return "."
@@ -132,11 +134,13 @@ def installDriverOnWindows(String revisionNumber, computer) {
 
 def getCurrentDriverVersion(String newDriverVersion) {
     // possible variation instead of using extra python script
-    return powershell("Get-WmiObject Win32_PnPSignedDriver | Where-Object { $_.Description -like \"*Radeon*\" -and $_.DeviceClass -like \"*DISPLAY*\" } | Select-Object DriverVersion | Format-Table -HideTableHeaders", returnStdout=true)
+    def out = powershell(script: "Get-WmiObject Win32_PnPSignedDriver | Where-Object { \$_.Description -like \"*Radeon*\" -and \$_.DeviceClass -like \"*DISPLAY*\" } | Select-Object DriverVersion | Format-Table -HideTableHeaders", returnStdout: true)
+    println("[DEBUG] Driver Version on test machine is ${out}")
+    return out
 }
 
 
-def call(String revisionNumber = "", String osName, String computer, String driverVersion, String workdirPath) {
+def call(String revisionNumber = "", String osName, String computer, String driverVersion) {
     // check if revisionNumber was given
     if (revisionNumber != "") { 
         updateDriver(revisionNumber, osName, computer, driverVersion)
