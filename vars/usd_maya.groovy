@@ -273,6 +273,7 @@ def executeTests(String osName, String asicName, Map options) {
         // execute LiveMode test group
         options["testRepo"] = render_studio.TEST_REPO
         options["testsBranch"] = "inemankov/rs_usd_maya"
+        options["mode"] = "Desktop"
         render_studio.executeTests(osName, asicName, options)
         return
     }
