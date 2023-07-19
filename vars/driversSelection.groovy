@@ -6,7 +6,7 @@ class Constants {
 }
 
 def status, driverPath, dirName
-// def workdir = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
+def workdir = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
 
 
 def updateDriver(revisionNumber, osName, computer, driverVersion){
@@ -123,14 +123,14 @@ def installDriverOnWindows(String revisionNumber, computer) {
         if (status == 0) {
             bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
             println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-            bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
+            bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
         }
     } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver install
         if (status == 0) {
             bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
             println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-            bat "Setup.exe -INSTALL -BOOT -LOG installation_result_${computer}.log"
+            bat "Setup.exe -INSTALL -BOOT -LOG ${workdir}\\installation_result_${computer}.log"
         }
     } else {
         throw new Exception("[WARNING] doesn't match any known pattern")
