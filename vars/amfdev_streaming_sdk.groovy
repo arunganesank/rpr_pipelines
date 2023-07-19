@@ -1177,7 +1177,7 @@ def executeBuildWindows(Map options) {
                 // if true - there is some errors
                 if (!buildLog.contains("0 Error(s)")) {
                     // if the error isn't connected with amfrt64.lib or with MFTSamples - it's unexpected error
-                    if (!(buildLog.contains("1 Error(s)") && buildLog.contains("'amfrt64.lib'")) && !(buildLog.contains("12 Error(s)") && buildLog.contains("'eAVEncAV1VProfile_Main_420_8': undeclared identifier"))) {
+                    if (!(buildLog.contains("1 Error(s)") && buildLog.contains("'amfrt64.lib'"))) {
                         throw e
                     }
                 }
