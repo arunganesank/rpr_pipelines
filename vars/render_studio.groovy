@@ -95,6 +95,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return false
     }
 
+    if (testName.contains("LiveMode") && !(asicName == "AMD_RX6800XT" || asicName == "AMD_RX7900XT")) {
+        return true
+    }
+
     return true
 }
 
@@ -1671,17 +1675,30 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             List lostStashes = []
+            Map skippedGroups = [:]
 
             dir("summaryTestResults") {
                 testResultList.each() {
                     if (it.endsWith(mode)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
+                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
                         if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), mode)) {
+                            testNameParts.get(2).split().each() { group ->
+                                lostStashes.add(testName)
+
+                                String groupKey = group + "-" + mode
+
+                                if (!skippedGroups.contains(groupKey)) {
+                                    skippedGroups[groupKey] = []
+                                }
+
+                                skippedGroups[groupKey].append(testNameParts.get(0) + "-" + testNameParts.get(1))
+                            }
+
                             return
                         }
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -1704,7 +1721,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"{${skippedGroups}}\"
                     """
                 }
             } catch (e) {
