@@ -1879,7 +1879,8 @@ def call(
                                 finishedBuildStages: new ConcurrentHashMap(),
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
-                                saveTrackedMetrics:saveTrackedMetrics
+                                saveTrackedMetrics:saveTrackedMetrics,
+                                testsPreCondition: this.&hasIdleClients
                                 ]
 
     withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
