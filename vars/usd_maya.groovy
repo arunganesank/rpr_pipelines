@@ -933,7 +933,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             List lostStashes = []
-            Map skippedGroups = [:]
+            List skippedGroups = []
 
             dir("summaryTestResults") {
                 testResultList.each() {
@@ -943,15 +943,8 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
                         if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
                             testNameParts.get(2).split().each() { group ->
-                                lostStashes.add(testName)
-
-                                String groupKey = group + "-" + engine
-
-                                if (!skippedGroups.contains(groupKey)) {
-                                    skippedGroups[groupKey] = []
-                                }
-
-                                skippedGroups[groupKey].append(testNameParts.get(0) + "-" + testNameParts.get(1))
+                                lostStashes.add("'${testName}'")
+                                skippedGroups.add("'${testName}'")
                             }
 
                             return
@@ -974,7 +967,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${engine}\" \"{${skippedGroups}}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${engine}\" \"${skippedGroups}\"
                     """
                 }
             } catch (e) {
