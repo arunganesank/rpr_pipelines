@@ -66,11 +66,9 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
                     throw new Exception("Unknown exit code")
             }
         } catch(e) {
-            println("[DEBUG] Exception during driver downloadion/installation")
-            String installationResultLogContent = readFile("installation_result_${computer}.log")
-            if (!installationResultLogContent.contains("failed with error code 32 remove_all")) {
-                throw e
-            }
+            println(e.toString());
+            println(e.getMessage());
+            currentBuild.result = "FAILURE";
         } finally {
             try {
                 // in case if proposed driver is already installed
@@ -122,10 +120,24 @@ def downloadDriverOnWindows(String revisionNumber, computer) {
 def installDriverOnWindows(String revisionNumber, computer) {
     if (revisionNumber.startsWith("/volume1")) {
         // private driver install
-        if (status == 0) {
-            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-            bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+        try {
+            if (status == 0) {
+                bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
+                println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
+                bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+            }
+        } catch (e) {
+            println("[DEBUG] Exception during private driver installation")
+            String installationResultLogContent = readFile("installation_result_${computer}.log")
+            if (installationResultLogContent.contains("32 remove_all")) {
+                // pass this case
+            } else if (installationResultLogContent.contains("error code") || installationResultLogContent.contains("Error code")) {
+                // other errors should be visible as exceptions
+                throw e
+            }
+            else {
+                // pass other cases including clear ones
+            }
         }
     } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver install
