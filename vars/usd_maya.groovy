@@ -37,6 +37,10 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
+    if (engine == "Northstar" && testName.contains("LiveMode")) {
+        return true
+    }
+
     return false
 }
 
