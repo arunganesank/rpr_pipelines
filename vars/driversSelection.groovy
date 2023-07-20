@@ -8,7 +8,6 @@ class Constants {
 def status, driverPath, dirName
 
 
-
 def updateDriver(revisionNumber, osName, computer, driverVersion){
     timeout(time: "60", unit: "MINUTES") {
         try {
@@ -141,10 +140,18 @@ def installDriverOnWindows(String revisionNumber, computer) {
         }
     } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
         // public driver install
-        if (status == 0) {
-            bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-            println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-            bat "Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+        try{
+            if (status == 0) {
+                bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
+                println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
+                bat "Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+            }
+        } catch (e) {
+            // in some cases appeares non-zero exit code,
+            // while in the logs is no reason for it
+            // it may be caused by force closing of skip_warning_window.py during reboot
+            println(e.toString());
+            println(e.getMessage());
         }
     } else {
         throw new Exception("[WARNING] doesn't match any known pattern")
