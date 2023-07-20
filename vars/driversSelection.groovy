@@ -66,9 +66,23 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
                     throw new Exception("Unknown exit code")
             }
         } catch(e) {
-            println(e.toString());
-            println(e.getMessage());
-            currentBuild.result = "FAILURE";
+            def exception = e
+            
+            try {
+                String installationResultLogContent = readFile("installation_result_${computer}.log")
+                if (installationResultLogContent.contains("failed with error code 32 remove_all")) {
+                    exception = new ExpectedExceptionWrapper(NotificationConfiguration.SEGMENTATION_FAULT, e)
+                } else {
+                    println(e.toString());
+                    println(e.getMessage());
+                    currentBuild.result = "FAILURE";
+                }
+            } catch (e1) {
+                println("[WARNING] Could not analyze installation_result_${computer}.log")
+            }
+            // println(e.toString());
+            // println(e.getMessage());
+            // currentBuild.result = "FAILURE";
         } finally {
             try {
                 // in case if proposed driver is already installed
