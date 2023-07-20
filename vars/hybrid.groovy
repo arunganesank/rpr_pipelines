@@ -97,24 +97,7 @@ def replaceHybridPro(String osName, Map options) {
     if (osName == "Windows") {
         if (options["customHybridProWindowsLink"]) {
             dir("hybrid") {
-                downloadFiles(options["customHybridProWindowsLink"], "HybridPro.tar.xz")
-                sh("tar -xJf HybridPro.tar.xz")
-            }
-
-            sh """
-                yes | cp -rf hybrid/BaikalNext/bin/* RadeonProRender/binUbuntu20
-                yes | cp -rf hybrid/BaikalNext/inc/* RadeonProRender/inc
-                yes | cp -rf hybrid/BaikalNext/inc/Rpr/* RadeonProRender/inc
-            """
-
-            utils.removeDir(this, osName, "hybrid")
-        } else {
-            println("[WARNING] No HybridPro link is saved in options. Skip HybridPro replacing")
-        }
-    } else if (osName.contains("Ubuntu")) {
-        if (options["customHybridProUbuntuLink"]) {
-            dir("hybrid") {
-                downloadFiles(options["customHybridProUbuntuLink"], "HybridPro.zip")
+                bat("curl --retry 5 -L -J -o HybridPro.zip ${options['customHybridProWindowsLink']}")
                 bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " HybridPro.zip -aoa")
             }
 
@@ -126,6 +109,24 @@ def replaceHybridPro(String osName, Map options) {
             """
 
             utils.removeDir(this, osName, "hybrid")
+        } else {
+            println("[WARNING] No HybridPro link is saved in options. Skip HybridPro replacing")
+        }
+    } else if (osName.contains("Ubuntu")) {
+        if (options["customHybridProUbuntuLink"]) {
+            dir("hybrid") {
+                sh("curl --retry 5 -L -J -o HybridPro.tar.xz ${options['customHybridProUbuntuLink']}")
+                sh("tar -xJf HybridPro.tar.xz")
+            }
+
+            sh """
+                yes | cp -rf hybrid/BaikalNext/bin/* RadeonProRender/binUbuntu20
+                yes | cp -rf hybrid/BaikalNext/inc/* RadeonProRender/inc
+                yes | cp -rf hybrid/BaikalNext/inc/Rpr/* RadeonProRender/inc
+            """
+
+            utils.removeDir(this, osName, "hybrid")
+
         } else {
             println("[WARNING] No HybridPro link is saved in options. Skip HybridPro replacing")
         }
