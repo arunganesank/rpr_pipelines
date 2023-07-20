@@ -636,7 +636,7 @@ def syncLMClients(String osName, Map options, String clientType, int clientNumbe
 
 def getIpAddress() {
     for (line in bat(script: "ipconfig",returnStdout: true).split("\n")) {
-        if (line.contains("172.19")) {
+        if (line.contains("172.19.140") && !line.contains("172.19.140.1")) {
             return line.split("IPv4 Address")[1].split(":")[1].split()[0].trim()
         }
     }
