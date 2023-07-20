@@ -821,6 +821,8 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     dir("Build/Downloads/lights") {
         if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-210") {
             downloadFiles("/volume1/CIS/WebUSD/LightsPR210/", ".", , "--quiet")
+        } else if (options.projectBranchName.contains("agurov/pre-release") || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-216")) {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR216/", ".", , "--quiet")
         } else {
             downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
         }
