@@ -1,6 +1,5 @@
 def getDriverVersionOnWindows(revisionNumber, computer) {
     if (revisionNumber != "") {
-        // скачать драйвер и получить его нахождение
         try {
             def dirName = driversSelection.downloadDriverOnWindows(revisionNumber, computer)
             withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
@@ -20,7 +19,6 @@ def getDriverVersionOnWindows(revisionNumber, computer) {
 }
 
 def call(revisionNumber, osName, computer = "") {
-    // it should work only on Windows and should not on ubuntu
     switch(osName) {
         case "Windows":
             return getDriverVersionOnWindows(revisionNumber, computer)

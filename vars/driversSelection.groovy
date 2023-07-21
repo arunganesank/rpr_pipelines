@@ -16,7 +16,6 @@ def updateDriver(revisionNumber, osName, computer, driverVersion){
                 case "Windows":
                     def currentDriverVersion = getCurrentDriverVersion(driverVersion)
                     if (driverVersion != currentDriverVersion) {
-                        println("[DEBUG] ${driverVersion} differs from ${currentDriverVersion} on ${computer}")
                         downloadDriverOnWindows(revisionNumber, computer)
                         installDriverOnWindows(revisionNumber, computer)
                     } else {
@@ -126,7 +125,6 @@ def installDriverOnWindows(String revisionNumber, computer) {
                 bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
             }
         } catch (e) {
-            println("[DEBUG] Exception during private driver installation")
             String installationResultLogContent = readFile("installation_result_${computer}.log")
             if (installationResultLogContent.contains("32 remove_all")) {
                 // pass this case
@@ -167,7 +165,6 @@ def getCurrentDriverVersion(String newDriverVersion) {
         Select-Object DriverVersion).DriverVersion
     """
     def out = powershell(script: command, returnStdout: true).trim()
-    println("Driver Version on test machine is ${out}")
     return out
 }
 
@@ -175,7 +172,6 @@ def getCurrentDriverVersion(String newDriverVersion) {
 def call(String revisionNumber = "", String osName, String computer, String driverVersion) {
     // check if revisionNumber was given
     if (revisionNumber != "") { 
-        println("[DEBUG] revisionNumber is given on ${computer}")
         updateDriver(revisionNumber, osName, computer, driverVersion)
     } else {
         println("[INFO] Parameter revisionNumber was not set. No driver will be installed on ${computer}")
