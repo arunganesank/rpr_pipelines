@@ -91,10 +91,10 @@ def installDriverOnWindows(String revisionNumber, computer) {
 }
 
 
-def call()
+def call(nodesLabels, revisionNumber)
 {
     def windowsUpdateTasks = [:]
-    windowsNodes = nodesByLabel "${params.Labels}"
+    windowsNodes = nodesByLabel "${nodesLabels}"
     
     windowsNodes.each() { machine ->
         windowsUpdateTasks["${machine}"] = {
