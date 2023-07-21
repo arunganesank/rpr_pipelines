@@ -74,18 +74,21 @@ import utils
 ]
 
 
-def addVersionButton(project, version, value) {
+def addVersionButton(String project, String version, String value) {
     projectRepo = project.replace(' ', '+')
     btn = """<button
-              onclick="location.href='$env.JENKINS_URL/job//VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'">
+              onclick="location.href='$env.JENKINS_URL/job//VersionIncrement/buildWithParameters?projectRepo=$projectRepo&toIncrement=$version'" id="version-${version.toLowerCase()}">
               $value
             </button>"""
     return btn
 }
 
 
-def incrementVersion(String toolName, String branchName, String versionPath, Integer index=3, String prefix="", String delimiter=".") {
+def incrementVersion(def toolName, def branchName, def versionPath, def index=3, def prefix="", def delimiter=".") {
     def version = ""
+
+    String mainVersionFile = (versionPath instanceof String) ? versionPath : versionPath[0]
+    String mainVersionPrefix = (prefix instanceof String) ? prefix : prefix[0]
 
     if (toolName == "RadeonProRenderUSD") {
         def majorVersion = version_read(versionPath, 'set(HD_RPR_MAJOR_VERSION "', '')
@@ -98,10 +101,10 @@ def incrementVersion(String toolName, String branchName, String versionPath, Int
         def patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
         version = "${majorVersion}.${minorVersion}.${patchVersion}"
     } else {
-        if (prefix != "") {
-            version = version_read(versionPath, prefix, delimiter)
+        if (mainVersionPrefix != "") {
+            version = version_read(mainVersionFile, mainVersionPrefix, delimiter)
         } else {
-            version = readFile(versionPath).trim()
+            version = readFile(mainVersionFile).trim()
         }
     }
 
@@ -131,27 +134,25 @@ def incrementVersion(String toolName, String branchName, String versionPath, Int
         patchVersion = version_read(versionPath, "#define RPR_ANARI_VERSION_PATCH ", '')
         version = "${majorVersion}.${minorVersion}.${patchVersion}"
     } else {
-        version_write(versionPath, prefix, newVersion, delimiter)
+        if (versionPath instanceof String) {
+            version_write(versionPath, prefix, newVersion, delimiter)
+        } else {
+            for (int i = 0; i < versionPath.size(); i++) {
+                version_write(versionPath[i], prefix[i], newVersion, delimiter)
+            }
+        }
 
-        if (prefix != "") {
+        if (mainVersionPrefix != "") {
             if (delimiter == ", ") {
-                version = version_read(versionPath, prefix, delimiter, "true").replace(', ', '.')
+                version = version_read(mainVersionFile, mainVersionPrefix, delimiter, "true").replace(', ', '.')
             } else {
-                version = version_read(versionPath, prefix)
+                version = version_read(mainVersionFile, mainVersionPrefix)
             }
         } else {
-            version = readFile(versionPath).trim()
+            version = readFile(mainVersionFile).trim()
         }
     }
     println "[INFO] Updated version: ${version}"
-
-    if (!versionPath instanceof String) {
-        def newPath = ""
-        for (path in versionPath) {
-            newPath += "${path} "
-        }
-        versionPath = newPath
-    }
 
     if (versionPath instanceof String) {
         bat "git add ${versionPath}"
@@ -178,13 +179,7 @@ def updateVersion(toolName, repoUrl, branchName, versionPath, index = 3, prefix 
     }
 
     increment = {
-        if (versionPath instanceof String) {
-            return incrementVersion(toolName, branchName, versionPath, index, prefix, delimiter)
-        } else {
-            for (int i = 0; i < versionPath.size(); i++) {
-                return incrementVersion(toolName, branchName, versionPath[i], index, prefix[i], delimiter)
-            }
-        }
+        return incrementVersion(toolName, branchName, versionPath, index, prefix, delimiter)
     }
 
     if (repoUrl) {

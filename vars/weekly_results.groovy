@@ -18,6 +18,19 @@ import utils
         "HybridPro-MTLX-Weekly",
         "MaterialXvsHdRPR-Weekly",
         "RenderStudio-Weekly"
+    ],
+    "weeklyResultsPack4": [
+        "RPR-BlenderPlugin-Weekly",
+        "USD-BlenderPlugin-Weekly",
+        "HdRPR-Weekly",
+        "USD-HoudiniPlugin-Weekly",
+
+        "RPR-MayaPlugin-Weekly",
+        "USD-MayaPlugin-Weekly",
+
+        "HybridPro-MTLX-Weekly",
+        "MaterialXvsHdRPR-Weekly",
+        "RenderStudio-Weekly"
     ]
 ]
 
