@@ -1,163 +1,112 @@
-class Constants {
-    static final DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
-    static final OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
-    // regex for Adrenalin driver revision number like "23.18.5"
-    static final REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
-}
-
-def status, driverPath, dirName
+final String DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
+final String OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
+// regex for Adrenalin driver revision number like "23.18.5"
+final String REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
 
 
-def updateDriver(revisionNumber, osName, computer, driverVersion){
+def updateDriver(driverIdentificator, osName, computer, driverVersion){
+    def setupDir
     timeout(time: "60", unit: "MINUTES") {
         try {
             cleanWS()
             switch(osName) {
                 case "Windows":
-                    def currentDriverVersion = getCurrentDriverVersion(driverVersion)
-                    if (driverVersion != currentDriverVersion) {
-                        downloadDriverOnWindows(revisionNumber, computer)
-                        installDriverOnWindows(revisionNumber, computer)
+                    if (driverVersion != getCurrentDriverVersion()) {
+                        setupDir = downloadDriverOnWindows(driverIdentificator, computer)
+                        installDriverOnWindows(driverIdentificator, computer, setupDir)
                     } else {
-                        status = 0
                         println("Proposed driver is already installed")
                     }
                     break
                 case "Ubuntu20":
-                    driverPath = "${env.WORKSPACE}/amdgpu-install.deb"
-                    sh "${CIS_TOOLS}/driver_detection/amd_request.sh \"${Constants.DRIVER_PAGE_URL}\" ${env.WORKSPACE}/page.html >> page_download_${computer}.log 2>&1 "
-
-                    python3("-m pip install -r ${CIS_TOOLS}/driver_detection/requirements.txt >> parse_stage_${computer}.log 2>&1")
-                    status = sh(returnStatus: true, script: "python3.9 ${CIS_TOOLS}/driver_detection/parse_driver.py --os ubuntu20 --html_path ${env.WORKSPACE}/page.html --installer_dst ${driverPath} >> parse_stage_${computer}.log 2>&1")
-                    if (status == 0) {
-                        println("[INFO] Newer driver was found. Uninstalling previous driver...")
-                        sh "sudo amdgpu-install -y --uninstall >> uninstallation_${computer}.log 2>&1"
-
-                        println("[INFO] Driver uninstalled. Reboot ${computer}...")
-                        utils.reboot(this, "Unix")
-
-                        sh "sudo apt-get purge -y amdgpu-install >> uninstallation_${computer}.log 2>&1"
-
-                        println("[INFO] Trying to install new driver...")
-                        sh """
-                            sudo apt-get install -y ${driverPath} >> installation_${computer}.log 2>&1 && \
-                            sudo amdgpu-install --usecase=workstation -y --vulkan=pro --opencl=rocr,legacy --accept-eula >> installation_${computer}.log 2>&1 \
-                        """
-                    }
-                    break
+                    throw new Exception("Ubuntu is not supported")
                 default:
                     println "[WARNING] ${osName} is not supported"
             }
-            switch(status) {
-                case 0:
-                    println("[INFO] ${revisionNumber} driver was installed on ${computer}")
-                    newerDriverInstalled = true
-                    utils.reboot(this, isUnix() ? "Unix" : "Windows")
-                    break
-                case 1:
-                    throw new Exception("Error during parsing stage")
-                    break
-                case 404:
-                    println("[INFO] ${revisionNumber} driver not found for ${computer}")
-                    break
-                default:
-                    throw new Exception("Unknown exit code")
-            }
+            
         } catch(e) {
             println(e.toString());
             println(e.getMessage());
-            currentBuild.result = "FAILURE";
         } finally {
-            try {
-                // in case if proposed driver is already installed
-                archiveArtifacts "*.log, *.LOG"
-            } catch(e) {}
+            archiveArtifacts "*.log, *.LOG", allowEmptyArchive: true
         }
     }
 }
 
-def downloadDriverOnWindows(String revisionNumber, computer) {
-    if (revisionNumber.startsWith("/volume1")) {
+def downloadDriverOnWindows(String driverIdentificator, computer) {
+    def status = 0
+    def setupDir = "."
+
+    if (driverIdentificator.startsWith("/volume1")) {
         // private driver download
         println("[INFO] Downloading a private driver")
-        downloadFiles(revisionNumber, ".")
+        downloadFiles(driverIdentificator, ".")
         println("[INFO] Private driver was downloaded")
-        status = 0
 
         // private driver unzip
-        def archiveName = revisionNumber.substring(revisionNumber.lastIndexOf('/') + 1)
-        def parts = archiveName.split("_")
-        dirName = parts[0] + "_" + parts[1]
+        def archiveName = driverIdentificator.substring(driverIdentificator.lastIndexOf('/') + 1)
         utils.unzip(this, "${archiveName}")
 
-        // return driver's Setup.exe directory
-        return ".//${dirName}"
-    } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
+        // make path to setup directory
+        def parts = archiveName.split("_")
+        setupDir = setupDir + "\\" + parts[0] + "_" + parts[1]
+    } else if (driverIdentificator ==~ REVISION_NUMBER_PATTERN) {
         // public driver download
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
-        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${Constants.OLDER_DRIVER_PAGE_URL}\" older_page.html >> older_page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
+        bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${OLDER_DRIVER_PAGE_URL}\" older_page.html >> older_page_download_${computer}.log 2>&1 "
 
         withEnv(["PATH=c:\\python39\\;c:\\python39\\scripts\\;${PATH}"]) {
             python3("-m pip install -r ${CIS_TOOLS}\\driver_detection\\requirements.txt >> parse_stage_${computer}.log 2>&1")
             status = bat(returnStatus: true, script: "python ${CIS_TOOLS}\\driver_detection\\parse_driver.py --os win --html_path page.html \
-                --installer_dst driver.exe --driver_version ${revisionNumber} --older_html_path older_page.html >> parse_stage_${computer}.log 2>&1")
+                --installer_dst driver.exe --driver_version ${driverIdentificator} --older_html_path older_page.html >> parse_stage_${computer}.log 2>&1")
         }
 
         // public driver unzip
         utils.unzip(this, "driver.exe")
-
-        // return driver's Setup.exe directory
-        return "."
     } else {
-        // other values of revisionNumber
+        // other values of driverIdentificator
         throw new Exception("[WARNING] doesn't match any known pattern")
+    }
+
+    switch(status) {
+        case 0:
+            // return driver's Setup.exe directory
+            return setupDir
+        case 1:
+            throw new Exception("Error during parsing stage")
+            break
+        case 404:
+            println("[INFO] ${driverIdentificator} driver not found for ${computer}")
+            break
+        default:
+            throw new Exception("Unknown exit code")
     }
 }
 
 
-def installDriverOnWindows(String revisionNumber, computer) {
-    if (revisionNumber.startsWith("/volume1")) {
-        // private driver install
-        try {
-            if (status == 0) {
-                bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-                println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-                bat "${dirName}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
-            }
-        } catch (e) {
-            String installationResultLogContent = readFile("installation_result_${computer}.log")
-            if (installationResultLogContent.contains("32 remove_all")) {
-                // pass this case
-            } else if (installationResultLogContent.contains("error code") || installationResultLogContent.contains("Error code")) {
-                // other errors should be visible as exceptions
-                throw e
-            }
-            else {
-                // pass other cases including clear ones
-            }
-        }
-    } else if (revisionNumber ==~ Constants.REVISION_NUMBER_PATTERN) {
-        // public driver install
-        try{
-            if (status == 0) {
-                bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
-                println("[INFO] ${revisionNumber} driver was found. Trying to install on ${computer}...")
-                bat "Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
-            }
-        } catch (e) {
-            // in some cases appeares non-zero exit code,
-            // while in the logs is no reason for it
-            // it may be caused by force closing of skip_warning_window.py during reboot
+def installDriverOnWindows(String driverIdentificator, computer, setupDir) {
+    try {
+        bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
+        println("[INFO] ${driverIdentificator} driver was found. Trying to install on ${computer}...")
+        bat "${setupDir}\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+    } catch (e) {
+        String installationResultLogContent = readFile("installation_result_${computer}.log")
+        if (installationResultLogContent.contains("error code 32 remove_all")) {
+            // driver failed environment clearing, ignore this error
+        } else {
             println(e.toString());
             println(e.getMessage());
+            throw e
         }
-    } else {
-        throw new Exception("[WARNING] doesn't match any known pattern")
     }
+
+    println("[INFO] ${driverIdentificator} driver was installed on ${computer}")
+    newerDriverInstalled = true
+    utils.reboot(this, isUnix() ? "Unix" : "Windows")
 }
 
 
-def getCurrentDriverVersion(String newDriverVersion) {
+def getCurrentDriverVersion() {
     // possible variation instead of using extra python script
     def command = """
         (Get-WmiObject Win32_PnPSignedDriver  |
@@ -169,11 +118,11 @@ def getCurrentDriverVersion(String newDriverVersion) {
 }
 
 
-def call(String revisionNumber = "", String osName, String computer, String driverVersion) {
-    // check if revisionNumber was given
-    if (revisionNumber != "") { 
-        updateDriver(revisionNumber, osName, computer, driverVersion)
+def call(String driverIdentificator = "", String osName, String computer, String driverVersion) {
+    // check if driverIdentificator was given
+    if (driverIdentificator) { 
+        updateDriver(driverIdentificator, osName, computer, driverVersion)
     } else {
-        println("[INFO] Parameter revisionNumber was not set. No driver will be installed on ${computer}")
+        println("[INFO] Parameter driverIdentificator was not set.")
     }
 }

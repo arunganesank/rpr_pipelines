@@ -621,7 +621,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
         } catch (e) {
         }
 
-        driversSelection(options.revisionNumber, osName, "client", options.driverVersion)
+        driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
 
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
@@ -739,7 +739,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         killAdbServer()
 
-        driversSelection(options.revisionNumber, osName, "server", options.driverVersion)
+        driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
@@ -881,7 +881,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     Boolean stashResults = true
 
     try {
-        driversSelection(options.revisionNumber, osName, "mcClient", options.driverVersion)
+        driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
 
         timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
@@ -1697,7 +1697,7 @@ def executePreBuild(Map options) {
         }
 
         // TODO передавать не захардкоженную ось
-        options["driverVersion"] = getProposedDriverVersion(options.revisionNumber, "Windows", "preBuild").trim()
+        options["driverVersion"] = getProposedDriverVersion(options.driverIdentificator, "Windows", "preBuild").trim()
 
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
         multiplatform_pipeline.initProfiles(options)
@@ -2056,7 +2056,7 @@ def call(String projectBranch = "",
     String skipBuild = "",
     String inGameResolution = "1920x1080",
     Boolean collectStreamingDump = false,
-    String revisionNumber = ""
+    String driverIdentificator = ""
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2190,7 +2190,7 @@ def call(String projectBranch = "",
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                         retriesForTestStage:2,
                         collectStreamingDump:collectStreamingDump,
-                        revisionNumber:revisionNumber
+                        driverIdentificator:driverIdentificator
                         ]
         }
 
