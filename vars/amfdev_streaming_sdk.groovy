@@ -538,7 +538,7 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
     try {
         dir(options.stageName) {
-            utils.moveFiles(this, osName, "../*.log", ".")
+            utils.moveFiles(this, osName, "*.log, *.LOG", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
         }
@@ -642,12 +642,12 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 }
             }
 
-            driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
-
             dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){
@@ -762,13 +762,13 @@ def executeTestsServer(String osName, String asicName, Map options) {
                     }
                 }
 
-                driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
-
                 dir("../../../../../..") {
                     checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
                 }
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
@@ -896,12 +896,12 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 }
             }
 
-            driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
-
             dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){

@@ -9,7 +9,7 @@ def getDriverVersionOnWindows(driverIdentificator, computer) {
         catch (e) {
             println(e.toString());
             println(e.getMessage());
-            throw new Exception("[INFO] Cannot get proposed driver revision number")
+            throw new Exception("[INFO] Cannot get proposed driver identificator")
         }
 
     } else {

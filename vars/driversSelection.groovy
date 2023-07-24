@@ -29,9 +29,6 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion){
             println(e.toString());
             println(e.getMessage());
         }
-        // finally {
-        //     archiveArtifacts(artifacts: "*.log, *.LOG", allowEmptyArchive: true)
-        // }
     }
 }
 
@@ -42,7 +39,7 @@ def downloadDriverOnWindows(String driverIdentificator, computer) {
     if (driverIdentificator.startsWith("/volume1")) {
         // private driver download
         println("[INFO] Downloading a private driver")
-        downloadFiles(driverIdentificator, ".")
+        downloadFiles(driverIdentificator, setupDir)
         println("[INFO] Private driver was downloaded")
 
         // private driver unzip
@@ -90,7 +87,7 @@ def installDriverOnWindows(String driverIdentificator, computer, setupDir) {
     try {
         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
         println("[INFO] ${driverIdentificator} driver was found. Trying to install on ${computer}...")
-        bat "${setupDir}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+        bat "${setupDir}\\Setup.exe -INSTALL -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
     } catch (e) {
         String installationResultLogContent = readFile("installation_result_${computer}.log")
         if (installationResultLogContent.contains("error code 32 remove_all")) {
