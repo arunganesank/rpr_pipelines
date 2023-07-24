@@ -1,7 +1,9 @@
-final String DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
-final String OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
+import groovy.transform.Field
+
+@Field final String DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
+@Field final String OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
 // regex for Adrenalin driver revision number like "23.18.5"
-final String REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
+@Field final String REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
 
 
 def updateDriver(driverIdentificator, osName, computer, driverVersion){
@@ -26,9 +28,10 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion){
         } catch(e) {
             println(e.toString());
             println(e.getMessage());
-        } finally {
-            archiveArtifacts "*.log, *.LOG", allowEmptyArchive: true
         }
+        // finally {
+        //     archiveArtifacts(artifacts: "*.log, *.LOG", allowEmptyArchive: true)
+        // }
     }
 }
 
@@ -87,7 +90,7 @@ def installDriverOnWindows(String driverIdentificator, computer, setupDir) {
     try {
         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
         println("[INFO] ${driverIdentificator} driver was found. Trying to install on ${computer}...")
-        bat "${setupDir}\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+        bat "${setupDir}\\Setup.exe -INSTALL -BOOT -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
     } catch (e) {
         String installationResultLogContent = readFile("installation_result_${computer}.log")
         if (installationResultLogContent.contains("error code 32 remove_all")) {
