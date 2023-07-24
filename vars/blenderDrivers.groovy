@@ -1,4 +1,4 @@
-// delete after review for psergeev/driver_selection
+// delete after review on psergeev/driver_selection
 class Constants {
     static final DRIVER_PAGE_URL = "https://www.amd.com/en/support/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
     static final OLDER_DRIVER_PAGE_URL = "https://www.amd.com/en/support/previous-drivers/graphics/amd-radeon-6000-series/amd-radeon-6800-series/amd-radeon-rx-6800-xt"
@@ -6,10 +6,10 @@ class Constants {
     static final REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
 }
 
-// delete after review for psergeev/driver_selection
+// delete after review on psergeev/driver_selection
 def status, driverPath, dirName
 
-// delete after review for psergeev/driver_selection
+// delete after review on psergeev/driver_selection
 def downloadDriverOnWindows(String revisionNumber, computer) {
     if (revisionNumber.startsWith("/volume1")) {
         // private driver download
@@ -48,7 +48,7 @@ def downloadDriverOnWindows(String revisionNumber, computer) {
 }
 
 
-// delete after review for psergeev/driver_selection
+// delete after review on psergeev/driver_selection
 def installDriverOnWindows(String revisionNumber, computer) {
     if (revisionNumber.startsWith("/volume1")) {
         // private driver install
@@ -91,9 +91,9 @@ def installDriverOnWindows(String revisionNumber, computer) {
 }
 
 
-def call(nodesLabels, revisionNumber)
-{
+def call(nodesLabels, revisionNumber) {
     def windowsUpdateTasks = [:]
+    def driversDir = "driver_installation_dir"
     windowsNodes = nodesByLabel "${nodesLabels}"
     
     windowsNodes.each() { machine ->
@@ -101,11 +101,14 @@ def call(nodesLabels, revisionNumber)
             
             stage("Install_${machine}") {
                 node("${machine}") {
-                    ws("Zip_Installer") {
+                    if (!fileExists(driversDir)) {
+                        utils.createDir(this, driversDir)
+                    }
+                    ws(driversDir) {
                         cleanWs()
-                        // after review for psergeev/driver_selection
-                        // use driversSelection.downloadDriverOnWindows("${params.revisionNumber}", "${machine}")
-                        // use driversSelection.installDriverOnWindows("${params.revisionNumber}", "${machine}")
+                        // after review on psergeev/driver_selection use
+                        // driversSelection.downloadDriverOnWindows("${params.revisionNumber}", "${machine}")
+                        // driversSelection.installDriverOnWindows("${params.revisionNumber}", "${machine}")
                         downloadDriverOnWindows("${params.revisionNumber}", "${machine}")
                         installDriverOnWindows("${params.revisionNumber}", "${machine}")
                     }
