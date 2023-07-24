@@ -621,7 +621,6 @@ def executeTestsClient(String osName, String asicName, Map options) {
         } catch (e) {
         }
 
-        driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
 
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
@@ -642,6 +641,8 @@ def executeTestsClient(String osName, String asicName, Map options) {
                     throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
                 }
             }
+
+            driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
 
             dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
@@ -739,7 +740,6 @@ def executeTestsServer(String osName, String asicName, Map options) {
     try {
         killAdbServer()
 
-        driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
@@ -761,6 +761,8 @@ def executeTestsServer(String osName, String asicName, Map options) {
                         throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
                     }
                 }
+
+                driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
 
                 dir("../../../../../..") {
                     checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
@@ -881,7 +883,6 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
     Boolean stashResults = true
 
     try {
-        driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
 
         timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
@@ -894,6 +895,8 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                     throw new ExpectedExceptionWrapper("Streaming SDK executable not found")
                 }
             }
+
+            driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
 
             dir("../../../../../..") {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)

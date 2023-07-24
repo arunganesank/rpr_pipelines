@@ -8,7 +8,6 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion){
     def setupDir
     timeout(time: "60", unit: "MINUTES") {
         try {
-            cleanWS()
             switch(osName) {
                 case "Windows":
                     if (driverVersion != getCurrentDriverVersion()) {
