@@ -7,13 +7,13 @@ import groovy.transform.Field
 
 
 def updateDriver(driverIdentificator, osName, computer, driverVersion){
-    def setupDir
-    timeout(time: "60", unit: "MINUTES") {
+
+    timeout(time: "20", unit: "MINUTES") {
         try {
             switch(osName) {
                 case "Windows":
                     if (driverVersion != getCurrentDriverVersion()) {
-                        setupDir = downloadDriverOnWindows(driverIdentificator, computer)
+                        def setupDir = downloadDriverOnWindows(driverIdentificator, computer)
                         installDriverOnWindows(driverIdentificator, computer, setupDir)
                     } else {
                         println("Proposed driver is already installed")
