@@ -3,7 +3,6 @@ def collectArtifacts(machine, osName) {
         utils.createDir(this, machine)
         dir(machine) {
             utils.moveFiles(this, osName, "../*.log", ".")
-            utils.moveFiles(this, osName, "../*.LOG", ".")
         }
         archiveArtifacts artifacts: "${machine}/*.log, ${machine}/*.LOG", allowEmptyArchive: true
     } catch(e) {

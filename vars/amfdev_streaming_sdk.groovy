@@ -538,8 +538,8 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
     try {
         dir(options.stageName) {
-            utils.moveFiles(this, osName, "../*.log,", ".")
-            utils.moveFiles(this, osName, "../*.LOG", ".")
+            utils.moveFiles(this, osName, "../*.log", ".")
+            // utils.moveFiles(this, osName, "../*.LOG", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
         }
@@ -1700,7 +1700,6 @@ def executePreBuild(Map options) {
             options.executeTests = false
         }
 
-        // TODO передавать не захардкоженную ось
         options["driverVersion"] = getProposedDriverVersion(options.driverIdentificator, "Windows", "preBuild").trim()
 
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
