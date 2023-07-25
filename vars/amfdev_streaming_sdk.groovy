@@ -538,12 +538,13 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
     try {
         dir(options.stageName) {
-            utils.moveFiles(this, osName, "../*.log", ".")
+            utils.moveFiles(this, osName, "../*.log,", ".")
+            utils.moveFiles(this, osName, "../*.LOG", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
         }
 
-        archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
+        archiveArtifacts artifacts: "${options.stageName}/*.log, ${options.stageName}/*.LOG", allowEmptyArchive: true
 
         if (stashResults) {
             dir("Work") {
@@ -615,6 +616,13 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+
+        try {
+            bat "taskkill /im adb.exe /f"
+        } catch (e) {
+        }
+
+
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
@@ -639,6 +647,8 @@ def executeTestsClient(String osName, String asicName, Map options) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "client", options.driverVersion)
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){
@@ -758,6 +768,8 @@ def executeTestsServer(String osName, String asicName, Map options) {
                 }
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "server", options.driverVersion)
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "5", unit: "MINUTES") {
@@ -889,6 +901,8 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: TESTS_REPO, cleanCheckout: options.skipBuild.size() == 0)
             }
         }
+
+        driversSelection(options.driverIdentificator, osName, "mcClient", options.driverVersion)
 
         timeout(time: "5", unit: "MINUTES") {
             dir("jobs_launcher/install"){
@@ -1686,6 +1700,9 @@ def executePreBuild(Map options) {
             options.executeTests = false
         }
 
+        // TODO передавать не захардкоженную ось
+        options["driverVersion"] = getProposedDriverVersion(options.driverIdentificator, "Windows", "preBuild").trim()
+
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
         multiplatform_pipeline.initProfiles(options)
 
@@ -2042,7 +2059,8 @@ def call(String projectBranch = "",
     Boolean collectInternalDriverVersion = false,
     String skipBuild = "",
     String inGameResolution = "1920x1080",
-    Boolean collectStreamingDump = false
+    Boolean collectStreamingDump = false,
+    String driverIdentificator = ""
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -2175,7 +2193,8 @@ def call(String projectBranch = "",
                         skipBuildCallback: this.&shouldSkipBuild,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                         retriesForTestStage:2,
-                        collectStreamingDump:collectStreamingDump
+                        collectStreamingDump:collectStreamingDump,
+                        driverIdentificator:driverIdentificator
                         ]
         }
 
