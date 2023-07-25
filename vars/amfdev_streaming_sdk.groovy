@@ -544,7 +544,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
         }
 
-        archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
+        archiveArtifacts artifacts: "${options.stageName}/*.log, ${options.stageName}/*.LOG", allowEmptyArchive: true
 
         if (stashResults) {
             dir("Work") {
