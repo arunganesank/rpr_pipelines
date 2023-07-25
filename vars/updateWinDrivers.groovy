@@ -1,10 +1,16 @@
 def collectArtifacts(machine, osName) {
-    utils.createDir(this, machine)
-    dir(machine) {
-        utils.moveFiles(this, osName, "../*.log", ".")
-        utils.moveFiles(this, osName, "../*.LOG", ".")
+    try {
+        utils.createDir(this, machine)
+        dir(machine) {
+            utils.moveFiles(this, osName, "../*.log", ".")
+            utils.moveFiles(this, osName, "../*.LOG", ".")
+        }
+        archiveArtifacts artifacts: "${machine}/*.log, ${machine}/*.LOG", allowEmptyArchive: true
+    } catch(e) {
+        println(e.toString());
+        println(e.getMessage());
+        throw new Exception("Error during collecting artifacts on ${machine}")
     }
-    archiveArtifacts artifacts: "${machine}/*.log, ${machine}/*.LOG", allowEmptyArchive: true
 }
 
 
