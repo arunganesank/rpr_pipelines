@@ -951,4 +951,14 @@ class utils {
             }
         }
     }
+
+    static def doRequest(Object self, String url, String httpMode = "GET") {
+        def rawInfo = self.httpRequest(
+            url: url,
+            authentication: "jenkinsCredentials",
+            httpMode: httpMode
+        )
+
+        return parseJson(self, rawInfo.content)
+    }
 }

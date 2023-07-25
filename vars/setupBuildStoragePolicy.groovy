@@ -15,6 +15,11 @@ def call(String project = "") {
 
         properties([[$class: 'BuildDiscarderProperty', strategy:
             [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '20']]])
+    } else if (isReleaseJob()) {
+        println("BuildDiscarderProperty will use settings for release job.")
+
+        properties([[$class: 'BuildDiscarderProperty', strategy:
+            [$class: 'LogRotator', artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '90', numToKeepStr: '20']]])
     } else if (isAutoJob()) {
         println("BuildDiscarderProperty will use settings for auto job.")
 
@@ -70,6 +75,11 @@ def isManualJob(){
 
 def isAutoJob(){
     return env.JOB_NAME.contains("Auto") ? true : false
+}
+
+
+def isReleaseJob() {
+    return env.JOB_NAME.contains("Release") ? true : false
 }
 
 

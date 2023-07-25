@@ -413,7 +413,6 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             try {
                 def summaryReport
-
                 dir("summaryTestResults") {
                     archiveArtifacts artifacts: "summary_status.json"
                     summaryReport = readJSON file: "summary_status.json"
