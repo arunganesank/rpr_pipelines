@@ -6,7 +6,10 @@ import groovy.transform.Field
 @Field final String REVISION_NUMBER_PATTERN = ~/^\d{2}\.\d{1,2}\.\d$/
 
 
-def updateDriver(driverIdentificator, osName, computer, driverVersion){
+def updateDriver(driverIdentificator, osName, computer, driverVersion, logPath = ""){
+    if (!logPath) {
+        logPath = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
+    }
 
     timeout(time: "20", unit: "MINUTES") {
         try {
@@ -14,7 +17,7 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion){
                 case "Windows":
                     if (driverVersion != getCurrentDriverVersion()) {
                         def setupDir = downloadDriverOnWindows(driverIdentificator, computer)
-                        installDriverOnWindows(driverIdentificator, computer, setupDir)
+                        installDriverOnWindows(driverIdentificator, computer, setupDir, logPath)
                     } else {
                         println("Proposed driver is already installed")
                     }
@@ -83,11 +86,11 @@ def downloadDriverOnWindows(String driverIdentificator, computer) {
 }
 
 
-def installDriverOnWindows(String driverIdentificator, computer, setupDir) {
+def installDriverOnWindows(String driverIdentificator, computer, setupDir, logPath) {
     try {
         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
         println("[INFO] ${driverIdentificator} driver was found. Trying to install on ${computer}...")
-        bat "${setupDir}\\Setup.exe -INSTALL -LOG ${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests\\installation_result_${computer}.log"
+        bat "${setupDir}\\Setup.exe -INSTALL -LOG ${logPath}\\installation_result_${computer}.log"
     } catch (e) {
         String installationResultLogContent = readFile("installation_result_${computer}.log")
         if (installationResultLogContent.contains("error code 32 remove_all")) {
