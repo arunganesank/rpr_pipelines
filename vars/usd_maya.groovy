@@ -1285,7 +1285,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         saveTrackedMetrics:saveTrackedMetrics,
                         customRenderStudioInstaller:customRenderStudioInstaller,
                         globalStorage: new ConcurrentHashMap(),
-                        testsPreCondition: this.&render_studio.hasIdleClients
+                        testsPreCondition: render_studio.&hasIdleClients
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
