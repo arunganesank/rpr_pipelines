@@ -851,7 +851,7 @@ def executePreBuild(Map options) {
                 }
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.engines.each { engine ->
@@ -1284,7 +1284,8 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         useTrackedMetrics:useTrackedMetrics,
                         saveTrackedMetrics:saveTrackedMetrics,
                         customRenderStudioInstaller:customRenderStudioInstaller,
-                        globalStorage: new ConcurrentHashMap()
+                        globalStorage: new ConcurrentHashMap(),
+                        testsPreCondition: this.&render_studio.hasIdleClients
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
