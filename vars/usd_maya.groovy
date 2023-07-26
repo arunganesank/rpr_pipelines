@@ -286,6 +286,7 @@ def executeTests(String osName, String asicName, Map options) {
         options["testRepo"] = render_studio.TEST_REPO
         options["testsBranch"] = options["renderStudioTestsBranch"]
         options["mode"] = "Desktop"
+        options["version"] = ""
         render_studio.executeTests(osName, asicName, options)
         return
     }
