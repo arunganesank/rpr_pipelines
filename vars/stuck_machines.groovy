@@ -2,14 +2,22 @@ def checkNodes() {
     // Get all the nodes
     def nodes = Jenkins.instance.nodes
 
-    nodes.each { node ->
-        checkComputer(node)
+    List stuckNodes = []
+
+    nodes.each { nodeObject ->
+        String nodeName = checkComputer(nodeObject)
+
+        if (nodeName != null) {
+            stuckNodes.add(nodeName)
+        }
     }
+
+    return stuckNodes
 }
 
 
-def checkComputer(node) {
-    def computer = node.getComputer()
+def checkComputer(def nodeObject) {
+    def computer = nodeObject.getComputer()
     if (computer.online) {
         def stuckExecutors = 0
 
@@ -17,26 +25,35 @@ def checkComputer(node) {
             def executors = computer.executors
             executors.each { executor ->
                 if (executor.isLikelyStuck()) {
-                    echo "Executor ${executor.displayName} on node ${node.displayName} is likely stuck"
+                    echo "Executor ${executor.displayName} on node ${nodeObject.displayName} is likely stuck"
                     stuckExecutors += 1
                 }
             }
         }
 
         // Check if all executors on the node are stuck
-        if (node.getNumExecutors() == stuckExecutors) {
-            String message = "Node ${node.displayName} is likely stuck"
-            echo message
-            // SlackUtils.sendMessageToWorkspaceChannel(this, '', message, SlackUtils.Color.ORANGE, SlackUtils.SlackWorkspace.LUXCIS, 'cis_notifications')
+        if (nodeObject.getNumExecutors() == stuckExecutors) {
+            return nodeObject.displayName
         }
     }
+
+    return null
 }
 
 def call() {
     // main function
     timestamps {
         stage("Check if node is stuck") {
-            checkNodes()
+            List stuckNodes = checkNodes()
+
+            stuckNodes.each() { nodeName ->
+                SlackUtils.sendMessageToWorkspaceChannel(this,
+                                                         "", 
+                                                         "Node ${nodeName} is likely stuck",
+                                                         SlackUtils.Color.ORANGE,
+                                                         SlackUtils.SlackWorkspace.LUXCIS,
+                                                         "cis_notifications")
+            }
         }
     }
 }
