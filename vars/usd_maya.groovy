@@ -284,7 +284,7 @@ def executeTests(String osName, String asicName, Map options) {
     if (render_studio.getNumberOfRequiredClients(options) > 1) {
         // execute LiveMode test group
         options["testRepo"] = render_studio.TEST_REPO
-        options["testsBranch"] = "inemankov/rs_usd_maya"
+        options["testsBranch"] = options["renderStudioTestsBranch"]
         options["mode"] = "Desktop"
         render_studio.executeTests(osName, asicName, options)
         return
