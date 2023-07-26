@@ -1699,7 +1699,6 @@ def executePreBuild(Map options) {
             options.executeTests = false
         }
 
-        // TODO передавать не захардкоженную ось
         options["driverVersion"] = getProposedDriverVersion(options.driverIdentificator, "Windows", "preBuild").trim()
 
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
