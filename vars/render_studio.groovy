@@ -713,7 +713,7 @@ def syncLMClients(String osName, Map options, String clientType, int clientNumbe
 
 def getIpAddress() {
     for (line in bat(script: "ipconfig",returnStdout: true).split("\n")) {
-        if (line.contains("172.19")) {
+        if (line.contains("172.19.140") && !line.contains("172.19.140.1")) {
             return line.split("IPv4 Address")[1].split(":")[1].split()[0].trim()
         }
     }
@@ -900,6 +900,8 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     dir("Build/Downloads/lights") {
         if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-210") {
             downloadFiles("/volume1/CIS/WebUSD/LightsPR210/", ".", , "--quiet")
+        } else if (options.projectBranchName.contains("agurov/pre-release") || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-216")) {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR216/", ".", , "--quiet")
         } else {
             downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
         }
@@ -1997,7 +1999,8 @@ def call(
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
                                 saveTrackedMetrics:saveTrackedMetrics,
-                                globalStorage: new ConcurrentHashMap()
+                                globalStorage: new ConcurrentHashMap(),
+                                testsPreCondition: this.&hasIdleClients
                                 ]
 
     withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
