@@ -539,7 +539,6 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
     try {
         dir(options.stageName) {
             utils.moveFiles(this, osName, "../*.log", ".")
-            // utils.moveFiles(this, osName, "../*.LOG", ".")
             utils.moveFiles(this, osName, "../scripts/*.log", ".")
             utils.renameFile(this, osName, "launcher.engine.log", "${options.stageName}_engine_${options.currentTry}_${executionType}.log")
         }
