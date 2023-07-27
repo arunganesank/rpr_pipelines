@@ -1,4 +1,4 @@
-def addOrUpdateDescription(String buildUrl, String newLine, String projectName) {
+def addOrUpdateDescription(String buildUrl, String newLine, String jobName) {
     Integer buildNumber = buildUrl.split("/")[-1] as Integer
     String[] jobParts = buildUrl.replace(env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
 
@@ -17,7 +17,7 @@ def addOrUpdateDescription(String buildUrl, String newLine, String projectName) 
 
         for (int i = 0; i < lines.size(); i++) {
             String line = lines[i]
-            if (line.contains(projectName)) {
+            if (line.contains(jobName)) {
                 lines[i] = newLine.replace("<br/>", "")
                 build.description = lines.join("<br/>")
                 lineReplaced = true
@@ -31,7 +31,7 @@ def addOrUpdateDescription(String buildUrl, String newLine, String projectName) 
 }
 
 
-def getProblemsCount(String buildUrl, String projectName) {
+def getProblemsCount(String buildUrl, String jobName) {
     try {
         withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
             buildUrl = buildUrl.replace(env.JENKINS_URL, JENKINS_INTERNAL_URL)
@@ -45,7 +45,7 @@ def getProblemsCount(String buildUrl, String projectName) {
 }
 
 
-def buildDescriptionContent(String projectName, String buildUrl, String reportLink, String logsLink) {
+def buildDescriptionContent(String jobName, String buildUrl, String reportLink, String logsLink) {
     def buildInfo = checkBuildResult(buildUrl)
 
     String statusDescription = ""
@@ -55,7 +55,7 @@ def buildDescriptionContent(String projectName, String buildUrl, String reportLi
     } else {
         currentBuild.result = buildInfo.result
 
-        Map problems = getProblemsCount(buildUrl, projectName)
+        Map problems = getProblemsCount(buildUrl, jobName)
 
         if (problems) {
             if (problems["failed"] > 0 && problems["error"] > 0) {
@@ -71,33 +71,33 @@ def buildDescriptionContent(String projectName, String buildUrl, String reportLi
     }
 
     if (buildInfo.inProgress) {
-        return "<span style='color: #5FBC34; font-size: 150%'>${projectName} tests are in progress. <a href='${reportLink}'>Test report</a></span><br/><br/>"
+        return "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are in progress. <a href='${reportLink}'>Test report</a></span><br/><br/>"
     } else {
         if (buildInfo.result == "FAILURE") {
-            return "<span style='color: #b03a2e; font-size: 150%'>${projectName} tests are Failed. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
+            return "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
         } else if (buildInfo.result == "UNSTABLE") {
-            return "<span style='color: #b7950b; font-size: 150%'>${projectName} tests are Unstable. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
+            return "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
         } else if (buildInfo.result == "SUCCESS") {
-            return "<span style='color: #5FBC34; font-size: 150%'>${projectName} tests are Success. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
+            return "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
         } else {
-            return "<span style='color: #b03a2e; font-size: 150%'>${projectName} tests with unexpected status. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
+            return "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
         }
     }
 }
 
 
-def buildDescriptionLine(String buildUrl, String projectName) {
+def buildDescriptionLine(String buildUrl, String jobName) {
     String messageContent = ""
 
-    switch (projectName) {
+    switch (jobName) {
         case "Houdini":
             String reportLink = "${buildUrl}/Test_20Report_2019_2e5_2e640_5fHybridPro"
             String logsLink = "${buildUrl}/artifact"
-            return buildDescriptionContent(projectName, buildUrl, reportLink, logsLink)
+            return buildDescriptionContent(jobName, buildUrl, reportLink, logsLink)
         default: 
             String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
             String logsLink = "${buildUrl}/artifact"
-            return buildDescriptionContent(projectName, buildUrl, reportLink, logsLink)
+            return buildDescriptionContent(jobName, buildUrl, reportLink, logsLink)
     }
 }
 
@@ -126,7 +126,7 @@ def getTriggeredBuildLink(String jobUrl) {
 }
 
 
-def launchAndWaitBuild(String projectName,
+def launchAndWaitBuild(String jobName,
                        String projectRepo,
                        String projectBranch,
                        String pipelineBranch,
@@ -134,12 +134,12 @@ def launchAndWaitBuild(String projectName,
                        String customHybridProWindowsLink,
                        String customHybridProUbuntuLink) {
     String[] jobNameParts = env.JOB_NAME.split("/")
-    jobNameParts[-1] = projectName
+    jobNameParts[-1] = jobName
 
-    String targetJobName = jobNameParts.join("/")
+    String targetJobPath = jobNameParts.join("/")
 
     build(
-        job: targetJobName,
+        job: targetJobPath,
         parameters: [
             string(name: "projectRepo", value: projectRepo),
             string(name: "projectBranch", value: projectBranch),
@@ -152,13 +152,13 @@ def launchAndWaitBuild(String projectName,
         quietPeriod : 0
     )
 
-    String targetBuildUrl = getTriggeredBuildLink(targetJobName)
+    String targetBuildUrl = getTriggeredBuildLink(targetJobPath)
 
     while(true) {
         if (!checkBuildResult(targetBuildUrl).inProgress) {
-            String description = buildDescriptionLine(targetBuildUrl, projectName)
-            addOrUpdateDescription(env.BUILD_URL, description, projectName)
-            addOrUpdateDescription(targetBuildUrl, description, projectName)
+            String description = buildDescriptionLine(targetBuildUrl, jobName)
+            addOrUpdateDescription(env.BUILD_URL, description, jobName)
+            addOrUpdateDescription(targetBuildUrl, description, jobName)
             break
         }
 
@@ -173,12 +173,12 @@ def call(List projects) {
 
         for (int i = 0; i < projects.size(); i++) {
             def project = projects[i]
-            String stageName = project["projectName"]
+            String stageName = project["jobName"]
 
             try {
                 tasks[stageName] = {
                     stage(stageName) {
-                        launchAndWaitBuild(project["projectName"]
+                        launchAndWaitBuild(project["jobName"]
                                            project["projectRepo"], 
                                            project["projectBranch"],
                                            project["pipelineBranch"],
