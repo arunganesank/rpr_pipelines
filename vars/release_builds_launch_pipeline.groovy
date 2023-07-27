@@ -45,7 +45,7 @@ def getProblemsCount(String buildUrl, String jobName) {
 }
 
 
-def buildDescriptionContent(String jobName, String buildUrl, String reportLink, String logsLink) {
+def buildDescriptionContent(String jobName, String buildUrl, String reportLink) {
     def buildInfo = checkBuildResult(buildUrl)
 
     String statusDescription = ""
@@ -90,14 +90,15 @@ def buildDescriptionLine(String buildUrl, String jobName) {
     String messageContent = ""
 
     switch (jobName) {
+        case "Original":
+            String reportLink = buildUrl
+            return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a></span><br/><br/>"
         case "Houdini":
             String reportLink = "${buildUrl}/Test_20Report_2019_2e5_2e640_5fHybridPro"
-            String logsLink = "${buildUrl}/artifact"
-            return buildDescriptionContent(jobName, buildUrl, reportLink, logsLink)
+            return buildDescriptionContent(jobName, buildUrl, reportLink)
         default: 
             String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
-            String logsLink = "${buildUrl}/artifact"
-            return buildDescriptionContent(jobName, buildUrl, reportLink, logsLink)
+            return buildDescriptionContent(jobName, buildUrl, reportLink)
     }
 }
 
@@ -135,16 +136,19 @@ def launchAndWaitBuild(String jobName,
                        String customHybridProUbuntuLink) {
     String[] jobNameParts = env.JOB_NAME.split("/")
     jobNameParts[-1] = jobName
-
     String targetJobPath = jobNameParts.join("/")
+
+    String[] jobUrlParts = env.JOB_URL.split("/")
+    jobUrlParts[-1] = jobName
+    String targetJobUrl = jobUrlParts.join("/")
 
     build(
         job: targetJobPath,
         parameters: [
             string(name: "projectRepo", value: projectRepo),
-            string(name: "projectBranch", value: projectBranch),
-            string(name: "pipelineBranch", value: pipelineBranch),
-            string(name: "testsPackage", value: testsPackage),
+            string(name: "Branch", value: projectBranch),
+            string(name: "PipelineBranch", value: pipelineBranch),
+            string(name: "TestsPackage", value: testsPackage),
             string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
             string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
         ],
@@ -152,11 +156,25 @@ def launchAndWaitBuild(String jobName,
         quietPeriod : 0
     )
 
-    String targetBuildUrl = getTriggeredBuildLink(targetJobPath)
+    String targetBuildUrl = getTriggeredBuildLink(targetJobUrl)
+
+    while (checkBuildResult(targetBuildUrl).inProgress 
+        && (checkBuildResult(targetBuildUrl).description == null || !checkBuildResult(targetBuildUrl).description.contains("Version"))) {
+        // waiting until the triggered build initialize description
+        sleep(60)
+    }
+ 
+    String description = buildDescriptionLine(env.BUILD_URL, "Original")
+    addOrUpdateDescription(env.BUILD_URL, description, "Original")
+    addOrUpdateDescription(targetBuildUrl, description, "Original")
+
+    description = buildDescriptionLine(targetBuildUrl, jobName)
+    addOrUpdateDescription(env.BUILD_URL, description, jobName)
+    addOrUpdateDescription(targetBuildUrl, description, jobName)
 
     while(true) {
         if (!checkBuildResult(targetBuildUrl).inProgress) {
-            String description = buildDescriptionLine(targetBuildUrl, jobName)
+            description = buildDescriptionLine(targetBuildUrl, jobName)
             addOrUpdateDescription(env.BUILD_URL, description, jobName)
             addOrUpdateDescription(targetBuildUrl, description, jobName)
             break
@@ -169,6 +187,8 @@ def launchAndWaitBuild(String jobName,
 
 def call(List projects) {
     timestamps {
+        currentBuild.description = ""
+
         def tasks = [:]
 
         for (int i = 0; i < projects.size(); i++) {
@@ -178,7 +198,7 @@ def call(List projects) {
             try {
                 tasks[stageName] = {
                     stage(stageName) {
-                        launchAndWaitBuild(project["jobName"]
+                        launchAndWaitBuild(project["jobName"],
                                            project["projectRepo"], 
                                            project["projectBranch"],
                                            project["pipelineBranch"],
