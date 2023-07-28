@@ -2020,7 +2020,7 @@ def call(
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
         if (env.CHANGE_URL){
-            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
+            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}\n${env.BUILD_URL}", options)
         } 
     }
 }
