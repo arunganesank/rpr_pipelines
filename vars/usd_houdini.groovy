@@ -420,11 +420,9 @@ def executeBuild(String osName, Map options) {
         dir ("RadeonProRenderUSD") {
             withNotifications(title: "${osName}-${options.buildProfile}", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
-            }
 
-            if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX) && osName != "OSX") {
                 dir("deps/RPR") {
-                    hybrid_to_blender_workflow.replaceHybrid(osName, options)
+                    hybrid.replaceHybridPro(osName, options)
                 }
             }
         }
@@ -866,7 +864,10 @@ def call(String projectRepo = PROJECT_REPO,
         String customBuildLinkWindows = "",
         String customBuildLinkUbuntu20 = "",
         String customBuildLinkMacOS = "",
-        String mergeablePR = "") {
+        String mergeablePR = "",
+        String customHybridProWindowsLink = "",
+        String customHybridProUbuntuLink = "")
+{
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
@@ -967,7 +968,9 @@ def call(String projectRepo = PROJECT_REPO,
                         notificationsTitlePrefix: "HOUDINI",
                         useTrackedMetrics:useTrackedMetrics,
                         saveTrackedMetrics:saveTrackedMetrics,
-                        skipCallback: this.&filter
+                        skipCallback: this.&filter,
+                        customHybridProWindowsLink: customHybridProWindowsLink,
+                        customHybridProUbuntuLink: customHybridProUbuntuLink
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
