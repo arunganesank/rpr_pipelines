@@ -961,4 +961,26 @@ class utils {
 
         return parseJson(self, rawInfo.content)
     }
+
+    static def getTriggeredBuildLink(Object self, String jobUrl) {
+        String url = "${jobUrl}/api/json?tree=lastBuild[number,url]"
+
+        self.withCredentials([self.string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            url = url.replace(env.JENKINS_URL, self.JENKINS_INTERNAL_URL)
+        }
+
+        def parsedInfo = doRequest(self, url)
+
+        return parsedInfo.lastBuild.url
+    }
+
+    static def getBuildInfo(Object self, String buildUrl, String fields = "result,description,inProgress") {
+        self.withCredentials([self.string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            buildUrl = buildUrl.replace(env.JENKINS_URL, self.JENKINS_INTERNAL_URL)
+        }
+
+        def parsedInfo = doRequest(self, "${buildUrl}/api/json?tree=${fields}")
+
+        return parsedInfo
+    }
 }
