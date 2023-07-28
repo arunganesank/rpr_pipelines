@@ -271,6 +271,10 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
     String gpuName = directory.split("-")[0]
     String osName = directory.split("-")[1].replace("/", "")
 
+    if (targetGroup.contains("LiveMode")) {
+        profile = "Desktop"
+    }
+
     if (profile) {
         String profileBaselineName = PROFILE_BASELINES_MAPPING.containsKey(profile.toLowerCase()) ? PROFILE_BASELINES_MAPPING[profile.toLowerCase()] : profile
         machineConfiguration = profileBaselineName ? "${gpuName}-${osName}-${profileBaselineName}" : "${gpuName}-${osName}"
@@ -278,7 +282,13 @@ def doGroupUpdate(UpdateInfo updateInfo, String directory, String targetGroup, S
         machineConfiguration = "${gpuName}-${osName}"
     }
 
-    String baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
+    String baselinesPathProfile
+
+    if (targetGroup.contains("LiveMode")) {
+        baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING['render_studio']}/${machineConfiguration}"
+    } else {
+        baselinesPathProfile = "/volume1/Baselines/${BASELINE_DIR_MAPPING[toolName.toLowerCase()]}/${machineConfiguration}"
+    }
 
     if (updateType == "Cases") {
         downloadFiles("${remoteResultPath}/${targetGroup}/report_compare.json", "results/${targetGroup}", "", true, "nasURL", "nasSSHPort", true)
@@ -455,7 +465,14 @@ def call(String jobName,
 
                             for (targetGroup in groupsNames.split(",")) {
                                 directories.each() { directory ->
-                                    String remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                                    String remoteResultPath
+
+                                    if (targetGroup.contains("LiveMode")) {
+                                        remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING['render_studio']}"
+                                    } else {
+                                        remoteResultPath = "/volume1/web/${jobName}/${buildID}/${reportName}/${directory}/Results/${AUTOTESTS_PROJECT_DIR_MAPPING[toolName.toLowerCase()]}"
+                                    }
+
                                     if (!isSuitableDir(updateInfo, directory, targetGroup, remoteResultPath)) {
                                         return
                                     }
