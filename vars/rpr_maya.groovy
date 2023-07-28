@@ -555,6 +555,10 @@ def executeBuild(String osName, Map options)
         dir("RadeonProRenderMayaPlugin") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
+
+                dir("RadeonProRenderSDK") {
+                    hybrid.replaceHybridPro(osName, options)
+                }
             }
         }
 
@@ -1082,7 +1086,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5,
-        Boolean collectTraces = false)
+        Boolean collectTraces = false,
+        String customHybridProWindowsLink = "",
+        String customHybridProUbuntuLink = "")
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1215,7 +1221,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         skipCallback: this.&filter,
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
-                        saveTrackedMetrics:saveTrackedMetrics
+                        saveTrackedMetrics:saveTrackedMetrics,
+                        customHybridProWindowsLink: customHybridProWindowsLink,
+                        customHybridProUbuntuLink: customHybridProUbuntuLink
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
