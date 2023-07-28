@@ -42,7 +42,7 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    if (engine == "HybridPro" && osName == "AMD_RX5700XT") {
+    if (engine == "HybridPro" && asicName == "AMD_RX5700XT") {
         return true
     }
 
@@ -208,11 +208,20 @@ def cloneTestsRepository(String osName, Map options) {
 }
 
 
+def downloadMayaPrefs(String osName, String toolVersion) {
+    timeout(time: "5", unit: "MINUTES") {
+        String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${toolVersion}/prefs"
+        String customKeys = isUnix() ? "--protect-args" : ""
+        downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
+    }
+}
+
+
 def executeTests(String osName, String asicName, Map options)
 {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
-    
+
     try {
         utils.removeEnvVars(this)
 
@@ -247,11 +256,7 @@ def executeTests(String osName, String asicName, Map options)
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
-            timeout(time: "5", unit: "MINUTES") {
-                String prefsDir = isUnix() ? "/Users/${env.USER}/Library/Preferences/Autodesk/Maya/${options.toolVersion}/prefs" : "/mnt/c/Users/${env.USERNAME}/Documents/Maya/${options.toolVersion}/prefs"
-                String customKeys = isUnix() ? "--protect-args" : ""
-                downloadFiles("/volume1/CIS/tools-preferences/Maya/${osName}/${options.toolVersion}/prefs/*", prefsDir, customKeys, false, "nasURL", "nasSSHPort", true)
-            }
+            downloadMayaPrefs(osName, options.toolVersion)
         }
 
         try {
@@ -555,6 +560,10 @@ def executeBuild(String osName, Map options)
         dir("RadeonProRenderMayaPlugin") {
             withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                 checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, prBranchName: options.prBranchName, prRepoName: options.prRepoName)
+
+                dir("RadeonProRenderSDK") {
+                    hybrid.replaceHybridPro(osName, options)
+                }
             }
         }
 
@@ -1087,7 +1096,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         String mergeablePR = "",
         String parallelExecutionTypeString = "TakeAllNodes",
         Integer testCaseRetries = 5,
-        Boolean collectTraces = false)
+        Boolean collectTraces = false,
+        String customHybridProWindowsLink = "",
+        String customHybridProUbuntuLink = "")
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [:]
@@ -1220,7 +1231,9 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         skipCallback: this.&filter,
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
-                        saveTrackedMetrics:saveTrackedMetrics
+                        saveTrackedMetrics:saveTrackedMetrics,
+                        customHybridProWindowsLink: customHybridProWindowsLink,
+                        customHybridProUbuntuLink: customHybridProUbuntuLink
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {

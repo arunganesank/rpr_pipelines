@@ -91,6 +91,10 @@ Boolean hasIdleClients(Map options) {
 
 
 Boolean filter(Map options, String asicName, String osName, String testName, String mode) {
+    if (testName.contains("LiveMode") && !(asicName == "AMD_RX6800XT" || asicName == "AMD_RX7900XT")) {
+        return true
+    }
+
     if ((osName == "Windows" && mode == "Desktop") || (osName == "Web" && mode == "Web")) {
         return false
     }
@@ -167,8 +171,17 @@ def uninstallAMDRenderStudio(String osName, Map options, Boolean clearCaches = t
 
 
 def installAMDRenderStudio(String osName, Map options) {
-    dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+    if (options["installerPath"]) {
+        // install custom Render Studio installer
+        bat "msiexec.exe /i ${options['installerPath']} /qb"
+    } else {
+        dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
+            if (options["customRenderStudioHash"]) {
+                bat "msiexec.exe /i ${options['customRenderStudioHash']}.msi /qb"
+            } else {
+                bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+            }
+        }
     }
 }
 
@@ -364,8 +377,23 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
             timeout(time: "10", unit: "MINUTES") {
                 try {
-                    getProduct("Windows", options)
-                    runApplicationTests(osName, options)
+                    if (options["PRJ_NAME"] == "RS") {
+                        getProduct("Windows", options)
+                        runApplicationTests(osName, options)
+                    } else if (options["customRenderStudioInstaller"]) {
+                        // some custom Render Studio installer should be installed for Live Mode
+                        // use copy of options to do not lost original data
+                        Map newOptions = options.clone()
+                        newOptions["isPreBuilt"] = true
+                        newOptions["customBuildLinkWindows"] = options["customRenderStudioInstaller"]
+                        newOptions["configuration"] = PIPELINE_CONFIGURATION
+                        getProduct("Windows", newOptions)
+                        options["customRenderStudioHash"] = newOptions[getProduct.getIdentificatorKey("Windows", options)]
+                    } else {
+                        // use the latest Render Studio installer for Live Mode
+                        options["installerPath"] = "RS.msi"
+                        downloadLiveModeInstaller(osName, options, options["installerPath"])
+                    }
                 } catch (e) {
                     if (e instanceof ExpectedExceptionWrapper) {
                         options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
@@ -404,6 +432,43 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
 
             String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
             writeFile(file: "local_config.py", text: localConfigContent)
+        }
+    }
+}
+
+
+def prepareTools(String osName, Map options, String clientType, int clientNumber = -1) {
+    prepareAMDRenderStudio(osName, options, clientType, clientNumber)
+
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+    List testGroups
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        // some parts of regression contain live mode tests
+        int partNumber = options.tests.split("\\.")[1] as int
+
+        testGroups = options.packageInfo["groups"][partNumber].keySet() as List
+    } else {
+        testGroups = options.tests.split("-")[0].split() as List
+    }
+
+    // check that should USD Maya plugin be installed
+    boolean shouldInstallUSDMaya = false
+
+    for (testGroup in testGroups) {
+        if (options["liveModeConfiguration"].live_mode_client.containsKey(testGroup) && options["liveModeConfiguration"].live_mode_client[testGroup][modeKey] == "usd_maya") {
+            shouldInstallUSDMaya = true
+            break
+        }
+    }
+
+    if (shouldInstallUSDMaya) {
+        timeout(time: "15", unit: "MINUTES") {
+            usd_maya.uninstallRPRMayaPlugin(osName, options)
+            usd_maya.uninstallRPRMayaUSDPlugin(osName, options)
+            rpr_maya.downloadMayaPrefs(osName, "2024")
+            usd_maya.downloadLiveModePlugin(osName, options, "MayaUSD.exe")
+            usd_maya.installRPRMayaUSDPlugin(osName, options, "MayaUSD.exe")
         }
     }
 }
@@ -561,7 +626,11 @@ def saveTestResults(String osName, Map options, String clientType, int clientNum
                         utils.stashTestData(this, options, options.storeOnNAS)
 
                         if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.mode)
+                            if (options.engine) {
+                                options.reportUpdater.updateReport(options.engine)
+                            } else {
+                                options.reportUpdater.updateReport(options.mode)
+                            }
                         }
 
                         try {
@@ -610,6 +679,14 @@ def executeOfflineTests(String osName, String asicName, Map options) {
 }
 
 
+def disableFirewallNotifications() {
+    // disable notifications about disabled firewall
+    powershell """
+        reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\Notifications" /v DisableNotifications -t REG_DWORD /d 1 /f
+    """
+}
+
+
 def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
     String modeKey = getLiveModeKey(clientType, clientNumber)
 
@@ -655,7 +732,8 @@ def executeLMTestsPrimary(String osName, String asicName, Map options) {
 
     try {
         checkoutAutotests(options)
-        prepareAMDRenderStudio(osName, options, "primary")
+        prepareTools(osName, options, "primary")
+        disableFirewallNotifications()
         syncLMClients(osName, options, "primary")
         executeTestsOnClient(osName, asicName, options, "primary")
 
@@ -674,7 +752,8 @@ def executeLMTestsSecondary(String osName, String asicName, Map options, int cli
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     try {
         checkoutAutotests(options)
-        prepareAMDRenderStudio(osName, options, "secondary", clientNumber)
+        prepareTools(osName, options, "secondary", clientNumber)
+        disableFirewallNotifications()
         syncLMClients(osName, options, "secondary", clientNumber)
         executeTestsOnClient(osName, asicName, options, "secondary", clientNumber)
 
@@ -1555,6 +1634,38 @@ def executePreBuild(Map options) {
 }
 
 
+def downloadLiveModeInstaller(String osName, Map options, String installerName = null) {
+    // download the latest stable installer from the main branch of the auto job
+    if (!options["globalStorage"]["rsBuildNumber"]) {
+        String url = "${env.JENKINS_URL}/job/RenderStudio-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+
+        def rawInfo = httpRequest(
+            url: url,
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
+
+        def parsedInfo = parseResponse(rawInfo.content)
+
+        String buildUrl
+
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+            buildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastUnstableBuild.number
+            buildUrl = parsedInfo.lastUnstableBuild.url
+        }
+
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[RS] Link to the used Render Studio</a></h3>""")
+    }
+
+    downloadFiles("/volume1/web/RenderStudio-Auto/main/${options['globalStorage']['rsBuildNumber']}/Artifacts/AMD_RenderStudio*", ".")
+
+    utils.renameFile(this, osName, "AMD_RenderStudio*", installerName)
+}
+
+
 def executeDeploy(Map options, List platformList, List testResultList, String mode) {
     cleanWS()
     try {
@@ -1566,17 +1677,23 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             List lostStashes = []
+            List skippedGroups = []
 
             dir("summaryTestResults") {
                 testResultList.each() {
                     if (it.endsWith(mode)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
+                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
                         if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), mode)) {
+                            testNameParts.get(2).split().each() { group ->
+                                lostStashes.add("'${testName}'")
+                                skippedGroups.add("'${testName}'")
+                            }
+
                             return
                         }
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -1599,7 +1716,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"${skippedGroups}\"
                     """
                 }
             } catch (e) {
@@ -1882,6 +1999,7 @@ def call(
                                 parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                                 useTrackedMetrics:useTrackedMetrics,
                                 saveTrackedMetrics:saveTrackedMetrics,
+                                globalStorage: new ConcurrentHashMap(),
                                 testsPreCondition: this.&hasIdleClients
                                 ]
 
@@ -1902,7 +2020,7 @@ def call(
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
         if (env.CHANGE_URL){
-            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
+            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}\n${env.BUILD_URL}", options)
         } 
     }
 }

@@ -385,6 +385,10 @@ def executeBuild(String osName, Map options) {
             dir ("RadeonProRenderUSD") {
                 withNotifications(title: "${osName}", options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
                     checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
+
+                    dir("deps/RPR") {
+                        hybrid.replaceHybridPro(osName, options)
+                    }
                 }
             }
 
@@ -855,8 +859,10 @@ def call(String projectRepo = PROJECT_REPO,
         String enginesNames = "Northstar,HybridPro",
         Boolean splitTestsExecution = true,
         String parallelExecutionTypeString = "TakeAllNodes",
-        Integer testCaseRetries = 10
-    ) {
+        Integer testCaseRetries = 10,
+        String customHybridProWindowsLink = "",
+        String customHybridProUbuntuLink = "")
+{
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
     Map options = [stage: "Init", problemMessageManager: problemMessageManager]
@@ -903,7 +909,9 @@ def call(String projectRepo = PROJECT_REPO,
                         BUILDER_TAG: "HdRPRBuilder",
                         notificationsTitlePrefix: "HDRPR",
                         reportType: ReportType.DEFAULT,
-                        buildArgsFunc: this.&getReportBuildArgs
+                        buildArgsFunc: this.&getReportBuildArgs,
+                        customHybridProWindowsLink: customHybridProWindowsLink,
+                        customHybridProUbuntuLink: customHybridProUbuntuLink
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {

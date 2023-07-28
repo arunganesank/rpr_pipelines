@@ -25,31 +25,42 @@ Boolean filter(Map options, String asicName, String osName, String engine) {
 
 
 def executeTestCommand(String osName, String asicName, Map options) {
-    switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    run.bat ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                """
-            }
-            break
-        case 'OSX':
-            dir('scripts') {
-                withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    sh """
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+    def tracesVariable = []
+
+    if (options.collectTraces) {
+        tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+        tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+        utils.createDir(this, "traces")
+    }
+
+    withEnv(tracesVariable) {
+        println("Traces variable: ${tracesVariable}")
+        switch(osName) {
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        run.bat ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
                     """
                 }
-            }
-            break
-        default:
-            dir('scripts') {
-                withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
-                    sh """
-                        ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
-                    """
+                break
+            case 'OSX':
+                dir('scripts') {
+                    withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
+                        sh """
+                            ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
                 }
-            }
+                break
+            default:
+                dir('scripts') {
+                    withEnv(["LD_LIBRARY_PATH=../rprSdk:\$LD_LIBRARY_PATH"]) {
+                        sh """
+                            ./run.sh ${options.testsPackage} \"${options.tests}\" 0 0 0 ${options.updateRefs} HybridPro >> \"../${STAGE_NAME}_${options.currentTry}.log\" 2>&1
+                        """
+                    }
+                }
+        }
     }
 }
 
@@ -461,7 +472,8 @@ def call(String commitSHA = "",
          String testsBranch = "",
          String testsPackage = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
-         String updateRefs = "No") {
+         String updateRefs = "No",
+         Boolean collectTraces = false) {
 
     currentBuild.description = ""
 
@@ -506,7 +518,8 @@ def call(String commitSHA = "",
                                 problemMessageManager:problemMessageManager,
                                 nodeRetry: [],
                                 customStageName: "Test-SDK",
-                                skipCallback: this.&filter])
+                                skipCallback: this.&filter,
+                                collectTraces: collectTraces])
     } catch(e) {
         currentBuild.result = "FAILURE"
         println e.toString()

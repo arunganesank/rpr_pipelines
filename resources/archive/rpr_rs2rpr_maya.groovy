@@ -143,7 +143,7 @@ def executeTests(String osName, String asicName, Map options)
             executeTestCommand(osName, options)
             executeGenTestRefCommand(osName, options)
             sendFiles('./Work/Baseline/', REF_PATH_PROFILE)
-        } else {	
+        } else {    
             try {
                 options.tests.split(" ").each() {
                     receiveFiles("${REF_PATH_PROFILE}/${it}", './Work/Baseline/')
