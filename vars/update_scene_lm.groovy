@@ -22,10 +22,10 @@ def call() {
 
                 unzip(zipFile: fileName)
 
-                def folderName = fileName.take(fileName.lastIndexOf("."))
+                def folderName = fileName.take(fileName.lastIndexOf(".")).replace("MaterialX_", "")
                 println("Root folder name: ${folderName}")
                 uploadFiles("./${folderName}/usd", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
-                uploadFiles("./${folderName}/Scene002.blend", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
+                uploadFiles("./${folderName}/usdGlassObjects", "/volume1/web/Assets/render_studio_autotests/Scene_002_usd")
             }
         }
     }

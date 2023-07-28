@@ -83,8 +83,12 @@ def createRelease(String jobName, String repositoryUrl, String branch, int artif
         String[] descriptionParts = description.split('<br/>')
 
         for (part in descriptionParts) {
-            if (part.contains('Version')) {
-                version = parseDescriptionRow(part)
+            if (part.contains('=Major')) {
+                String majorVersion = part.split("=Major")[1].split("</button>")[0].split(">")[1].trim()
+                String minorVersion = part.split("=Minor")[1].split("</button>")[0].split(">")[1].trim()
+                String patchVersion = part.split("=Patch")[1].split("</button>")[0].split(">")[1].trim()
+
+                version = "${majorVersion}.${minorVersion}.${patchVersion}"
             } else if (part.contains('Commit SHA')) {
                 commitSha = parseDescriptionRow(part)
             }

@@ -1,4 +1,5 @@
 import groovy.transform.Field
+import java.util.concurrent.ConcurrentHashMap
 import groovy.json.JsonOutput;
 import net.sf.json.JSON
 import net.sf.json.JSONSerializer
@@ -28,7 +29,15 @@ Boolean filter(Map options, String asicName, String osName, String testName, Str
         return true
     }
 
-    if (engine == "HybridPro" && osName == "AMD_RX5700XT") {
+    if (engine == "HybridPro" && asicName == "AMD_RX5700XT") {
+        return true
+    }
+
+    if (testName.contains("LiveMode") && !(asicName == "AMD_RX6800XT" || asicName == "AMD_RX7900XT")) {
+        return true
+    }
+
+    if (engine == "Northstar" && testName.contains("LiveMode")) {
         return true
     }
 
@@ -70,19 +79,72 @@ def uninstallRPRMayaPlugin(String osName, Map options) {
     }
 }
 
-def installRPRMayaUSDPlugin(String osName, Map options) {
+@NonCPS
+def parseResponse(String response) {
+    def jsonSlurper = new groovy.json.JsonSlurperClassic()
+    return jsonSlurper.parseText(response)
+}
 
-    if (options['isPreBuilt']) {
-        options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
+def downloadLiveModePlugin(String osName, Map options, String pluginName = null) {
+    if (options["PRJ_NAME"] == "RPRMayaUSD") {
+        // download the USD Maya plugin installer associated with this build
+        getProduct(osName, options, "", false)
+
+        if (pluginName) {
+            utils.renameFile(this, osName, "*.exe", pluginName)
+        }
     } else {
-        options['pluginWinSha'] = "${options.commitSHA}"
+        // this function is called from other pipeline
+        // download the latest stable plugin from the main branch of the auto job
+        if (!options["globalStorage"]["mayaUSDBuildNumber"]) {
+            String url = "${env.JENKINS_URL}/job/USD-MayaPlugin-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+
+            def rawInfo = httpRequest(
+                url: url,
+                authentication: 'jenkinsCredentials',
+                httpMode: 'GET'
+            )
+
+            def parsedInfo = parseResponse(rawInfo.content)
+
+            String buildUrl
+
+            if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+                options["globalStorage"]["mayaUSDBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+                buildUrl = parsedInfo.lastSuccessfulBuild.url
+            } else {
+                options["globalStorage"]["mayaUSDBuildNumber"] = parsedInfo.lastUnstableBuild.number
+                buildUrl = parsedInfo.lastUnstableBuild.url
+            }
+
+            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[MayaUSD] Link to the used MayaUSD plugin</a></h3>""")
+        }
+
+        downloadFiles("/volume1/web/USD-MayaPlugin-Auto/main/${options['globalStorage']['mayaUSDBuildNumber']}/Artifacts/RPRMayaUSD_2024*", ".")
+
+        if (pluginName) {
+            utils.renameFile(this, osName, "*.exe", pluginName)
+        }
+    }
+}
+
+def installRPRMayaUSDPlugin(String osName, Map options, String pluginName = null) {
+
+    if (!pluginName) {
+        if (options['isPreBuilt']) {
+            options['pluginWinSha'] = "${options[getProduct.getIdentificatorKey('Windows', options)]}"
+        } else {
+            options['pluginWinSha'] = "${options.commitSHA}"
+        }
+
+        pluginName = "${options.pluginWinSha}.exe"
     }
 
     try {
         println "[INFO] Install RPR Maya USD Plugin"
 
         bat """
-            start /wait ${options.pluginWinSha}.exe /SILENT /NORESTART /LOG=${options.stageName}_${options.currentTry}.install.log
+            start /wait ${pluginName} /SILENT /NORESTART /LOG=${options.stageName}_MayaUSD_${options.currentTry}.install.log
         """
 
         // FIXME: actualize Maya.env file check
@@ -219,6 +281,16 @@ def executeTestCommand(String osName, String asicName, Map options) {
 }
 
 def executeTests(String osName, String asicName, Map options) {
+    if (render_studio.getNumberOfRequiredClients(options) > 1) {
+        // execute LiveMode test group
+        options["testRepo"] = render_studio.TEST_REPO
+        options["testsBranch"] = options["renderStudioTestsBranch"]
+        options["mode"] = "Desktop"
+        options["version"] = ""
+        render_studio.executeTests(osName, asicName, options)
+        return
+    }
+
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
@@ -782,7 +854,7 @@ def executePreBuild(Map options) {
                 }
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", tempTests)
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.engines.each { engine ->
@@ -819,7 +891,7 @@ def executePreBuild(Map options) {
             } else if (options.tests) {
                 options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.engines.each { engine ->
@@ -848,6 +920,13 @@ def executePreBuild(Map options) {
         if (env.BRANCH_NAME && options.githubNotificator) {
             options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
         }
+
+        dir("jobs_test_web_viewer") {
+            // save RS repo information for possible Live Mode tests
+            checkoutScm(branchName: options.renderStudioTestsBranch, repositoryUrl: render_studio.TEST_REPO, disableSubmodules: true)
+            options["renderStudioTestsBranch"] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+            options["liveModeConfiguration"] = readJSON(file: "jobs/live_mode_configuration.json")
+        }    
     }
 }
 
@@ -862,17 +941,23 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             List lostStashes = []
+            List skippedGroups = []
 
             dir("summaryTestResults") {
                 testResultList.each() {
                     if (it.endsWith(engine)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
+                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
                         if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), engine)) {
+                            testNameParts.get(2).split().each() { group ->
+                                lostStashes.add("'${testName}'")
+                                skippedGroups.add("'${testName}'")
+                            }
+
                             return
                         }
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -890,7 +975,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             try {
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${engine}\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${engine}\" \"${skippedGroups}\"
                     """
                 }
             } catch (e) {
@@ -1072,6 +1157,7 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonProRenderMayaUSD.git",
         String projectBranch = "",
         String testsBranch = "master",
+        String renderStudioTestsBranch = "master",
         String platforms = 'Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100',
         String updateRefs = 'No',
         String testsPackage = "",
@@ -1085,6 +1171,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
         Integer testCaseRetries = 5,
         Boolean buildOldInstaller = false,
         Boolean collectTraces = false,
+        String customRenderStudioInstaller = "",
         String customHybridProWindowsLink = "",
         String customHybridProUbuntuLink = "")
 {
@@ -1162,6 +1249,7 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         projectBranch:projectBranch,
                         testRepo:"git@github.com:luxteam/jobs_test_usdmaya.git",
                         testsBranch:testsBranch,
+                        renderStudioTestsBranch:renderStudioTestsBranch,
                         updateRefs:updateRefs,
                         PRJ_NAME:"RPRMayaUSD",
                         PRJ_ROOT:"rpr-plugins",
@@ -1200,8 +1288,14 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
                         saveTrackedMetrics:saveTrackedMetrics,
+<<<<<<< HEAD
                         customHybridProWindowsLink: customHybridProWindowsLink,
                         customHybridProUbuntuLink: customHybridProUbuntuLink
+=======
+                        customRenderStudioInstaller:customRenderStudioInstaller,
+                        globalStorage: new ConcurrentHashMap(),
+                        testsPreCondition: render_studio.&hasIdleClients
+>>>>>>> origin/master
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
