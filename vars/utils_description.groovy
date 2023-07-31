@@ -14,7 +14,7 @@ class utils_description {
             Integer buildNumber = buildUrl.split("/")[-1] as Integer
             String[] jobParts = buildUrl.replace(context.env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
 
-            def item = context.Jenkins.instance
+            def item = Jenkins.instance
 
             for (part in jobParts) {
                 item = item.getItem(part)
@@ -49,14 +49,14 @@ class utils_description {
                                                String buildUrl,
                                                String reportLink,
                                                String logsLink = null) {
-        def buildInfo = utils.getBuildInfo(context, buildUrl)
+        def buildInfo = context.utils.getBuildInfo(context, buildUrl)
 
         String statusDescription = ""
 
         if (buildInfo.inProgress) {
             statusDescription = "(autotests are in progress)"
         } else {
-            currentBuild.result = buildInfo.result
+            context.currentBuild.result = buildInfo.result
 
             if (problems) {
                 if (problems["failed"] > 0 && problems["error"] > 0) {
@@ -133,11 +133,11 @@ class utils_description {
 
         switch (testsName) {
             case "Original":
-                String reportLink = "${buildUrl}"
-                String logsLink = "${buildUrl}/artifact"
+                reportLink = "${buildUrl}"
+                logsLink = "${buildUrl}/artifact"
                 return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
             default:
-                return buildDescriptionContent(testsName, problems, buildUrl, reportLink, logsLink)
+                return buildDescriptionContent(context, testsName, problems, buildUrl, reportLink, logsLink)
         }
     }
 }

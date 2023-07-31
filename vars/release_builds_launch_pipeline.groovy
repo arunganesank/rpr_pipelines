@@ -74,7 +74,7 @@ def launchAndWaitBuild(String jobName,
 
     while(true) {
         if (!utils.getBuildInfo(this, targetBuildUrl).inProgress) {
-            Map problems = getProblemsCount(targetBuildUrl, jobName)
+            problems = getProblemsCount(targetBuildUrl, jobName)
             description = utils_description.buildDescriptionLine(context: this,
                                                                  buildUrl: targetBuildUrl,
                                                                  testsName: jobName,
