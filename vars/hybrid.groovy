@@ -333,13 +333,32 @@ def doRequest(String url) {
 }
 
 
+def getReportEndpoint(String testsName) {
+    switch (testsName) {
+        case "Unit":
+            return "/testReport"
+        case "Performance":
+            return "/Performance_20Tests_20Report"
+        case "RPR SDK":
+            return "/Test_20Report_20HybridPro"
+        case "MaterialX":
+            return "/Test_20Report"
+    }
+}
+
+
 def awaitBuildFinishing(Map options, String buildUrl, String testsName) {
     if (utils.getBuildInfo(this, buildUrl).inProgress) {
         return false
     } else if (!options["finishedTestBuilds"].containsKey(testsName) || !options["finishedTestBuilds"][testsName])  {
         options["finishedTestBuilds"][testsName] = true
 
-        String description = buildDescriptionLine(buildUrl, testsName)
+        Map problems = getProblemsCount(buildUrl, testsName)
+        String description = utils_description.buildDescriptionLine(context: this,
+                                                                    buildUrl: buildUrl,
+                                                                    testsName: testsName,
+                                                                    problems: problems,
+                                                                    reportEndpoint: getReportEndpoint(testsName))
         utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, testsName)
 
         options.resultsDescription += description
@@ -480,23 +499,45 @@ def launchAndWaitTests(Map options) {
 
         options["descriptionsInitialized"] = true
 
-        String description = buildDescriptionLine(env.BUILD_URL, "Original")
+        String description = utils_description.buildDescriptionLine(context: this,
+                                                                    buildUrl: env.BUILD_URL,
+                                                                    testsName: "Original")
         utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, "Original")
 
         if (options["unitLink"]) {
-            description = buildDescriptionLine(options["unitLink"], "Unit")
+            Map problems = getProblemsCount(options["unitLink"], "Unit")
+            description = utils_description.buildDescriptionLine(context: this,
+                                                                 buildUrl: options["unitLink"], 
+                                                                 testsName: "Unit",
+                                                                 problems: problems,
+                                                                 reportEndpoint: getReportEndpoint(testsName))
             utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, "Unit")
         }
         if (options["perfLink"]) {
-            description = buildDescriptionLine(options["perfLink"], "Performance")
+            Map problems = getProblemsCount(options["perfLink"], "Performance")
+            description = utils_description.buildDescriptionLine(context: this, 
+                                                                 buildUrl: options["perfLink"], 
+                                                                 testsName: "Performance",
+                                                                 problems: problems,
+                                                                 reportEndpoint: getReportEndpoint(testsName))
             utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, "Performance")
         }
         if (options["rprSdkLink"]) {
-            description = buildDescriptionLine(options["rprSdkLink"], "RPR SDK")
+            Map problems = getProblemsCount(options["rprSdkLink"], "RPR SDK")
+            description = utils_description.buildDescriptionLine(context: this,
+                                                                 buildUrl: options["rprSdkLink"], 
+                                                                 testsName: "RPR SDK",
+                                                                 problems: problems,
+                                                                 reportEndpoint: getReportEndpoint(testsName))
             utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, "RPR SDK")
         }
         if (options["mtlxLink"]) {
-            description = buildDescriptionLine(options["mtlxLink"], "MaterialX")
+            Map problems = getProblemsCount(options["mtlxLink"], "MaterialX")
+            description = utils_description.buildDescriptionLine(context: this,
+                                                                 buildUrl: options["mtlxLink"],
+                                                                 testsName: "MaterialX",
+                                                                 problems: problems,
+                                                                 reportEndpoint: getReportEndpoint(testsName))
             utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, "MaterialX")
         }
     }

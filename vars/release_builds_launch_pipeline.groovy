@@ -1,3 +1,13 @@
+def getReportEndpoint(String testsName) {
+    switch (testsName) {
+        case "USD-HoudiniPlugin-Release":
+            return "/Test_20Report_2019_2e5_2e640_5fHybridPro"
+        default:
+            return "/Test_20Report_20HybridPro"
+    }
+}
+
+
 def getProblemsCount(String buildUrl, String jobName) {
     try {
         withCredentials([string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
@@ -49,15 +59,27 @@ def launchAndWaitBuild(String jobName,
         sleep(60)
     }
  
-    String description = buildDescriptionLine(env.BUILD_URL, "Original")
+    String description = utils_description.buildDescriptionLine(context: this,
+                                                                buildUrl: env.BUILD_URL,
+                                                                testsName: "Original")
     utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, "Original")
 
-    description = buildDescriptionLine(targetBuildUrl, jobName)
+    Map problems = getProblemsCount(targetBuildUrl, jobName)
+    description = utils_description.buildDescriptionLine(context: this,
+                                                         buildUrl: targetBuildUrl,
+                                                         testsName: jobName,
+                                                         problems: problems,
+                                                         reportEndpoint: getReportEndpoint(jobName))
     utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, jobName)
 
     while(true) {
         if (!utils.getBuildInfo(this, targetBuildUrl).inProgress) {
-            description = buildDescriptionLine(targetBuildUrl, jobName)
+            Map problems = getProblemsCount(targetBuildUrl, jobName)
+            description = utils_description.buildDescriptionLine(context: this,
+                                                                 buildUrl: targetBuildUrl,
+                                                                 testsName: jobName,
+                                                                 problems: problems,
+                                                                 reportEndpoint: getReportEndpoint(jobName))
             utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, jobName)
             break
         }

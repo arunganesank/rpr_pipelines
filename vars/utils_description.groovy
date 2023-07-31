@@ -1,7 +1,14 @@
-/**
- * context in methods params is a context of executable pipeline. Without it you can't call Jenkins methods.
- */
 class utils_description {
+    /**
+     * Function that update description with test results in set of builds
+     *
+     * @param params Map with parameters
+     * Possible elements:
+     *     context - context of executable pipeline (this keyword)
+     *     buildUrls - set of builds where description should be updated
+     *     newLine - line that should replace the existing line for specified tests
+     *     testsName - name of target tests
+     */
     static def addOrUpdateDescription(def context, List buildUrls, String newLine, String testsName) {
         for (buildUrl in buildUrls) {
             Integer buildNumber = buildUrl.split("/")[-1] as Integer
@@ -36,8 +43,13 @@ class utils_description {
         }
     }
 
-    static def buildDescriptionContent(def context, String testsName, String buildUrl, String reportLink, String logsLink = null) {
-        def buildInfo = utils.getBuildInfo(this, buildUrl)
+    static private def buildDescriptionContent(def context,
+                                               String testsName,
+                                               Map problems,
+                                               String buildUrl,
+                                               String reportLink,
+                                               String logsLink = null) {
+        def buildInfo = utils.getBuildInfo(context, buildUrl)
 
         String statusDescription = ""
 
@@ -45,8 +57,6 @@ class utils_description {
             statusDescription = "(autotests are in progress)"
         } else {
             currentBuild.result = buildInfo.result
-
-            Map problems = getProblemsCount(buildUrl, testsName)
 
             if (problems) {
                 if (problems["failed"] > 0 && problems["error"] > 0) {
@@ -61,84 +71,73 @@ class utils_description {
             }
         }
 
+        String textColorCode = ""
+        String statusText = ""
+
         if (buildInfo.inProgress) {
-            if (logsLink) {
-                return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are in progress. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
-            } else {
-                return "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are in progress. <a href='${reportLink}'>Test report</a></span><br/><br/>"
-            }
+            textColorCode = "#5fbc34"
+            statusText = "are in progress"
         } else {
             if (buildInfo.result == "FAILURE") {
-                if (logsLink) {
-                    return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests are Failed. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
-                } else {
-                    return "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests are Failed. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
-                }
+                textColorCode = "#b03a2e"
+                statusText = "are Failed"
             } else if (buildInfo.result == "UNSTABLE") {
-                if (logsLink) {
-                    return "<span style='color: #b7950b; font-size: 150%'>${testsName} tests are Unstable. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
-                } else {
-                    return "<span style='color: #b7950b; font-size: 150%'>${jobName} tests are Unstable. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
-                }
+                textColorCode = "#b7950b"
+                statusText = "are Unstable"
             } else if (buildInfo.result == "SUCCESS") {
-                if (logsLink) {
-                    return "<span style='color: #5FBC34; font-size: 150%'>${testsName} tests are Success. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
-                } else {
-                    return "<span style='color: #5FBC34; font-size: 150%'>${jobName} tests are Success. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
-                }
+                textColorCode = "#5fbc34"
+                statusText = "are Success"
             } else {
-                if (logsLink) {
-                    return "<span style='color: #b03a2e; font-size: 150%'>${testsName} tests with unexpected status. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
-                } else {
-                    return "<span style='color: #b03a2e; font-size: 150%'>${jobName} tests with unexpected status. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
-                }
+                textColorCode = "#b03a2e"
+                statusText = "finished with unexpected status"
             }
         }
-    }
 
-    static def buildDescriptionLine(def context, String buildUrl, String jobName) {
-        String messageContent = ""
-
-        switch (jobName) {
-            case "Original":
-                String reportLink = buildUrl
-                return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a></span><br/><br/>"
-            case "Houdini":
-                String reportLink = "${buildUrl}/Test_20Report_2019_2e5_2e640_5fHybridPro"
-                return buildDescriptionContent(jobName, buildUrl, reportLink)
-            default: 
-                String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
-                return buildDescriptionContent(jobName, buildUrl, reportLink)
+        if (testsName == "Original") {
+            return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${buildUrl}'>Build link</a></span><br/><br/>"
+        } else if (logsLink) {
+            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        } else {
+            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
         }
     }
 
+    /**
+     * Function that builds description with status for a custom build with tests
+     *
+     * @param params Map with parameters
+     * Possible elements:
+     *     context - context of executable pipeline (this keyword)
+     *     buildUrl - link to the build
+     *     testsName - name of target tests
+     *     problems - map with test results: key - test status (failed, error, passed), value - number of cases with this status
+     *     reportEndpoint (optional) - endpoint of report (default - /Test_20Report)
+     *     logsEndpoint (options) - endpoint of logs (default - /artifacts). Empty value indicates that no logs link is required
+     */
+    static def buildDescriptionLine(Map params) {
+        def context = params["context"]
+        String buildUrl = params["buildUrl"]
+        String testsName = params["testsName"]
+        Map problems = params["problems"]
+        String reportEndpoint = params.containsKey("reportEndpoint") ? params["reportEndpoint"] : "/Test_20Report"
+        String logsEndpoint = params.containsKey("logsEndpoint") ? params["logsEndpoint"] : "/artifacts"
 
-    static def buildDescriptionLine(def context, String buildUrl, String testsName) {
-        String messageContent = ""
+        String reportLink = "${buildUrl}${reportEndpoint}"
+        String logsLink = ""
+
+        if (logsEndpoint) {
+            logsLink = "${buildUrl}${logsEndpoint}"
+        } else {
+            logsLink = ""
+        }
 
         switch (testsName) {
             case "Original":
                 String reportLink = "${buildUrl}"
                 String logsLink = "${buildUrl}/artifact"
                 return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
-            case "Unit":
-                String reportLink = "${buildUrl}/testReport"
-                String logsLink = "${buildUrl}/artifact"
-                return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            case "Performance":
-                String reportLink = "${buildUrl}/Performance_20Tests_20Report"
-                String logsLink = "${buildUrl}/artifact"
-                messageContent = buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            case "RPR SDK":
-                String reportLink = "${buildUrl}/Test_20Report_20HybridPro"
-                String logsLink = "${buildUrl}/artifact"
-                return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            case "MaterialX":
-                String reportLink = "${buildUrl}/Test_20Report"
-                String logsLink = "${buildUrl}/artifact"
-                return buildDescriptionContent(testsName, buildUrl, reportLink, logsLink)
-            default: 
-                throw new Exception("Unexpected testsName '${testsName}'")
+            default:
+                return buildDescriptionContent(testsName, problems, buildUrl, reportLink, logsLink)
         }
     }
 }
