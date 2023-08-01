@@ -545,7 +545,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
             utils.reboot(this, osName)
         }
 
-        timeout(time: "10", unit: "MINUTES") {
+        timeout(time: "30", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
@@ -562,7 +562,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
             }
         }
 
-        timeout(time: "5", unit: "MINUTES") {
+        timeout(time: "10", unit: "MINUTES") {
             dir("jobs_launcher/install"){
                 bat """
                     install_pylibs.bat
@@ -653,7 +653,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "10", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 if (!options.skipBuild.contains(osName)) {
                     cleanWS(osName)
                 } else {
@@ -673,7 +673,7 @@ def executeTestsServer(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
-            timeout(time: "5", unit: "MINUTES") {
+            timeout(time: "10", unit: "MINUTES") {
                 dir("jobs_launcher/install"){
                     if (isUnix()) {
                         sh """
@@ -789,7 +789,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
 
     try {
 
-        timeout(time: "10", unit: "MINUTES") {
+        timeout(time: "30", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
@@ -806,7 +806,7 @@ def executeTestsMulticonnectionClient(String osName, String asicName, Map option
             }
         }
 
-        timeout(time: "5", unit: "MINUTES") {
+        timeout(time: "10", unit: "MINUTES") {
             dir("jobs_launcher/install"){
                 bat """
                     install_pylibs.bat
@@ -948,7 +948,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
         }
 
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "10", unit: "MINUTES") {
+            timeout(time: "30", unit: "MINUTES") {
                 if (options.skipBuild.contains("Windows") && !options.skipBuild.contains("Android")) {
                     utils.removeDir(this, "Windows", options.stageName)
 
@@ -967,7 +967,7 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
         initAndroidDevice()
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
-            timeout(time: "5", unit: "MINUTES") {
+            timeout(time: "10", unit: "MINUTES") {
                 dir("jobs_launcher/install"){
                     bat """
                         install_pylibs.bat
