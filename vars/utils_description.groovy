@@ -9,7 +9,13 @@ class utils_description {
      *     newLine - line that should replace the existing line for specified tests
      *     testsName - name of target tests
      */
-    static def addOrUpdateDescription(def context, List buildUrls, String newLine, String testsName) {
+    @NonCPS
+    static def addOrUpdateDescription(Map params) {
+        def context = params["context"]
+        List buildUrls = params["buildUrls"]
+        String newLine = params["newLine"]
+        String testsName = params["testsName"]
+
         for (buildUrl in buildUrls) {
             Integer buildNumber = buildUrl.split("/")[-1] as Integer
             String[] jobParts = buildUrl.replace(context.env.JENKINS_URL + "job/", "").replace("/${buildNumber}/", "").split("/job/")
@@ -22,22 +28,22 @@ class utils_description {
 
             def build = item.getBuildByNumber(buildNumber)
 
-            if (build.description != null) {
-                List lines = build.description.split("<br/>") as List
+            if (build.description != null && !build.description.contains(newLine)) {
+                List lines = build.description.split("<br/><br/>") as List
 
                 boolean lineReplaced = false
 
                 for (int i = 0; i < lines.size(); i++) {
                     String line = lines[i]
                     if (line.contains(testsName)) {
-                        lines[i] = newLine.replace("<br/>", "")
-                        build.description = lines.join("<br/>")
+                        lines[i] = newLine
+                        build.description = lines.join("<br/><br/>")
                         lineReplaced = true
                     }
                 }
 
                 if (!lineReplaced) {
-                    build.description += newLine
+                    build.description += newLine + "<br/><br/>"
                 }
             }
         }
@@ -93,12 +99,10 @@ class utils_description {
             }
         }
 
-        if (testsName == "Original") {
-            return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${buildUrl}'>Build link</a></span><br/><br/>"
-        } else if (logsLink) {
-            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span><br/><br/>"
+        if (logsLink) {
+            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> / <a href='${logsLink}'>Logs link</a> ${statusDescription}</span>"
         } else {
-            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> ${statusDescription}</span><br/><br/>"
+            return "<span style='color: ${textColorCode}; font-size: 150%'>${testsName} tests ${statusText}. <a href='${reportLink}'>Test report</a> ${statusDescription}</span>"
         }
     }
 
@@ -133,9 +137,7 @@ class utils_description {
 
         switch (testsName) {
             case "Original":
-                reportLink = "${buildUrl}"
-                logsLink = "${buildUrl}/artifact"
-                return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${reportLink}'>Build link</a> / <a href='${logsLink}'>Logs link</a></span><br/><br/>"
+                return "<span style='color: #5FBC34; font-size: 150%'>Original build. <a href='${buildUrl}'>Build link</a></span>"
             default:
                 return buildDescriptionContent(context, testsName, problems, buildUrl, reportLink, logsLink)
         }

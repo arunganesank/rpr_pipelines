@@ -1,3 +1,6 @@
+import groovy.transform.Synchronized
+
+
 def getReportEndpoint(String testsName) {
     switch (testsName) {
         case "USD-HoudiniPlugin-Release":
@@ -22,13 +25,25 @@ def getProblemsCount(String buildUrl, String jobName) {
 }
 
 
+@NonCPS
+@Synchronized
+def addOrUpdateDescription(List builds, String description, String jobName) {
+    utils_description.addOrUpdateDescription(context: this,
+                                             buildUrls: builds,
+                                             newLine: description,
+                                             testsName: jobName)
+}
+
+
 def launchAndWaitBuild(String jobName,
                        String projectRepo,
                        String projectBranch,
                        String pipelineBranch,
                        String testsPackage,
                        String customHybridProWindowsLink,
-                       String customHybridProUbuntuLink) {
+                       String customHybridProUbuntuLink,
+                       List trackingBuilds,
+                       int buildsExpecting) {
     String[] jobNameParts = env.JOB_NAME.split("/")
     jobNameParts[-1] = jobName
     String targetJobPath = jobNameParts.join("/")
@@ -58,29 +73,35 @@ def launchAndWaitBuild(String jobName,
         // waiting until the triggered build initialize description
         sleep(60)
     }
+
+    trackingBuilds.add(targetBuildUrl)
+
+    while (trackingBuilds.size() < buildsExpecting) {
+        // waiting until all builds will be created
+        sleep(60)
+    }
  
     String description = utils_description.buildDescriptionLine(context: this,
                                                                 buildUrl: env.BUILD_URL,
                                                                 testsName: "Original")
-    utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, "Original")
+    addOrUpdateDescription(trackingBuilds, description, "Original")
 
-    Map problems = getProblemsCount(targetBuildUrl, jobName)
     description = utils_description.buildDescriptionLine(context: this,
                                                          buildUrl: targetBuildUrl,
                                                          testsName: jobName,
-                                                         problems: problems,
+                                                         problems: null,
                                                          reportEndpoint: getReportEndpoint(jobName))
-    utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, jobName)
+    addOrUpdateDescription(trackingBuilds, description, jobName)
 
     while(true) {
         if (!utils.getBuildInfo(this, targetBuildUrl).inProgress) {
-            problems = getProblemsCount(targetBuildUrl, jobName)
+            Map problems = getProblemsCount(targetBuildUrl, jobName)
             description = utils_description.buildDescriptionLine(context: this,
                                                                  buildUrl: targetBuildUrl,
                                                                  testsName: jobName,
                                                                  problems: problems,
                                                                  reportEndpoint: getReportEndpoint(jobName))
-            utils_description.addOrUpdateDescription(this, [env.BUILD_URL, targetBuildUrl], description, jobName)
+            addOrUpdateDescription(trackingBuilds, description, jobName)
             break
         }
 
@@ -95,12 +116,14 @@ def call(List projects) {
 
         def tasks = [:]
 
+        List trackingBuilds = [env.BUILD_URL]
+
         for (int i = 0; i < projects.size(); i++) {
             def project = projects[i]
             String stageName = project["jobName"]
 
-            try {
-                tasks[stageName] = {
+            tasks[stageName] = {
+                try {
                     stage(stageName) {
                         launchAndWaitBuild(project["jobName"],
                                            project["projectRepo"], 
@@ -108,14 +131,17 @@ def call(List projects) {
                                            project["pipelineBranch"],
                                            project["testsPackage"],
                                            project["customHybridProWindowsLink"],
-                                           project["customHybridProUbuntuLink"])
+                                           project["customHybridProUbuntuLink"],
+                                           trackingBuilds,
+                                           // +1 is for the original build
+                                           projects.size() + 1)
                     }
+                } catch (e) {
+                    currentBuild.result = "FAILURE"
+                    println "Exception: ${e.toString()}"
+                    println "Exception message: ${e.getMessage()}"
+                    println "Exception stack trace: ${e.getStackTrace()}"
                 }
-            } catch (e) {
-                currentBuild.result = "FAILURE"
-                println "Exception: ${e.toString()}"
-                println "Exception message: ${e.getMessage()}"
-                println "Exception stack trace: ${e.getStackTrace()}"
             }
         }
 
