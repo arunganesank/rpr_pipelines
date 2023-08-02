@@ -1293,14 +1293,11 @@ def call(String projectRepo = "git@github.com:GPUOpen-LibrariesAndSDKs/RadeonPro
                         collectTraces: collectTraces,
                         useTrackedMetrics:useTrackedMetrics,
                         saveTrackedMetrics:saveTrackedMetrics,
-<<<<<<< HEAD
                         customHybridProWindowsLink: customHybridProWindowsLink,
-                        customHybridProUbuntuLink: customHybridProUbuntuLink
-=======
+                        customHybridProUbuntuLink: customHybridProUbuntuLink,
                         customRenderStudioInstaller:customRenderStudioInstaller,
                         globalStorage: new ConcurrentHashMap(),
                         testsPreCondition: render_studio.&hasIdleClients
->>>>>>> origin/master
                         ]
 
             withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
