@@ -562,7 +562,7 @@ def launchAndWaitTests(Map options) {
             String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
             options.emailSent = true
-            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
+            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
         }
     }
 

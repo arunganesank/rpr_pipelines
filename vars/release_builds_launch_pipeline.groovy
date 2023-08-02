@@ -146,5 +146,10 @@ def call(List projects) {
         }
 
         parallel tasks
+
+        withCredentials([string(credentialsId: "ReleasesNotifiedEmails", variable: "RELEASES_NOTIFIED_EMAILS")]) {
+            String emailBody = "<span style='font-size: 150%'>Results (regression builds):</span><br/><br/>${currentBuild.description}"
+            mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: REGRESSION] autotests results", mimeType: 'text/html', body: emailBody)
+        }
     }
 }
