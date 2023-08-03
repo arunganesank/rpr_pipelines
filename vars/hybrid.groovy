@@ -561,6 +561,29 @@ def launchAndWaitTests(Map options) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
+
+            String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?delay=0sec"
+            String nextBuildStartUrl = ""
+
+            String customHybridProWindowsLink = ""
+            String customHybridProUbuntuLink = ""
+
+            withCredentials([string(credentialsId: "nasURLFrontend", variable: "frontendUrl")]) {
+                customHybridProWindowsLink = frontendUrl + "/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
+                customHybridProUbuntuLink = frontendUrl + "/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
+            }
+
+            if (testsPackage == "regression") {
+                nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+            }
+
+            emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
+            emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
+
+            if (nextBuildStartUrl) {
+                emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start regression builds for plugins</a></span><br/><br/>"
+            }
+
             options.emailSent = true
             mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
         }

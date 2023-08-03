@@ -110,7 +110,13 @@ def launchAndWaitBuild(String jobName,
 }
 
 
-def call(List projects) {
+def call(String pipelineBranch, 
+         String testsPackage,
+         String customHybridProWindowsLink,
+         String customHybridProUbuntuLink,
+         List projects) 
+{
+
     timestamps {
         currentBuild.description = ""
 
@@ -128,10 +134,10 @@ def call(List projects) {
                         launchAndWaitBuild(project["jobName"],
                                            project["projectRepo"], 
                                            project["projectBranch"],
-                                           project["pipelineBranch"],
-                                           project["testsPackage"],
-                                           project["customHybridProWindowsLink"],
-                                           project["customHybridProUbuntuLink"],
+                                           pipelineBranch,
+                                           testsPackage,
+                                           customHybridProWindowsLink,
+                                           customHybridProUbuntuLink,
                                            trackingBuilds,
                                            // +1 is for the original build
                                            projects.size() + 1)
@@ -148,7 +154,22 @@ def call(List projects) {
         parallel tasks
 
         withCredentials([string(credentialsId: "ReleasesNotifiedEmails", variable: "RELEASES_NOTIFIED_EMAILS")]) {
-            String emailBody = "<span style='font-size: 150%'>Results (regression builds):</span><br/><br/>${currentBuild.description}"
+            String emailBody = "<span style='font-size: 150%'>Results (regression builds):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
+
+            String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+            String nextBuildStartUrl = ""
+
+            if (testsPackage == "regression") {
+                nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=Full&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+            }
+
+            emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
+            emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
+
+            if (nextBuildStartUrl) {
+                emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start Full builds for plugins</a></span><br/><br/>"
+            }
+
             mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: REGRESSION] autotests results", mimeType: 'text/html', body: emailBody)
         }
     }
