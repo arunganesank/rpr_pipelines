@@ -361,7 +361,7 @@ def awaitBuildFinishing(Map options, String buildUrl, String testsName) {
                                                                     reportEndpoint: getReportEndpoint(testsName))
         utils_description.addOrUpdateDescription(this, options["buildsUrls"], description, testsName)
 
-        options.resultsDescription += description
+        options["resultsDescription"] += description
     }
 
     return true
@@ -562,9 +562,6 @@ def launchAndWaitTests(Map options) {
             String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
 
-            String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?delay=0sec"
-            String nextBuildStartUrl = ""
-
             String customHybridProWindowsLink = ""
             String customHybridProUbuntuLink = ""
 
@@ -573,15 +570,37 @@ def launchAndWaitTests(Map options) {
                 customHybridProUbuntuLink = frontendUrl + "/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
             }
 
-            if (testsPackage == "regression") {
-                nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
-            }
+            if (currentBuild.result == "FAILURE") {
+                String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?delay=0sec"
+                String nextBuildStartUrl = ""
 
-            emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
-            emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
+                if (testsPackage == "regression") {
+                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                }
 
-            if (nextBuildStartUrl) {
-                emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start regression builds for plugins</a></span><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
+
+                if (nextBuildStartUrl) {
+                    emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start regression builds for plugins</a></span><br/><br/>"
+                }
+            } else {
+                String releasesJobUrl = "${env.JENKINS_URL}/job/Releases/job/ReleaseBuildsLauncher/"
+                build(
+                    job: releasesJobUrl,
+                    parameters: [
+                        string(name: "TestsPackage", value: "regression"),
+                        string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
+                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
+                    ],
+                    wait: false,
+                    quietPeriod : 0
+                )
+
+                sleep(60)
+
+                String nextBuildUrl = utils.getTriggeredBuildLink(this, releasesJobUrl)
+                emailBody += "<span style='font-size: 150%'>No errors appeared. Regression tests for plugins were started automatically: <a href='${nextBuildUrl}'>Build link</a></span><br/><br/>"
             }
 
             options.emailSent = true

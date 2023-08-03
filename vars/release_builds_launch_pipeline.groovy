@@ -18,7 +18,7 @@ def getProblemsCount(String buildUrl, String jobName) {
         }
 
         def parsedInfo = utils.doRequest(this, "${buildUrl}/artifact/summary_status.json")
-        return ["failed": parsedInfo["failed"], "error": parsedInfo["error"]]
+        return ["failed": parsedInfo["failed"], "error": parsedInfo["error"], "total": parsedInfo["total"]]
     } catch(e) {
         return null
     }
@@ -102,7 +102,7 @@ def launchAndWaitBuild(String jobName,
                                                                  problems: problems,
                                                                  reportEndpoint: getReportEndpoint(jobName))
             addOrUpdateDescription(trackingBuilds, description, jobName)
-            break
+            return problems
         }
 
         sleep(60)
@@ -120,6 +120,9 @@ def call(String pipelineBranch,
     timestamps {
         currentBuild.description = ""
 
+        String failsCount = 0
+        String totalCount = 0
+
         def tasks = [:]
 
         List trackingBuilds = [env.BUILD_URL]
@@ -130,7 +133,7 @@ def call(String pipelineBranch,
 
             tasks[stageName] = {
                 try {
-                    stage(stageName) {
+                    Map problems = stage(stageName) {
                         launchAndWaitBuild(project["jobName"],
                                            project["projectRepo"], 
                                            project["projectBranch"],
@@ -142,6 +145,9 @@ def call(String pipelineBranch,
                                            // +1 is for the original build
                                            projects.size() + 1)
                     }
+
+                    failsCount += problems["failed"]
+                    totalCount += problems["total"]
                 } catch (e) {
                     currentBuild.result = "FAILURE"
                     println "Exception: ${e.toString()}"
@@ -156,18 +162,38 @@ def call(String pipelineBranch,
         withCredentials([string(credentialsId: "ReleasesNotifiedEmails", variable: "RELEASES_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Results (regression builds):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
 
-            String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
-            String nextBuildStartUrl = ""
+            if (currentBuild.result == "FAILURE" || (failsCount > totalCount * 0.2)) {
+                // errors appeared or more that 20% of tests are failed
+                String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                String nextBuildStartUrl = ""
 
-            if (testsPackage == "regression") {
-                nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=Full&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
-            }
+                if (testsPackage == "regression") {
+                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=Full&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                }
 
-            emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
-            emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
 
-            if (nextBuildStartUrl) {
-                emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start Full builds for plugins</a></span><br/><br/>"
+                if (nextBuildStartUrl) {
+                    emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start Full builds for plugins</a></span><br/><br/>"
+                }
+            } else {
+                build(
+                    job: env.JOB_URL,
+                    parameters: [
+                        string(name: "pipelineBranch", value: pipelineBranch),
+                        string(name: "TestsPackage", value: "Full"),
+                        string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
+                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
+                    ],
+                    wait: false,
+                    quietPeriod : 0
+                )
+
+                sleep(60)
+
+                String nextBuildUrl = utils.getTriggeredBuildLink(this, env.JOB_URL)
+                emailBody += "<span style='font-size: 150%'>No errors appeared and only a small part of tests failed. Full tests for plugins were started automatically: <a href='${nextBuildUrl}'>Build link</a></span><br/><br/>"
             }
 
             mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: REGRESSION] autotests results", mimeType: 'text/html', body: emailBody)
