@@ -575,7 +575,8 @@ def launchAndWaitTests(Map options) {
                 String nextBuildStartUrl = ""
 
                 if (testsPackage == "regression") {
-                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}"
+                    nextBuildStartUrl += "&customHybridProUbuntuLink=${customHybridProUbuntuLink}&tagName=${env.TAG_NAME}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
@@ -591,7 +592,8 @@ def launchAndWaitTests(Map options) {
                     parameters: [
                         string(name: "TestsPackage", value: "regression"),
                         string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
-                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
+                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink),
+                        string(name: "tagName", value: env.TAG_NAME)
                     ],
                     wait: false,
                     quietPeriod : 0

@@ -114,6 +114,7 @@ def call(String pipelineBranch,
          String testsPackage,
          String customHybridProWindowsLink,
          String customHybridProUbuntuLink,
+         String tagName,
          List projects) 
 {
 
@@ -164,11 +165,13 @@ def call(String pipelineBranch,
 
             if (currentBuild.result == "FAILURE" || (failsCount > totalCount * 0.2)) {
                 // errors appeared or more that 20% of tests are failed
-                String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&customHybridProWindowsLink=${customHybridProWindowsLink}"
+                currentBuildRestartUrl += "&customHybridProUbuntuLink=${customHybridProUbuntuLink}&tagName=${tagName}&delay=0sec"
                 String nextBuildStartUrl = ""
 
                 if (testsPackage == "regression") {
-                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=Full&customHybridProWindowsLink=${customHybridProWindowsLink}&customHybridProUbuntuLink=${customHybridProUbuntuLink}&delay=0sec"
+                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?pipelineBranch=${pipelineBranch}&TestsPackage=Full&customHybridProWindowsLink=${customHybridProWindowsLink}"
+                    nextBuildStartUrl += "&customHybridProUbuntuLink=${customHybridProUbuntuLink}&tagName=${tagName}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
@@ -184,7 +187,8 @@ def call(String pipelineBranch,
                         string(name: "pipelineBranch", value: pipelineBranch),
                         string(name: "TestsPackage", value: "Full"),
                         string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
-                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
+                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink),
+                        string(name: "tagName", value: tagName)
                     ],
                     wait: false,
                     quietPeriod : 0
@@ -196,7 +200,11 @@ def call(String pipelineBranch,
                 emailBody += "<span style='font-size: 150%'>No errors appeared and only a small part of tests failed. Full tests for plugins were started automatically: <a href='${nextBuildUrl}'>Build link</a></span><br/><br/>"
             }
 
-            mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: REGRESSION] autotests results", mimeType: 'text/html', body: emailBody)
+            if (testsPackage == "regression") {
+                mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: REGRESSION] ${tagName} autotests results", mimeType: 'text/html', body: emailBody)
+            } else {
+                mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: FULL] ${tagName} autotests results", mimeType: 'text/html', body: emailBody)
+            }
         }
     }
 }
