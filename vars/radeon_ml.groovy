@@ -523,7 +523,7 @@ def executePreBuild(Map options) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
+         String platforms = 'Windows:AMD_RadeonVII,NVIDIA_RTX3080TI,NVIDIA_4080,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI',
          String projectRepo='git@github.com:Radeon-Pro/RadeonML.git',
          Boolean executeFT = true) {
 
