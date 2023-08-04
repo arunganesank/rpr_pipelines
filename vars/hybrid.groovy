@@ -586,9 +586,8 @@ def launchAndWaitTests(Map options) {
                     emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start regression builds for plugins</a></span><br/><br/>"
                 }
             } else {
-                String releasesJobUrl = "${env.JENKINS_URL}/job/Releases/job/ReleaseBuildsLauncher/"
                 build(
-                    job: releasesJobUrl,
+                    job: "Releases/ReleaseBuildsLauncher",
                     parameters: [
                         string(name: "TestsPackage", value: "regression"),
                         string(name: "CustomHybridProWindowsLink", value: customHybridProWindowsLink),
@@ -602,7 +601,7 @@ def launchAndWaitTests(Map options) {
 
                 sleep(60)
 
-                String nextBuildUrl = utils.getTriggeredBuildLink(this, releasesJobUrl)
+                String nextBuildUrl = utils.getTriggeredBuildLink(this, "${env.JENKINS_URL}/job/Releases/job/ReleaseBuildsLauncher/")
                 emailBody += "<span style='font-size: 150%'>No errors appeared. Regression tests for plugins were started automatically: <a href='${nextBuildUrl}'>Build link</a></span><br/><br/>"
             }
 

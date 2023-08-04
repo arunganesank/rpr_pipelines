@@ -122,8 +122,8 @@ def call(String pipelineBranch,
     timestamps {
         currentBuild.description = ""
 
-        String failsCount = 0
-        String totalCount = 0
+        int failsCount = 0
+        int totalCount = 0
 
         def tasks = [:]
 
@@ -181,17 +181,17 @@ def call(String pipelineBranch,
                     description = necessaryDescriptionParts.join("<br/><br/>")
 
                     if (buildUrl.contains("HybridPro")) {
-                        emailBody = "<span style='font-size: 150%'>Autotest results (HybridPro):</span><br/><br/>${description}<br/><br/><br/>"
+                        emailBody += "<span style='font-size: 150%'>Autotest results (HybridPro):</span><br/><br/>${description}<br/><br/><br/>"
                     } else {
-                        emailBody = "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${description}<br/><br/><br/>"
+                        emailBody += "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${description}<br/><br/><br/>"
                     }
                 }
             }
 
             if (testsPackage == "regression") {
-                emailBody = "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
             } else {
-                emailBody = "<span style='font-size: 150%'>Autotest results (Full):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
+                emailBody += "<span style='font-size: 150%'>Autotest results (Full):</span><br/><br/>${currentBuild.description}<br/><br/><br/>"
             }
 
             if (currentBuild.result == "FAILURE" || (failsCount > totalCount * 0.2)) {
@@ -202,7 +202,7 @@ def call(String pipelineBranch,
 
                 if (testsPackage == "regression") {
                     nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?PipelineBranch=${pipelineBranch}&TestsPackage=Full&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
-                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds},${env.BUILD_URL}}&delay=0sec"
+                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds},${env.BUILD_URL}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
@@ -211,9 +211,9 @@ def call(String pipelineBranch,
                 if (nextBuildStartUrl) {
                     emailBody += "<span style='font-size: 150%'>2. <a href='${nextBuildStartUrl}'>Start Full builds for plugins</a></span><br/><br/>"
                 }
-            } else {
+            } else if (testsPackage == "regression") {
                 build(
-                    job: env.JOB_URL,
+                    job: env.JOB_NAME,
                     parameters: [
                         string(name: "PipelineBranch", value: pipelineBranch),
                         string(name: "TestsPackage", value: "Full"),
