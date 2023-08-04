@@ -559,7 +559,7 @@ def launchAndWaitTests(Map options) {
 
     if (env.TAG_NAME && !options.emailSent && subbuildsFinished) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
-            String emailBody = "<span style='font-size: 150%'>Autotests results :</span><br/><br/>${options.resultsDescription}"
+            String emailBody = "<span style='font-size: 150%'>Autotests results (HybridPro):</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
 
             String customHybridProWindowsLink = ""
@@ -575,8 +575,8 @@ def launchAndWaitTests(Map options) {
                 String nextBuildStartUrl = ""
 
                 if (testsPackage == "regression") {
-                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&customHybridProWindowsLink=${customHybridProWindowsLink}"
-                    nextBuildStartUrl += "&customHybridProUbuntuLink=${customHybridProUbuntuLink}&tagName=${env.TAG_NAME}&delay=0sec"
+                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
+                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${env.TAG_NAME}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
@@ -591,9 +591,10 @@ def launchAndWaitTests(Map options) {
                     job: releasesJobUrl,
                     parameters: [
                         string(name: "TestsPackage", value: "regression"),
-                        string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
-                        string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink),
-                        string(name: "tagName", value: env.TAG_NAME)
+                        string(name: "CustomHybridProWindowsLink", value: customHybridProWindowsLink),
+                        string(name: "CustomHybridProUbuntuLink", value: customHybridProUbuntuLink),
+                        string(name: "TagName", value: env.TAG_NAME),
+                        string(name: "PreviousBuilds", value: env.BUILD_URL)
                     ],
                     wait: false,
                     quietPeriod : 0
@@ -604,6 +605,8 @@ def launchAndWaitTests(Map options) {
                 String nextBuildUrl = utils.getTriggeredBuildLink(this, releasesJobUrl)
                 emailBody += "<span style='font-size: 150%'>No errors appeared. Regression tests for plugins were started automatically: <a href='${nextBuildUrl}'>Build link</a></span><br/><br/>"
             }
+
+            emailBody += "<br/>"
 
             options.emailSent = true
             mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
