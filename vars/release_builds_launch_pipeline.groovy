@@ -148,8 +148,10 @@ def call(String pipelineBranch,
                                            projects.size() + 1)
                     }
 
-                    failsCount += problems["failed"]
-                    totalCount += problems["total"]
+                    if (problems) {
+                        failsCount += problems["failed"]
+                        totalCount += problems["total"]
+                    }
                 } catch (e) {
                     currentBuild.result = "FAILURE"
                     println "Exception: ${e.toString()}"
@@ -164,13 +166,25 @@ def call(String pipelineBranch,
         String emailBody = ""
 
         withCredentials([string(credentialsId: "ReleasesNotifiedEmails", variable: "RELEASES_NOTIFIED_EMAILS")]) {
-            previousBuilds.split(",").each() { buildUrl ->
-                String description += utils.getBuildInfo(this, buildUrl).description
+            if (previousBuilds) {
+                previousBuilds.split(",").each() { buildUrl ->
+                    String description = utils.getBuildInfo(this, buildUrl).description
 
-                if (buildUrl.contains("HybridPro")) {
-                    emailBody = "<span style='font-size: 150%'>Autotest results (HybridPro):</span><br/><br/>${description}<br/><br/><br/>"
-                } else {
-                    emailBody = "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${description}<br/><br/><br/>"
+                    List necessaryDescriptionParts = []
+
+                    description.split("<br/>").each() { part ->
+                        if (part.contains("font-size: 150%")) {
+                            necessaryDescriptionParts.add(part)
+                        }
+                    }
+
+                    description = necessaryDescriptionParts.join("<br/><br/>")
+
+                    if (buildUrl.contains("HybridPro")) {
+                        emailBody = "<span style='font-size: 150%'>Autotest results (HybridPro):</span><br/><br/>${description}<br/><br/><br/>"
+                    } else {
+                        emailBody = "<span style='font-size: 150%'>Autotest results (regression):</span><br/><br/>${description}<br/><br/><br/>"
+                    }
                 }
             }
 
@@ -188,7 +202,7 @@ def call(String pipelineBranch,
 
                 if (testsPackage == "regression") {
                     nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?PipelineBranch=${pipelineBranch}&TestsPackage=Full&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
-                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds,${env.BUILD_URL}}&delay=0sec"
+                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds},${env.BUILD_URL}}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
