@@ -575,7 +575,7 @@ def launchAndWaitTests(Map options) {
         subbuildsFinished &= awaitBuildFinishing(options, options["mtlxLink"], "MaterialX")
     }
 
-    if (env.TAG_NAME && !options.emailSent && subbuildsFinished) {
+    if (!options.emailSent && subbuildsFinished) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Autotests results (HybridPro):</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
@@ -590,12 +590,8 @@ def launchAndWaitTests(Map options) {
 
             if (currentBuild.result == "FAILURE") {
                 String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?delay=0sec"
-                String nextBuildStartUrl = ""
-
-                if (testsPackage == "regression") {
-                    nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
-                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${env.TAG_NAME}&delay=0sec"
-                }
+                String nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?TestsPackage=regression&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
+                nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${env.TAG_NAME}&delay=0sec"
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
                 emailBody += "<span style='font-size: 150%'>1. <a href='${currentBuildRestartUrl}'>Restart current builds</a></span><br/><br/>"
@@ -626,7 +622,7 @@ def launchAndWaitTests(Map options) {
             emailBody += "<br/>"
 
             options.emailSent = true
-            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
+            mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
         }
     }
 
