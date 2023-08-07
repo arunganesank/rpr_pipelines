@@ -575,7 +575,7 @@ def launchAndWaitTests(Map options) {
         subbuildsFinished &= awaitBuildFinishing(options, options["mtlxLink"], "MaterialX")
     }
 
-    if (!options.emailSent && subbuildsFinished) {
+    if (env.TAG_NAME && !options.emailSent && subbuildsFinished) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
             String emailBody = "<span style='font-size: 150%'>Autotests results (HybridPro):</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
@@ -584,8 +584,8 @@ def launchAndWaitTests(Map options) {
             String customHybridProUbuntuLink = ""
 
             withCredentials([string(credentialsId: "nasURLFrontend", variable: "frontendUrl")]) {
-                customHybridProWindowsLink = frontendUrl + "/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
-                customHybridProUbuntuLink = frontendUrl + "/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
+                customHybridProWindowsLink = frontendUrl + "/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Windows.zip"
+                customHybridProUbuntuLink = frontendUrl + "/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
             }
 
             if (currentBuild.result == "FAILURE") {
@@ -622,7 +622,7 @@ def launchAndWaitTests(Map options) {
             emailBody += "<br/>"
 
             options.emailSent = true
-            mail(to: RELEASES_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
+            mail(to: HYBRIDPRO_NOTIFIED_EMAILS, subject: "[HYBRIDPRO RELEASE: HYBRIDPRO TESTING] ${env.TAG_NAME} autotests results", mimeType: 'text/html', body: emailBody)
         }
     }
 
