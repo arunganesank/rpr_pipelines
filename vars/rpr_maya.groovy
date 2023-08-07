@@ -1010,7 +1010,12 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
 
             Map summaryTestResults = [:]
             try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                def summaryReport
+                dir("summaryTestResults") {
+                    archiveArtifacts artifacts: "summary_status.json"
+                    summaryReport = readJSON file: "summary_status.json"
+                }
+
                 summaryTestResults['passed'] = summaryReport.passed
                 summaryTestResults['failed'] = summaryReport.failed
                 summaryTestResults['error'] = summaryReport.error

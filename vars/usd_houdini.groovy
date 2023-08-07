@@ -785,7 +785,12 @@ def executeDeploy(Map options, List platformList, List testResultList, String te
 
             Map summaryTestResults = [:]
             try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                def summaryReport
+                dir("summaryTestResults") {
+                    archiveArtifacts artifacts: "summary_status.json"
+                    summaryReport = readJSON file: "summary_status.json"
+                }
+
                 summaryTestResults = [passed: summaryReport.passed, failed: summaryReport.failed, error: summaryReport.error]
                 if (summaryReport.error > 0) {
                     println("[INFO] Some tests marked as error. Build result = FAILURE.")

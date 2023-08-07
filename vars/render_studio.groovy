@@ -1228,32 +1228,41 @@ def executeBuildLinux(Map options) {
 
 
 def patchEngine(Map options) {
+    // TODO: replace customHybridWin and customHybridLinux by customHybridProWindowsLink and customHybridProUbuntuLink params
     if (options.customHybridLinux && isUnix()) {
-        downloadFiles(options.customHybridLinux, ".")
+        if (options["customHybridProUbuntuLink"]) {
+            dir("Engine/RadeonProRenderUSD/deps/RPR") {
+                hybrid.replaceHybridPro("Ubuntu", options)
+            }
+        } else {
+            downloadFiles(options.customHybridLinux, ".")
 
-        sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
+            sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
 
-        sh """
-            yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
-            yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-            yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-        """
-
-        dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
+            sh """
+                yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
+                yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+            """
         }
     } else if (options.customHybridWin && !isUnix()) {
-        downloadFiles(options.customHybridWin, ".")
+        if (options["customHybridProWindowsLink"]) {
+            dir("Engine/RadeonProRenderUSD/deps/RPR") {
+                hybrid.replaceHybridPro("Windows", options)
+            }
+        } else {
+            downloadFiles(options.customHybridWin, ".")
 
-        unzip dir: '.', glob: '', zipFile: 'RenderStudioRPRSDK.zip'
+            unzip dir: '.', glob: '', zipFile: 'RenderStudioRPRSDK.zip'
 
-        bat """
-            xcopy /Y/E RadeonProRender\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender
-        """
-
-        dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
+            bat """
+                xcopy /Y/E RadeonProRender\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender
+            """
         }
+    }
+
+    dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
     }
 }
 
@@ -1905,8 +1914,10 @@ def call(
     Boolean skipBuild = false,
     String customBuildLinkWindows = "",
     Boolean rebuildUSD = false,
-    Boolean saveUSD = false
-) {
+    Boolean saveUSD = false,
+    String customHybridProWindowsLink = "",
+    String customHybridProUbuntuLink = "")
+{
     if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-206") {
         testsBranch = "sshikalova/pr_206"
     }
