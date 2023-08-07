@@ -239,6 +239,19 @@ def executePreBuild(Map options) {
         options.updateSdkRefs = "No"
         options.updateMtlxRefs = "No"
         println("[CIS:GENREF] or [CIS:GENREFALL] have been found in comment")
+
+        String possibleGTestFilter = ""
+
+        if (commitMessage.contains("[CIS:GENREF]")) {
+            possibleGTestFilter = commitMessage.split("[CIS:GENREF]")[1].split("\n")[0].strip()
+        } else {
+            possibleGTestFilter = commitMessage.split("[CIS:GENREFALL]")[1].split("\n")[0].strip()
+        }
+
+        if (possibleGTestFilter) {
+            println("GTest filter have been found in comment: ${possibleGTestFilter}")
+            options.gtestFilter = possibleGTestFilter
+        }
     }
 
     if (env.CHANGE_URL) {
@@ -413,6 +426,7 @@ def launchAndWaitTests(Map options) {
                         string(name: "OriginalBuildLink", value: env.BUILD_URL),
                         string(name: "Platforms", value: testPlatforms),
                         string(name: "ApiValues", value: options.apiValues),
+                        string(name: "GTestFilter", value: options.gtestFilter),
                         booleanParam(name: "UpdateRefs", value: options.updateUnitRefs)
                     ],
                     wait: false,
@@ -683,6 +697,7 @@ def call(String pipelineBranch = "master",
          String mtlxTestsBranch = "master",
          String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100,AMD_680M;Ubuntu20:AMD_RX6700XT,NVIDIA_RTX3070TI",
          String apiValues = "vulkan,d3d12",
+         String gtestFilter = "*",
          String scenarios = "",
          String rprSdkTestsPackage = "Full.json",
          String mtlxTestsPackage = "regression.json",
@@ -721,6 +736,7 @@ def call(String pipelineBranch = "master",
                    rprSdkTestsBranch:rprSdkTestsBranch,
                    mtlxTestsBranch:mtlxTestsBranch,
                    apiValues:apiValues,
+                   gtestFilter: gtestFilter,
                    scenarios:scenarios,
                    rprSdkTestsPackage:rprSdkTestsPackage,
                    mtlxTestsPackage:mtlxTestsPackage,

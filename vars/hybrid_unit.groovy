@@ -40,19 +40,19 @@ def executeGenTestRefCommand(String asicName, String osName, Map options, String
         switch(osName) {
             case 'Windows':
                 bat """
-                    ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
+                    ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                 """
                 break
             case 'OSX':
                 sh """
                     export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                 """
                 break
             default:
                 sh """
                     export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} -genref 1 --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                 """
         }
     }
@@ -69,19 +69,19 @@ def executeTestCommand(String asicName, String osName, Map options, String apiVa
         switch(osName) {
             case 'Windows':
                 bat """
-                    ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
+                    ..\\bin\\RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ..\\..\\${STAGE_NAME}_${apiValue}.log 2>&1
                 """
                 break
             case 'OSX':
                 sh """
                     export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                 """
                 break
             default:
                 sh """
                     export LD_LIBRARY_PATH=../bin:\$LD_LIBRARY_PATH
-                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
+                    ../bin/RprTest ${options.enableRTX} -videoapi ${apiValue} --gtest_filter=${options.gtestFilter} --gtest_output=xml:../../${STAGE_NAME}_${apiValue}.gtest.xml >> ../../${STAGE_NAME}_${apiValue}.log 2>&1
                 """
         }
     }
@@ -302,6 +302,7 @@ def call(String commitSHA = "",
          String originalBuildLink = "",
          String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT",
          String apiValues = "vulkan,d3d12",
+         String gtestFilter = "*",
          Boolean updateRefs = false) {
 
     currentBuild.description = ""
@@ -335,6 +336,7 @@ def call(String commitSHA = "",
                             projectRepo:hybrid.PROJECT_REPO,
                             tests:"",
                             apiValues: apiList,
+                            gtestFilter: gtestFilter,
                             executeBuild:false,
                             executeTests:true,
                             storeOnNAS: true,
