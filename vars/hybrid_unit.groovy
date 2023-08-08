@@ -349,7 +349,7 @@ String publishUpdateRefsStatus(Map options) {
         options["updatedConfigurations"] = options["updatedConfigurations"].sort()
         options["notUpdatedConfigurations"] = options["notUpdatedConfigurations"].sort()
 
-        List commentContent = []
+        List commentContent = ["Baselines updating finished in the following build: ${env.BUILD_URL}\n"]
 
         if (options["updatedConfigurations"].size() > 0) {
             String message = "References were updated for:"
