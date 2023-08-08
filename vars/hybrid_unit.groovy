@@ -249,6 +249,39 @@ def executePreBuild(Map options) {
         }
     }
 
+    if (options["updateRefs"]) {
+        println("Make a backup for baselines")
+
+        utils.removeDir(this, "Windows", "backup")
+
+        String backupsFolder = "/volume1/Baselines/rpr_hybrid_backups/"
+
+        dir("backup") {
+            String archiveName = env.BRANCH_NAME ? "auto_${env.BRANCH_NAME}_${env.BUILD_NUMBER}.zip" : "manual_${env.BUILD_NUMBER}.zip"
+
+            downloadFiles("/volume1/Baselines/rpr_hybrid_autotests/", ".", "-q")
+            bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe a' + " \"${archiveName}\" .")
+            uploadFiles(archiveName, backupsFolder)
+        }
+
+        println("Remove old backups")
+
+        withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+            List fileNames = bat(returnStdout: true, script: '%CIS_TOOLS%\\' 
+                + "listFiles.bat ${backupsFolder} " + '%REMOTE_HOST% %SSH_PORT% -t').split("\n") as List
+
+            fileNames = fileNames.findAll {it.endsWith(".zip")}
+
+            println("Found backups (${fileNames.size()}): ${fileNames}")
+            
+            if (fileNames.size() > 20) {
+                for (int i = 20; i < fileNames.size(); i++) {
+                    println("Remove old backup: ${fileNames[i]}")
+                    bat(script: '%CIS_TOOLS%\\removeStashes.bat ' + '%REMOTE_HOST%' + " ${backupsFolder}${fileNames[i]} " + '%SSH_PORT%')
+                }
+            }
+        }
+    }
 
     currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
     currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/><br/>"
