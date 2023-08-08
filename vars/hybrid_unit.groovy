@@ -104,6 +104,8 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         outputEnvironmentInfo(osName, "${STAGE_NAME}")
     }
 
+    String configurationName = "${asicName}-${osName}-${apiValue}"
+
     try {
         String binaryName = hybrid.getArtifactName(osName)
         String binaryPath = "/volume1/web/${options.originalBuildLink.split('/job/', 2)[1].replace('/job/', '/')}Artifacts/${binaryName}"
@@ -137,16 +139,28 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             downloadFiles("${REF_PATH_PROFILE}/", "./BaikalNext/RprTest/ReferenceImages/", "", true, "nasURL", "nasSSHPort", true)
             executeTestCommand(asicName, osName, options, apiValue)
         }
+
+        if (options['updateRefs']) {
+            if (options["notUpdatedConfigurations"].contains(configurationName)) {
+                options["notUpdatedConfigurations"].remove(configurationName)
+            }
+            if (!options["updatedConfigurations"].contains(configurationName)) {
+                options["updatedConfigurations"].add(configurationName)
+            }   
+        }
     } catch (e) {
         println("Exception during tests execution")
         println(e.getMessage())
         errorMessage = e.getMessage()
 
-        String additionalDescription = ""
-
         try {
             if (options['updateRefs']) {
-                currentBuild.description += "<span style='color: #b03a2e'>References weren't updated for ${asicName}-${osName}-${apiValue} due to non-zero exit code returned by RprTest tool</span><br/>"
+                if (options["updatedConfigurations"].contains(configurationName)) {
+                    options["updatedConfigurations"].remove(configurationName)
+                }
+                if (!options["notUpdatedConfigurations"].contains(configurationName)) {
+                    options["notUpdatedConfigurations"].add(configurationName)
+                }
             }
 
             dir('HTML_Report') {
@@ -297,6 +311,51 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 
+String publishUpdateRefsStatus(Map options) {
+    if (options["updateRefs"]) {
+        options["updatedConfigurations"] = options["updatedConfigurations"].sort()
+        options["notUpdatedConfigurations"] = options["notUpdatedConfigurations"].sort()
+
+        List commentContent = []
+
+        if (options["updatedConfigurations"].size() > 0) {
+            String message = "References were updated for:"
+            currentBuild.description += "<span style='color: #5fbc34'>${message}<br/><ul>"
+            commentContent.add(message)
+
+            options["updatedConfigurations"].each() {
+                currentBuild.description += "<li>${it}</li>"
+                commentContent.add("- ${it}")
+            }
+
+            currentBuild.description += "</ul></span>"
+        }
+
+        if (options["updatedConfigurations"].size() > 0 && options["notUpdatedConfigurations"].size() > 0) {
+            currentBuild.description += "<br/>"
+            commentContent.add("")
+        }
+
+        if (options["notUpdatedConfigurations"].size() > 0) {
+            String message = "References weren't updated due to non-zero exit code returned by RprTest tool for:"
+            currentBuild.description += "<span style='color: #b03a2e'>${message}<br/><ul>"
+            commentContent.add(message)
+
+            options["notUpdatedConfigurations"].each() {
+                currentBuild.description += "<li>${it}</li>"
+                commentContent.add("- ${it}")
+            }
+
+            currentBuild.description += "</ul></span>"
+        }
+
+        if (env.CHANGE_URL) {
+            GithubNotificator.sendPullRequestComment(commentContent.join("\n"), options)
+        }
+    }
+}
+
+
 def call(String commitSHA = "",
          String commitMessage = "",
          String originalBuildLink = "",
@@ -324,26 +383,33 @@ def call(String commitSHA = "",
 
     println "[INFO] Testing APIs: ${apiList}"
 
-    multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy,
-                           [configuration: PIPELINE_CONFIGURATION,
-                            platforms:platforms,
-                            commitSHA:commitSHA,
-                            commitMessage:commitMessage,
-                            originalBuildLink:originalBuildLink,
-                            updateRefs:updateRefs,
-                            PRJ_NAME:"HybridProUnit",
-                            PRJ_ROOT:"rpr-core",
-                            projectRepo:hybrid.PROJECT_REPO,
-                            tests:"",
-                            apiValues: apiList,
-                            gtestFilter: gtestFilter,
-                            executeBuild:false,
-                            executeTests:true,
-                            storeOnNAS: true,
-                            finishedBuildStages: new ConcurrentHashMap(),
-                            splitTestsExecution: false,
-                            retriesForTestStage:2,
-                            TEST_TIMEOUT:45,
-                            skipCallback: this.&filter,
-                            customStageName: "Test-Unit"])
+    Map options = [:]
+
+    options << [configuration: PIPELINE_CONFIGURATION,
+                platforms:platforms,
+                commitSHA:commitSHA,
+                commitMessage:commitMessage,
+                originalBuildLink:originalBuildLink,
+                updateRefs:updateRefs,
+                PRJ_NAME:"HybridProUnit",
+                PRJ_ROOT:"rpr-core",
+                projectRepo:hybrid.PROJECT_REPO,
+                tests:"",
+                apiValues: apiList,
+                gtestFilter: gtestFilter,
+                executeBuild:false,
+                executeTests:true,
+                storeOnNAS: true,
+                finishedBuildStages: new ConcurrentHashMap(),
+                splitTestsExecution: false,
+                retriesForTestStage:2,
+                TEST_TIMEOUT:45,
+                skipCallback: this.&filter,
+                customStageName: "Test-Unit",
+                updatedConfigurations: [],
+                notUpdatedConfigurations: []]
+
+    multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
+
+    publishUpdateRefsStatus(options)
 }

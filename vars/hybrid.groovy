@@ -232,7 +232,7 @@ def executePreBuild(Map options) {
     println "Commit message: ${commitMessage}"
     println "Commit SHA: ${options.commitSHA}"
 
-    if ((commitMessage.contains("[CIS:GENREFALL]") || commitMessage.contains("[CIS:GENREF]")) && env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+    if ((commitMessage.contains("[CIS:GENREFALL]") || commitMessage.contains("[CIS:GENREF]")) && env.BRANCH_NAME) {
         options.updateUnitRefs = true
         options.updatePerfRefs = true
         // do not update HybridPro MTLX and RPR SDK refs automatically
