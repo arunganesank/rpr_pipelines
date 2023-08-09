@@ -243,9 +243,9 @@ def executePreBuild(Map options) {
         String possibleGTestFilter = ""
 
         if (commitMessage.contains("[CIS:GENREF]")) {
-            possibleGTestFilter = commitMessage.split("[CIS:GENREF]")[1].split("\n")[0].strip()
+            possibleGTestFilter = commitMessage.split("[CIS:GENREF]")[1].split("\n")[0].trim()
         } else {
-            possibleGTestFilter = commitMessage.split("[CIS:GENREFALL]")[1].split("\n")[0].strip()
+            possibleGTestFilter = commitMessage.split("[CIS:GENREFALL]")[1].split("\n")[0].trim()
         }
 
         if (possibleGTestFilter) {
