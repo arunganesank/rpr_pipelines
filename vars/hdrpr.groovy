@@ -503,7 +503,10 @@ def executePreBuild(Map options) {
         options.toolVersion = "${options.majorVersion}.${options.minorVersion}.${options.patchVersion}"
 
         currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-        currentBuild.description += "<b>Version:</b> ${options.toolVersion}<br/>"
+        currentBuild.description += "<b>Version:</b> "
+        currentBuild.description += increment_version.addVersionButton("USD Houdini", "Major", options.majorVersion)
+        currentBuild.description += increment_version.addVersionButton("USD Houdini", "Minor", options.minorVersion)
+        currentBuild.description += increment_version.addVersionButton("USD Houdini", "Patch", options.patchVersion)
         currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
         currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
         currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
