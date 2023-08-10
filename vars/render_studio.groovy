@@ -2011,7 +2011,9 @@ def call(
                                 useTrackedMetrics:useTrackedMetrics,
                                 saveTrackedMetrics:saveTrackedMetrics,
                                 globalStorage: new ConcurrentHashMap(),
-                                testsPreCondition: this.&hasIdleClients
+                                testsPreCondition: this.&hasIdleClients,
+                                customHybridProWindowsLink: customHybridProWindowsLink,
+                                customHybridProUbuntuLink: customHybridProUbuntuLink
                                 ]
 
     withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
