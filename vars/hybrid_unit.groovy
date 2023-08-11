@@ -144,6 +144,9 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             if (options["notUpdatedConfigurations"].contains(configurationName)) {
                 options["notUpdatedConfigurations"].remove(configurationName)
             }
+            if (options["segmentationFaultConfigurations"].contains(configurationName)) {
+                options["segmentationFaultConfigurations"].remove(configurationName)
+            }
             if (!options["updatedConfigurations"].contains(configurationName)) {
                 options["updatedConfigurations"].add(configurationName)
             }   
@@ -153,32 +156,42 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
         println(e.getMessage())
         errorMessage = e.getMessage()
 
-        try {
-            if (options['updateRefs']) {
-                if (options["updatedConfigurations"].contains(configurationName)) {
-                    options["updatedConfigurations"].remove(configurationName)
+        String testsLogContent = readFile("${STAGE_NAME}_${apiValue}.log")
+
+        if (testsLogContent.contains("Segmentation fault")) {
+            println("[ERROR] Segmentation fault detected")
+
+            if (!options["segmentationFaultConfigurations"].contains(configurationName)) {
+                options["segmentationFaultConfigurations"].add(configurationName)
+            }
+        } else {
+            try {
+                if (options['updateRefs']) {
+                    if (options["updatedConfigurations"].contains(configurationName)) {
+                        options["updatedConfigurations"].remove(configurationName)
+                    }
+                    if (!options["notUpdatedConfigurations"].contains(configurationName)) {
+                        options["notUpdatedConfigurations"].add(configurationName)
+                    }
                 }
-                if (!options["notUpdatedConfigurations"].contains(configurationName)) {
-                    options["notUpdatedConfigurations"].add(configurationName)
+
+                dir('HTML_Report') {
+                    checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
+                    python3("-m pip install -r requirements.txt")
+                    python3("hybrid_report.py --xml_path ../${STAGE_NAME}_${apiValue}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-${apiValue}-Failures")
                 }
+
+                if (!options.storeOnNAS) {
+                    makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
+                }
+
+                utils.publishReport(this, "${env.BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+
+                options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
+            } catch (err) {
+                println("[ERROR] Failed to publish HTML report.")
+                println(err.getMessage())
             }
-
-            dir('HTML_Report') {
-                checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
-                python3("-m pip install -r requirements.txt")
-                python3("hybrid_report.py --xml_path ../${STAGE_NAME}_${apiValue}.gtest.xml --images_basedir ../BaikalNext/RprTest --report_path ../${asicName}-${osName}-${apiValue}-Failures")
-            }
-
-            if (!options.storeOnNAS) {
-                makeStash(includes: "${asicName}-${osName}-${apiValue}-Failures/**/*", name: "testResult-${asicName}-${osName}-${apiValue}", allowEmpty: true)
-            }
-
-            utils.publishReport(this, "${env.BUILD_URL}", "${asicName}-${osName}-${apiValue}-Failures", "report.html", "${STAGE_NAME}_${apiValue}_Failures", "${STAGE_NAME}_${apiValue}_Failures", options.storeOnNAS, ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
-
-            options["failedConfigurations"].add("testResult-" + asicName + "-" + osName + "-" + apiValue)
-        } catch (err) {
-            println("[ERROR] Failed to publish HTML report.")
-            println(err.getMessage())
         }
     } finally {
         String title = "${asicName}-${osName}-${apiValue}"
@@ -346,6 +359,8 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 String publishUpdateRefsStatus(Map options) {
     if (options["updateRefs"]) {
+        currentBuild.description += "<br/><br/>"
+
         options["updatedConfigurations"] = options["updatedConfigurations"].sort()
         options["notUpdatedConfigurations"] = options["notUpdatedConfigurations"].sort()
 
@@ -375,8 +390,14 @@ String publishUpdateRefsStatus(Map options) {
             commentContent.add(message)
 
             options["notUpdatedConfigurations"].each() {
-                currentBuild.description += "<li>${it}</li>"
-                commentContent.add("- ${it}")
+                if (options["segmentationFaultConfigurations"].contains(it)) {
+                    currentBuild.description += "<li>${it} (segmentation fault detected)</li>"
+                    commentContent.add("- ${it} (segmentation fault detected)")
+                    currentBuild.result = "FAILURE"
+                } else {
+                    currentBuild.description += "<li>${it}</li>"
+                    commentContent.add("- ${it}")
+                }
             }
 
             currentBuild.description += "</ul></span>"
@@ -440,7 +461,8 @@ def call(String commitSHA = "",
                 skipCallback: this.&filter,
                 customStageName: "Test-Unit",
                 updatedConfigurations: [],
-                notUpdatedConfigurations: []]
+                notUpdatedConfigurations: [],
+                segmentationFaultConfigurations: []]
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
 
