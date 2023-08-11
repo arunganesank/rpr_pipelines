@@ -3,6 +3,8 @@ import groovy.transform.Synchronized
 
 def getReportEndpoint(String testsName) {
     switch (testsName) {
+        case "RenderStudio-Release":
+            return "/Test_20Report_20Desktop"
         case "USD-HoudiniPlugin-Release":
             return "/Test_20Report_2019_2e5_2e640_5fHybridPro"
         default:
