@@ -377,7 +377,7 @@ def awaitBuildFinishing(Map options, String buildUrl, String testsName) {
                                                  newLine: description,
                                                  testsName: testsName)
 
-        options["resultsDescription"] += description
+        options["resultsDescription"] += description + "<br/>"
     }
 
     return true
@@ -591,7 +591,7 @@ def launchAndWaitTests(Map options) {
 
     if (env.TAG_NAME && !options.emailSent && subbuildsFinished) {
         withCredentials([string(credentialsId: "HybridProNotifiedEmails", variable: "HYBRIDPRO_NOTIFIED_EMAILS")]) {
-            String emailBody = "<span style='font-size: 150%'>Autotests results (HybridPro):</span><br/><br/>${options.resultsDescription.join('<br/>')}"
+            String emailBody = "<span style='font-size: 150%'>Autotests results (HybridPro):</span><br/><br/>${options.resultsDescription}"
             emailBody += "<span style='font-size: 150%'><a href='${env.BUILD_URL}'>Original build link</a></span>"
 
             String customHybridProWindowsLink = ""

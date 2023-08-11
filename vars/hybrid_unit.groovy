@@ -144,12 +144,13 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             if (options["notUpdatedConfigurations"].contains(configurationName)) {
                 options["notUpdatedConfigurations"].remove(configurationName)
             }
-            if (options["segmentationFaultConfigurations"].contains(configurationName)) {
-                options["segmentationFaultConfigurations"].remove(configurationName)
-            }
             if (!options["updatedConfigurations"].contains(configurationName)) {
                 options["updatedConfigurations"].add(configurationName)
             }   
+        }
+
+        if (options["segmentationFaultConfigurations"].contains(configurationName)) {
+            options["segmentationFaultConfigurations"].remove(configurationName)
         }
     } catch (e) {
         println("Exception during tests execution")
@@ -393,7 +394,6 @@ String publishUpdateRefsStatus(Map options) {
                 if (options["segmentationFaultConfigurations"].contains(it)) {
                     currentBuild.description += "<li>${it} (segmentation fault detected)</li>"
                     commentContent.add("- ${it} (segmentation fault detected)")
-                    currentBuild.result = "FAILURE"
                 } else {
                     currentBuild.description += "<li>${it}</li>"
                     commentContent.add("- ${it}")
@@ -467,4 +467,8 @@ def call(String commitSHA = "",
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
 
     publishUpdateRefsStatus(options)
+
+    if (options["segmentationFaultConfigurations"]) {
+        currentBuild.result = "FAILURE"
+    }
 }
