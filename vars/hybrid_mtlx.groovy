@@ -68,6 +68,11 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
+    if (env.BRANCH_NAME == "PR-1214") {
+        hybrid_unit.setTdrDelay(true)
+        utils.reboot(this, "Windows")
+    }
+
     try {
         withNotifications(stage: options.customStageName, title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
@@ -149,6 +154,11 @@ def executeTests(String osName, String asicName, Map options) {
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     } finally {
+        if (env.BRANCH_NAME == "PR-1214") {
+            hybrid_unit.setTdrDelay(false)
+            utils.reboot(this, "Windows")
+        }
+
         try {
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
