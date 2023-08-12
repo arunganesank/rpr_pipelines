@@ -219,10 +219,29 @@ def changeWinDevMode(Boolean turnOn) {
 }
 
 
+def setTdrDelay(Boolean turnOn) {
+    if (turnOn) {
+        powershell """
+            reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDelay" /d "120"
+            reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDdiDelay" /d "120"
+        """
+    } else {
+        powershell """
+            reg delete "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /v "TdrDelay" /f
+            reg delete "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /v "TdrDdiDelay" /f
+        """
+    }
+}
+
+
 def executeTests(String osName, String asicName, Map options) {
     GithubNotificator.updateStatus(options.customStageName, "${asicName}-${osName}-${options.apiValue}", "in_progress", options, "In progress...")
 
     if (osName == "Windows") {
+        if (env.BRANCH_NAME == "PR-1214") {
+            setTdrDelay(true)
+        }
+
         changeWinDevMode(true)
     }
 
@@ -237,6 +256,10 @@ def executeTests(String osName, String asicName, Map options) {
     }
 
     if (osName == "Windows") {
+        if (env.BRANCH_NAME == "PR-1214") {
+            setTdrDelay(false)
+        }
+
         changeWinDevMode(false)
     }
 
