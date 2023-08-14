@@ -1404,7 +1404,11 @@ def saveHybridProLinks(Map options) {
 
     def parsedInfo = parseResponse(rawInfo.content)
 
-    options.hybridProSHA = "RRPSDK 46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa"
+    if (options.customHybridProVersion) {
+        options.hybridProSHA = options.customHybridProVersion
+    } else {
+        options.hybridProSHA = "RRPSDK 46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa"
+    }
 
     withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
         options.customHybridWin = "/volume1/CIS/bin-storage/RenderStudioRPRSDK.zip"
@@ -1919,7 +1923,8 @@ def call(
     Boolean rebuildUSD = false,
     Boolean saveUSD = false,
     String customHybridProWindowsLink = "",
-    String customHybridProUbuntuLink = "")
+    String customHybridProUbuntuLink = "",
+    String customHybridProVersion = "")
 {
     if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-206") {
         testsBranch = "sshikalova/pr_206"
@@ -2016,7 +2021,8 @@ def call(
                                 globalStorage: new ConcurrentHashMap(),
                                 testsPreCondition: this.&hasIdleClients,
                                 customHybridProWindowsLink: customHybridProWindowsLink,
-                                customHybridProUbuntuLink: customHybridProUbuntuLink
+                                customHybridProUbuntuLink: customHybridProUbuntuLink,
+                                customHybridProVersion: customHybridProVersion
                                 ]
 
     withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {

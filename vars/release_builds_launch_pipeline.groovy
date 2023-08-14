@@ -44,6 +44,7 @@ def launchAndWaitBuild(String jobName,
                        String testsPackage,
                        String customHybridProWindowsLink,
                        String customHybridProUbuntuLink,
+                       String customHybridProVersion,
                        List trackingBuilds,
                        int buildsExpecting) {
     String[] jobNameParts = env.JOB_NAME.split("/")
@@ -62,7 +63,8 @@ def launchAndWaitBuild(String jobName,
             string(name: "PipelineBranch", value: pipelineBranch),
             string(name: "TestsPackage", value: testsPackage),
             string(name: "customHybridProWindowsLink", value: customHybridProWindowsLink),
-            string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink)
+            string(name: "customHybridProUbuntuLink", value: customHybridProUbuntuLink),
+            string(name: "customHybridProVersion", value: customHybridProVersion)
         ],
         wait: false,
         quietPeriod : 0
@@ -199,12 +201,12 @@ def call(String pipelineBranch,
             if (currentBuild.result == "FAILURE" || (failsCount > totalCount * 0.2)) {
                 // errors appeared or more that 20% of tests are failed
                 String currentBuildRestartUrl = "${env.JOB_URL}/buildWithParameters?PipelineBranch=${pipelineBranch}&TestsPackage=${testsPackage}&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
-                currentBuildRestartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds}&delay=0sec"
+                currentBuildRestartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&CustomHybridProVersion=${customHybridProVersion}&TagName=${tagName}&PreviousBuilds=${previousBuilds}&delay=0sec"
                 String nextBuildStartUrl = ""
 
                 if (testsPackage == "regression") {
                     nextBuildStartUrl = "${env.JOB_URL}/buildWithParameters?PipelineBranch=${pipelineBranch}&TestsPackage=Full&CustomHybridProWindowsLink=${customHybridProWindowsLink}"
-                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&TagName=${tagName}&PreviousBuilds=${previousBuilds},${env.BUILD_URL}&delay=0sec"
+                    nextBuildStartUrl += "&CustomHybridProUbuntuLink=${customHybridProUbuntuLink}&CustomHybridProVersion=${customHybridProVersion}&TagName=${tagName}&PreviousBuilds=${previousBuilds},${env.BUILD_URL}&delay=0sec"
                 }
 
                 emailBody += "<span style='font-size: 150%'>Actions:</span><br/><br/>"
@@ -221,6 +223,7 @@ def call(String pipelineBranch,
                         string(name: "TestsPackage", value: "Full"),
                         string(name: "CustomHybridProWindowsLink", value: customHybridProWindowsLink),
                         string(name: "CustomHybridProUbuntuLink", value: customHybridProUbuntuLink),
+                        string(name: "CustomHybridProVersion", value: customHybridProVersion),
                         string(name: "TagName", value: tagName),
                         string(name: "PreviousBuilds", value: "${previousBuilds},${env.BUILD_URL}")
                     ],
