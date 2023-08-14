@@ -175,12 +175,10 @@ def installAMDRenderStudio(String osName, Map options) {
         // install custom Render Studio installer
         bat "msiexec.exe /i ${options['installerPath']} /qb"
     } else {
-        dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-            if (options["customRenderStudioHash"]) {
-                bat "msiexec.exe /i ${options['customRenderStudioHash']}.msi /qb"
-            } else {
-                bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
-            }
+        if (options["customRenderStudioHash"]) {
+            bat "msiexec.exe /i ${options['customRenderStudioHash']}.msi /qb"
+        } else {
+            bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
         }
     }
 }
@@ -378,7 +376,7 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
             timeout(time: "10", unit: "MINUTES") {
                 try {
                     if (options["PRJ_NAME"] == "RS") {
-                        getProduct("Windows", options)
+                        getProduct("Windows", options, "", false)
                         runApplicationTests(osName, options)
                     } else if (options["customRenderStudioInstaller"]) {
                         // some custom Render Studio installer should be installed for Live Mode
@@ -387,7 +385,7 @@ def prepareAMDRenderStudio(String osName, Map options, String clientType, int cl
                         newOptions["isPreBuilt"] = true
                         newOptions["customBuildLinkWindows"] = options["customRenderStudioInstaller"]
                         newOptions["configuration"] = PIPELINE_CONFIGURATION
-                        getProduct("Windows", newOptions)
+                        getProduct("Windows", newOptions, "", false)
                         options["customRenderStudioHash"] = newOptions[getProduct.getIdentificatorKey("Windows", options)]
                     } else {
                         // use the latest Render Studio installer for Live Mode
