@@ -182,10 +182,16 @@ def executeTests(String osName, String asicName, Map options) {
 
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.BUILD_CACHE) {
             timeout(time: "5", unit: "MINUTES") {
-                buildRenderCache(osName, options)
-                if (!fileExists("./Work/Results/Houdini/cache_building.jpg")) {
-                    println "[ERROR] Failed to build cache on ${env.NODE_NAME}. No output image found."
-                    throw new ExpectedExceptionWrapper("No output image after cache building.", new Exception("No output image after cache building."))
+                try {
+                    renderCache(osName, options)
+                } catch (e) {
+                    String logContent = readFile("${options.stageName}_${options.currentTry}.cb.log")
+                    if (logContent.contains("No licenses could be found to run this application.")) {
+                        loginSidefx(osName, options)
+                        renderCache(osName, options)
+                    } else {
+                        throw e
+                    }
                 }
             }
         }
@@ -850,6 +856,31 @@ def appendPlatform(String filteredPlatforms, String platform) {
         filteredPlatforms += platform
     }
     return filteredPlatforms
+}
+
+
+def renderCache(String osName, Map options) {
+    buildRenderCache(osName, options)
+    if (!fileExists("./Work/Results/Houdini/cache_building.jpg")) {
+        println "[ERROR] Failed to build cache on ${env.NODE_NAME}. No output image found."
+        throw new ExpectedExceptionWrapper("No output image after cache building.", new Exception("No output image after cache building."))
+    }
+}
+
+
+def loginSidefx(String osName, Map options) {
+    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'SideFXAccount', usernameVariable: 'EMAIL', passwordVariable: 'PASSWORD']]) {
+        switch(osName) {
+            case "Windows":
+                bat """
+                    set PATH=c:\\python39\\;c:\\python39\\scripts\\;%PATH%;
+                    python ${CIS_TOOLS}/sidefx_login/sidefx_login.py --email $EMAIL --password $PASSWORD
+                """
+                break
+            default:
+                sh "python ${CIS_TOOLS}/sidefx_login/sidefx_login.py --email $EMAIL --password $PASSWORD --houdini_version ${options.toolVersion}"
+        }
+    }
 }
 
 
