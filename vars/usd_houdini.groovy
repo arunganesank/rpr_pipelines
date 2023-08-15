@@ -185,9 +185,8 @@ def executeTests(String osName, String asicName, Map options) {
                 try {
                     renderCache(osName, options)
                 } catch (e) {
-                    String logContent = readFile("..\\${options.stageName}_${options.currentTry}.cb.log")
+                    String logContent = readFile("${options.stageName}_${options.currentTry}.cb.log")
                     if (logContent.contains("No licenses could be found to run this application.")) {
-                        // попробовать запустить логин
                         loginSidefx(osName, options)
                         renderCache(osName, options)
                     } else {
