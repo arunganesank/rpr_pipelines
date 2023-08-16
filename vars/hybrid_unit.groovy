@@ -219,12 +219,19 @@ def changeWinDevMode(Boolean turnOn) {
 }
 
 
-def setTdrDelay(Boolean turnOn) {
+def setTdrDelay(String asicName, Boolean turnOn) {
     if (turnOn) {
-        powershell """
-            reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDelay" /d "120"
-            reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDdiDelay" /d "120"
-        """
+        if (asicName == "AMD_680M") {
+            powershell """
+                reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDelay" /d "600"
+                reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDdiDelay" /d "600"
+            """
+        } else {
+            powershell """
+                reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDelay" /d "120"
+                reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /t REG_DWORD /f /v "TdrDdiDelay" /d "120"
+            """
+        }
     } else {
         powershell """
             reg delete "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers" /v "TdrDelay" /f
@@ -239,7 +246,7 @@ def executeTests(String osName, String asicName, Map options) {
 
     if (osName == "Windows") {
         if (env.BRANCH_NAME == "PR-1214") {
-            setTdrDelay(true)
+            setTdrDelay(asicName, true)
         }
 
         changeWinDevMode(true)
@@ -257,7 +264,7 @@ def executeTests(String osName, String asicName, Map options) {
 
     if (osName == "Windows") {
         if (env.BRANCH_NAME == "PR-1214") {
-            setTdrDelay(false)
+            setTdrDelay(asicName, false)
         }
 
         changeWinDevMode(false)

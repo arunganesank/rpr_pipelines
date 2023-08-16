@@ -69,7 +69,7 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     if (env.BRANCH_NAME == "PR-1214") {
-        hybrid_unit.setTdrDelay(true)
+        hybrid_unit.setTdrDelay(asicName, true)
         utils.reboot(this, "Windows")
     }
 
@@ -155,7 +155,7 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         if (env.BRANCH_NAME == "PR-1214") {
-            hybrid_unit.setTdrDelay(false)
+            hybrid_unit.setTdrDelay(asicName, false)
             utils.reboot(this, "Windows")
         }
 
