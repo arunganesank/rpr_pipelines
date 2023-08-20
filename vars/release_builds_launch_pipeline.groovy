@@ -118,7 +118,7 @@ def call(String pipelineBranch,
          String testsPackage,
          String customHybridProWindowsLink,
          String customHybridProUbuntuLink,
-         String CustomHybridProVersion
+         String customHybridProVersion,
          String tagName,
          String previousBuilds,
          List projects) 
