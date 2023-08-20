@@ -246,8 +246,6 @@ def executeTests(String osName, String asicName, Map options) {
         }
 
         changeWinDevMode(true)
-    } else {
-        utils.reboot(this, osName)
     }
 
     Boolean someStageFail = false 
