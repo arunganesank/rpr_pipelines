@@ -140,13 +140,11 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             executeTestCommand(asicName, osName, options, apiValue)
         }
 
-        if (options['updateRefs']) {
-            if (options["notUpdatedConfigurations"].contains(configurationName)) {
-                options["notUpdatedConfigurations"].remove(configurationName)
-            }
-            if (!options["updatedConfigurations"].contains(configurationName)) {
-                options["updatedConfigurations"].add(configurationName)
-            }   
+        if (options["failedUpdatedConfigurations"].contains(configurationName)) {
+            options["failedUpdatedConfigurations"].remove(configurationName)
+        }
+        if (!options["passedConfigurations"].contains(configurationName)) {
+            options["passedConfigurations"].add(configurationName)
         }
 
         if (options["segmentationFaultConfigurations"].contains(configurationName)) {
@@ -159,6 +157,13 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
 
         String testsLogContent = readFile("${STAGE_NAME}_${apiValue}.log")
 
+        if (options["passedConfigurations"].contains(configurationName)) {
+            options["passedConfigurations"].remove(configurationName)
+        }
+        if (!options["failedUpdatedConfigurations"].contains(configurationName)) {
+            options["failedUpdatedConfigurations"].add(configurationName)
+        }
+
         if (testsLogContent.contains("Segmentation fault")) {
             println("[ERROR] Segmentation fault detected")
 
@@ -167,15 +172,6 @@ def executeTestsWithApi(String osName, String asicName, Map options) {
             }
         } else {
             try {
-                if (options['updateRefs']) {
-                    if (options["updatedConfigurations"].contains(configurationName)) {
-                        options["updatedConfigurations"].remove(configurationName)
-                    }
-                    if (!options["notUpdatedConfigurations"].contains(configurationName)) {
-                        options["notUpdatedConfigurations"].add(configurationName)
-                    }
-                }
-
                 dir('HTML_Report') {
                     checkoutScm(branchName: "master", repositoryUrl: "git@github.com:luxteam/HTMLReportsShared")
                     python3("-m pip install -r requirements.txt")
@@ -388,54 +384,53 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 
-String publishUpdateRefsStatus(Map options) {
-    if (options["updateRefs"]) {
-        currentBuild.description += "<br/><br/>"
+String publishUpdateStatus(Map options) {
+    currentBuild.description += "<br/><br/>"
 
-        options["updatedConfigurations"] = options["updatedConfigurations"].sort()
-        options["notUpdatedConfigurations"] = options["notUpdatedConfigurations"].sort()
+    options["passedConfigurations"] = options["passedConfigurations"].sort()
+    options["failedUpdatedConfigurations"] = options["failedUpdatedConfigurations"].sort()
 
-        List commentContent = ["Baselines updating finished in the following build: ${env.BUILD_URL}\n"]
+    List commentContent = ["Baselines updating finished in the following build: ${env.BUILD_URL}\n"]
 
-        if (options["updatedConfigurations"].size() > 0) {
-            String message = "References were updated for:"
-            currentBuild.description += "<span style='color: #5fbc34'>${message}<br/><ul>"
-            commentContent.add(message)
+    if (options["passedConfigurations"].size() > 0) {
+        String message = options["updateRefs"] ? "References were updated for:" : "Finished tests:"
 
-            options["updatedConfigurations"].each() {
+        currentBuild.description += "<span style='color: #5fbc34'>${message}<br/><ul>"
+        commentContent.add(message)
+
+        options["passedConfigurations"].each() {
+            currentBuild.description += "<li>${it}</li>"
+            commentContent.add("- ${it}")
+        }
+
+        currentBuild.description += "</ul></span>"
+    }
+
+    if (options["passedConfigurations"].size() > 0 && options["failedUpdatedConfigurations"].size() > 0) {
+        currentBuild.description += "<br/>"
+        commentContent.add("")
+    }
+
+    if (options["failedUpdatedConfigurations"].size() > 0) {
+        String message = options["updateRefs"] ?  "References weren't updated due to non-zero exit code returned by RprTest tool for:" : "Failed tests due to non-zero exit code returned by RprTest tool:"
+        currentBuild.description += "<span style='color: #b03a2e'>${message}<br/><ul>"
+        commentContent.add(message)
+
+        options["failedUpdatedConfigurations"].each() {
+            if (options["segmentationFaultConfigurations"].contains(it)) {
+                currentBuild.description += "<li>${it} (segmentation fault detected)</li>"
+                commentContent.add("- ${it} (segmentation fault detected)")
+            } else {
                 currentBuild.description += "<li>${it}</li>"
                 commentContent.add("- ${it}")
             }
-
-            currentBuild.description += "</ul></span>"
         }
 
-        if (options["updatedConfigurations"].size() > 0 && options["notUpdatedConfigurations"].size() > 0) {
-            currentBuild.description += "<br/>"
-            commentContent.add("")
-        }
+        currentBuild.description += "</ul></span>"
+    }
 
-        if (options["notUpdatedConfigurations"].size() > 0) {
-            String message = "References weren't updated due to non-zero exit code returned by RprTest tool for:"
-            currentBuild.description += "<span style='color: #b03a2e'>${message}<br/><ul>"
-            commentContent.add(message)
-
-            options["notUpdatedConfigurations"].each() {
-                if (options["segmentationFaultConfigurations"].contains(it)) {
-                    currentBuild.description += "<li>${it} (segmentation fault detected)</li>"
-                    commentContent.add("- ${it} (segmentation fault detected)")
-                } else {
-                    currentBuild.description += "<li>${it}</li>"
-                    commentContent.add("- ${it}")
-                }
-            }
-
-            currentBuild.description += "</ul></span>"
-        }
-
-        if (env.CHANGE_URL) {
-            GithubNotificator.sendPullRequestComment(commentContent.join("\n"), options)
-        }
+    if (env.CHANGE_URL && options["updateRefs"]) {
+        GithubNotificator.sendPullRequestComment(commentContent.join("\n"), options)
     }
 }
 
@@ -490,13 +485,13 @@ def call(String commitSHA = "",
                 TEST_TIMEOUT:45,
                 skipCallback: this.&filter,
                 customStageName: "Test-Unit",
-                updatedConfigurations: [],
-                notUpdatedConfigurations: [],
+                passedConfigurations: [],
+                failedUpdatedConfigurations: [],
                 segmentationFaultConfigurations: []]
 
     multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
 
-    publishUpdateRefsStatus(options)
+    publishUpdateStatus(options)
 
     if (options["segmentationFaultConfigurations"]) {
         currentBuild.result = "FAILURE"
