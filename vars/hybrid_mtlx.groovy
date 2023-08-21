@@ -3,6 +3,7 @@ import net.sf.json.JSON
 import net.sf.json.JSONSerializer
 import net.sf.json.JsonConfig
 import TestsExecutionType
+import java.util.concurrent.ConcurrentHashMap
 
 
 @NonCPS
@@ -13,33 +14,45 @@ def parseResponse(String response) {
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete} HybMTLX
-                """
-                break
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete} HybMTLX
+                    """
+                    break
 
-            default:
-                println "Unix isn't supported"
+                default:
+                    println "Unix isn't supported"
+            }
         }
     }
 }
 
 
 def executeTestCommand(String osName, String asicName, Map options) {
-    def testTimeout = options.timeouts["${options.tests}"]
-    String testsNames = options.tests
+    String testsNames
+    String testsPackageName
 
-    println "Set timeout to ${testTimeout}"
+    if (options.tests.contains(".json")) {
+        testsPackageName = options.tests
+        testsNames = ""
+    } else {
+        testsPackageName = "none"
+        testsNames = options.tests
+    }
 
-    timeout(time: testTimeout, unit: "MINUTES") {
+    timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
         switch (osName) {
             case "Windows":
                 dir("scripts") {
                     bat """
-                        run.bat \"none\" \"${testsNames}\" 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
                     """
                 }
                 break
@@ -55,31 +68,34 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
 
+    if (env.BRANCH_NAME == "PR-1214") {
+        hybrid_unit.setTdrDelay(asicName, true)
+        utils.reboot(this, "Windows")
+    }
+
     try {
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "10", unit: "MINUTES") {
                 cleanWS(osName)
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
         }
 
-        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PACKAGE) {
             timeout(time: "40", unit: "MINUTES") {
                 downloadFiles("/volume1/CIS/MaterialX/renderTool/", "tool")
 
-                String hybridLink = "/volume1/web/" + options.hybridLinkWin.split(".com/")[1]
+                String binaryName = hybrid.getArtifactName(osName)
+                String binaryPath = "/volume1/web/${options.originalBuildLink.split('/job/', 2)[1].replace('/job/', '/')}Artifacts/${binaryName}"
+                downloadFiles(binaryPath, ".")
 
-                downloadFiles("${hybridLink}", ".")
-
-                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
-
-                bat """
-                    copy /Y BaikalNext\\bin\\HybridPro.dll tool
-                """
+                bat(script: '%CIS_TOOLS%\\7-Zip\\7z.exe x' + " ${binaryName} -aoa")
+                utils.removeFile(this, osName, "tool/HybridPro.dll")
+                utils.moveFiles(this, osName, "BaikalNext/bin/HybridPro.dll", "tool/HybridPro.dll")
             }
         }
 
-        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+        withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
             String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_assets" : "/mnt/c/TestResources/hybrid_mtlx_autotests_assets"
             downloadFiles("/volume1/web/Assets/materials/", assetsDir)
         }
@@ -90,7 +106,7 @@ def executeTests(String osName, String asicName, Map options) {
         outputEnvironmentInfo(osName, "", options.currentTry)
 
         if (options["updateRefs"].contains("Update")) {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
                 executeGenTestRefCommand(osName, options, options["updateRefs"].contains("clean"))
                 uploadFiles("./Work/GeneratedBaselines/", REF_PATH_PROFILE)
@@ -109,12 +125,14 @@ def executeTests(String osName, String asicName, Map options) {
                 }
             }
         } else {
-            withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/hybrid_mtlx_autotests_baselines" : "/mnt/c/TestResources/hybrid_mtlx_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            withNotifications(stage: options.customStageName, title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
             }
         }
@@ -129,13 +147,18 @@ def executeTests(String osName, String asicName, Map options) {
         }
         println e.toString()
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${e.getMessage()}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
         }
     } finally {
+        if (env.BRANCH_NAME == "PR-1214") {
+            hybrid_unit.setTdrDelay(asicName, false)
+            utils.reboot(this, "Windows")
+        }
+
         try {
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
@@ -148,29 +171,23 @@ def executeTests(String osName, String asicName, Map options) {
                     if (fileExists("Results/HybMTLX/session_report.json")) {
 
                         def sessionReport = readJSON file: 'Results/HybMTLX/session_report.json'
-                        
+
                         if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
                         } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
+                            GithubNotificator.updateStatus(options.customStageName, options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
-
                         utils.stashTestData(this, options, options.storeOnNAS)
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport()
                         }
+
+                        utils.analyzeResults(this, sessionReport, options)
                     }
                 }
             }
@@ -178,10 +195,10 @@ def executeTests(String osName, String asicName, Map options) {
             // throw exception in finally block only if test stage was finished
             if (options.executeTestsFinished) {
                 if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
+                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
                     throw e
                 } else {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
+                    GithubNotificator.updateStatus(options.customStageName, options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
                     throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
                 }
             }
@@ -196,70 +213,146 @@ def executeTests(String osName, String asicName, Map options) {
 
 
 def getReportBuildArgs(Map options) {
-    return """Hybrid \"-\" \"-\" \"-\" \"\" """
+    return """HybridPro \"${options.commitSHA}\" ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"\" """
 }
 
 
 def executePreBuild(Map options) {
-    // get links to the latest built HybridPro
-    def rawInfo = httpRequest(
-        url: "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastCompletedBuild[number,url]",
-        authentication: 'jenkinsCredentials',
-        httpMode: 'GET'
-    )
+    if (!options.originalBuildLink) {
+        // get links to the latest built HybridPro in manual/weekly job
+        def rawInfo = httpRequest(
+            url: "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastCompletedBuild[number,url]",
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
 
-    def parsedInfo = parseResponse(rawInfo.content)
+        def parsedInfo = parseResponse(rawInfo.content)
 
-    withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-        if (!options.hybridLinkWin) {
-            options.hybridLinkWin = "${REMOTE_HOST}/RadeonProRender-Hybrid/master/${parsedInfo.lastCompletedBuild.number}/Artifacts/BaikalNext_Build-Windows.zip"
-            rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${parsedInfo.lastCompletedBuild.url}">[HybridPro] Link to the used HybridPro build</a></h3>""")
-        }
+        options.originalBuildLink = parsedInfo.lastCompletedBuild.url
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${options.originalBuildLink}">[BUILD] Link to used HybridPro</a></h3>""")
     }
 
-    options.timeouts = [:]
+    def tests = []
 
-    withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.CONFIGURE_TESTS) {
-        dir('jobs_test_usdviewer') {
-            checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
-            options['testsBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
-            dir('jobs_launcher') {
-                options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
+    dir('jobs_test_hybrid_mtlx') {
+        checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+        dir ('jobs_launcher') {
+            options['jobsLauncherBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        }
+        options['testsBranch'] = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
+        println "[INFO] Test branch hash: ${options['testsBranch']}"
+
+        def packageInfo
+
+        if (options.testsPackage != "none") {
+            packageInfo = readJSON file: "jobs/${options.testsPackage}"
+            options.isPackageSplitted = packageInfo["split"]
+            // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
+            if (env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
+                options.testsPackage = "none"
             }
-            println "[INFO] Test branch hash: ${options['testsBranch']}"
+        }
 
-            def packageInfo
-
-            if (env.BRANCH_NAME || env.JOB_NAME.contains("Weekly")) {
-                options.tests = readJSON(file: "jobs/Full.json")["groups"].keySet() as List
+        if (options.testsPackage != "none") {
+            if (options.isPackageSplitted) {
+                println "[INFO] Tests package '${options.testsPackage}' can be splitted"
             } else {
-                options.tests = options.tests.split(" ") as List
+                // save tests which user wants to run with non-splitted tests package
+                if (options.tests) {
+                    tests = options.tests.split(" ") as List
+                }
+                println "[INFO] Tests package '${options.testsPackage}' can't be splitted"
+            }
+            // modify name of tests package if tests package is non-splitted (it will be use for run package few time with different engines)
+            String modifiedPackageName = "${options.testsPackage}~"
+
+            // receive list of group names from package
+            List groupsFromPackage = []
+
+            if (packageInfo["groups"] instanceof Map) {
+                groupsFromPackage = packageInfo["groups"].keySet() as List
+            } else {
+                // iterate through all parts of package
+                packageInfo["groups"].each() {
+                    groupsFromPackage.addAll(it.keySet() as List)
+                }
             }
 
-            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests, 200)
-            options.tests.each {
-                def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
-                options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
+            groupsFromPackage.each {
+                if (options.isPackageSplitted) {
+                    tests << it
+                } else {
+                    if (tests.contains(it)) {
+                        // add duplicated group name in name of package group name for exclude it
+                        modifiedPackageName = "${modifiedPackageName},${it}"
+                    }
+                }
             }
+            options.tests = utils.uniteSuites(this, "jobs/weights.json", tests)
+            modifiedPackageName = modifiedPackageName.replace('~,', '~')
+
+            if (options.isPackageSplitted) {
+                options.testsPackage = "none"
+            } else {
+                options.testsPackage = modifiedPackageName
+                // check that package is splitted to parts or not
+                if (packageInfo["groups"] instanceof Map) {
+                    tests << "${modifiedPackageName}"
+                } else {
+                    // add group stub for each part of package
+                    for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                        tests << "${modifiedPackageName}".replace(".json", ".${i}.json")
+                    }
+                }
+                
+                options.tests = tests
+            }
+        } else {
+            options.tests = utils.uniteSuites(this, "jobs/weights.json", options.tests.split(" ") as List)
         }
-
-        options.testsList = options.tests
-        println "timeouts: ${options.timeouts}"
     }
+
+    options.testsList = options.tests
+    println("Tests: ${options.testsList}")
 
     if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
         options.reportUpdater = new ReportUpdater(this, env, options)
         options.reportUpdater.init(this.&getReportBuildArgs)
     }
+
+    // set pending status for all
+    if (env.CHANGE_ID) {
+        GithubNotificator githubNotificator = new GithubNotificator(this, options)
+        githubNotificator.init(options)
+        options["githubNotificator"] = githubNotificator
+
+        options['platforms'].split(';').each() { platform ->
+            List tokens = platform.tokenize(':')
+            String osName = tokens.get(0)
+            // Statuses for builds
+            if (tokens.size() > 1) {
+                gpuNames = tokens.get(1)
+                gpuNames.split(',').each() { gpuName ->
+                    options.testsList.each() { testName ->
+                        def parts = testName.split("\\.")
+                        def formattedTestName = parts[0] + "." + parts[1]
+                        // Statuses for tests
+                        GithubNotificator.createStatus(options.customStageName, "${gpuName}-${osName}-${formattedTestName}", "queued", options, "Scheduled", "${env.JOB_URL}")
+                    }
+                }
+            }
+        }
+    }
+
+    currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
+    currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/><br/>"
 }
 
 
 def executeDeploy(Map options, List platformList, List testResultList) {
     try {
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
-            }
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
 
             List lostStashes = []
             dir("summaryTestResults") {
@@ -281,7 +374,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             try {
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${none}\" \"[]\" \"\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"\" \"{}\"
                     """
                 }
             } catch (e) {
@@ -289,7 +382,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
             }
 
             try {
-                GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
 
                 String matLibUrl
 
@@ -309,7 +402,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 }
             } catch (e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
-                GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report", "failure", options, errorMessage, "${env.BUILD_URL}")
                 if (utils.isReportFailCritical(e.getMessage())) {
                     options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
                     println """
@@ -319,9 +412,9 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                     if (!options.testDataSaved && !options.storeOnNAS) {
                         try {
                             // Save test data for access it manually anyway
-                            utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                            utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                                 "Test Report", "Summary Report, Compare Report", options.storeOnNAS, \
-                                ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                                ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                             options.testDataSaved = true 
                         } catch (e1) {
@@ -340,15 +433,12 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             try {
                 dir("jobs_launcher") {
-                    bat """
-                        get_status.bat ..\\summaryTestResults
-                    """
+                    bat "get_status.bat ..\\summaryTestResults"
                 }
-            } catch (e) {
-                println """
-                    [ERROR] during slack status generation.
-                    ${e.toString()}
-                """
+            } catch(e) {
+                println("[ERROR] Failed to generate slack status.")
+                println(e.toString())
+                println(e.getMessage())
             }
 
             try {
@@ -364,7 +454,13 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
             Map summaryTestResults = [:]
             try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                def summaryReport
+
+                dir("summaryTestResults") {
+                    archiveArtifacts artifacts: "summary_status.json"
+                    summaryReport = readJSON file: "summary_status.json"
+                }
+
                 summaryTestResults = [passed: summaryReport.passed, failed: summaryReport.failed, error: summaryReport.error]
                 if (summaryReport.error > 0) {
                     println "[INFO] Some tests marked as error. Build result = FAILURE."
@@ -384,25 +480,10 @@ def executeDeploy(Map options, List platformList, List testResultList) {
                 currentBuild.result = "UNSTABLE"
             }
 
-            try {
-                options.testsStatus = readFile("summaryTestResults/slack_status.json")
-            } catch (e) {
-                println e.toString()
-                options.testsStatus = ""
-            }
-
-            withNotifications(title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+            withNotifications(stage: options.customStageName, title: "Building test report", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                     "Test Report", "Summary Report, Compare Report", options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
-
-                if (summaryTestResults) {
-                    GithubNotificator.updateStatus("Deploy", "Building test report", "success", options,
-                            "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
-                } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report", "success", options,
-                            NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
-                }
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
             }
         }
     } catch (e) {
@@ -412,53 +493,69 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 }
 
 
-def call(String testsBranch = "master",
-         String platforms = 'Windows:AMD_RX6800XT,NVIDIA_RTX3080TI,AMD_RX7900XT',
-         String updateRefs = 'No',
+def call(String commitSHA = "",
+         String projectBranchName = "",
+         String commitMessage = "",
+         String originalBuildLink = "",
+         String testsBranch = "",
+         String testsPackage = "",
          String tests = "",
-         String parallelExecutionTypeString = "TakeAllNodes",
-         String hybridLinkWin = "") {
+         String platforms = "Windows:NVIDIA_RTX3080TI,NVIDIA_RTX4080,AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,AMD_RX5700XT,AMD_WX9100",
+         String updateRefs = "No") {
+
+    currentBuild.description = ""
+
+    if (env.CHANGE_URL && env.CHANGE_TARGET == "master") {
+        while (jenkins.model.Jenkins.instance.getItem(env.JOB_NAME.split("/")[0]).getItem("master").lastBuild.result == null) { 
+            println("[INFO] Make a delay because there is a running build in master branch")
+            sleep(300)
+        }
+    } else if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+        def buildNumber = env.BUILD_NUMBER as int
+        if (buildNumber > 1) {
+            milestone(buildNumber - 1)
+        }
+        milestone(buildNumber) 
+    }
 
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
-    Map options = [stage: "Init", problemMessageManager: problemMessageManager]
 
     try {
-        withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            println """
-                Platforms: ${platforms}
-                Tests: ${tests}
-                Tests execution type: ${parallelExecutionTypeString}
-            """
+        Map options = [:]
 
-            options << [testRepo:"git@github.com:luxteam/jobs_test_hybrid_mtlx.git",
-                        testsBranch: testsBranch,
-                        updateRefs: updateRefs,
-                        enableNotifications: false,
-                        PRJ_NAME: 'HybridMTLX',
-                        PRJ_ROOT: 'rpr-core',
-                        executeBuild: false,
-                        executeTests: true,
-                        splitTestsExecution: true,
-                        TEST_TIMEOUT: 90,
-                        ADDITIONAL_XML_TIMEOUT: 15,
-                        DEPLOY_TIMEOUT: 20,
-                        tests: tests,
-                        nodeRetry: [],
-                        problemMessageManager: problemMessageManager,
-                        platforms: platforms,
-                        parallelExecutionType: TestsExecutionType.valueOf(parallelExecutionTypeString),
-                        parallelExecutionTypeString: parallelExecutionTypeString,
-                        hybridLinkWin: hybridLinkWin,
-                        storeOnNAS: true,
-                        flexibleUpdates: true
-                        ]
-        }
+        options << [platforms:platforms,
+                    commitSHA:commitSHA,
+                    projectBranchName:projectBranchName,
+                    commitMessage:commitMessage,
+                    originalBuildLink:originalBuildLink,
+                    testsBranch:testsBranch,
+                    testRepo:hybrid.MTLX_REPO,
+                    PRJ_NAME: 'HybridProMTLX',
+                    PRJ_ROOT: 'rpr-core',
+                    projectRepo:hybrid.PROJECT_REPO,
+                    testsPackage:testsPackage,
+                    tests:tests,
+                    updateRefs:updateRefs,
+                    executeBuild:false,
+                    executeTests:true,
+                    storeOnNAS: true,
+                    flexibleUpdates: true,
+                    finishedBuildStages: new ConcurrentHashMap(),
+                    splitTestsExecution: true,
+                    parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                    problemMessageManager:problemMessageManager,
+                    nodeRetry: [],
+                    customStageName: "Test-MTLX"]
+
         multiplatform_pipeline(platforms, this.&executePreBuild, null, this.&executeTests, this.&executeDeploy, options)
     } catch(e) {
         currentBuild.result = "FAILURE"
         println e.toString()
         throw e
     } finally {
-        String problemMessage = options.problemMessageManager.publishMessages()
+        if (currentBuild.description) {
+            currentBuild.description += "<br/>"
+        }
+        String problemMessage = problemMessageManager.publishMessages()
     }
 }

@@ -24,8 +24,77 @@ import TestsExecutionType
     ]
 )
 
+@Field final List caches = [
+    "C:\\Program Files\\AMD\\AMD RenderStudio",
+    "C:\\ProgramData\\AMD\\AMD RenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio",
+    "C:\\Users\\%USERNAME%\\AppData\\Roaming\\RenderStudio"
+]
+
+
+int getNumberOfRequiredClients(Map options) {
+    // at least one client is required for offline autotests
+    int clientsNumber = 1
+
+    List testGroups
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        // some parts of regression contain live mode tests
+        int partNumber = options.tests.split("\\.")[1] as int
+
+        testGroups = options.packageInfo["groups"][partNumber].keySet() as List
+    } else {
+        testGroups = options.tests.split("-")[0].split() as List
+    }
+
+    if (options["liveModeConfiguration"].clients_number.keySet().any { testGroups.contains(it) }) {
+        testGroups.each() {
+            if (options["liveModeConfiguration"].clients_number.containsKey(it)) {
+                int currentClientsNumber = options["liveModeConfiguration"].clients_number[it]
+
+                if (currentClientsNumber > clientsNumber) {
+                    clientsNumber = currentClientsNumber
+                }
+            }
+        }
+    }
+
+    return clientsNumber
+}
+
+
+String getLabels(Map options) {
+    return "${options.osName} && Tester && gpu${options.asicName} && !Disabled"
+}
+
+
+// TODO: add possibility to use with priorities
+Boolean hasIdleClients(Map options) {
+    int requiredClientsNumber = getNumberOfRequiredClients(options)
+    println("Required ${requiredClientsNumber} client(s)")
+
+    def suitableNodes = nodesByLabel(label: getLabels(options), offline: false)
+
+    int idleNodesNumber = 0
+
+    for (node in suitableNodes) {
+        if (utils.isNodeIdle(node)) {
+            idleNodesNumber++
+        }
+    }
+
+    println("Found ${idleNodesNumber} suitable idle client(s)")
+
+    // do not wait idle clients in case of only 1 required clients
+    return (requiredClientsNumber == 1) || (requiredClientsNumber <= idleNodesNumber)
+}
+
 
 Boolean filter(Map options, String asicName, String osName, String testName, String mode) {
+    if (testName.contains("LiveMode") && !(asicName == "AMD_RX6800XT" || asicName == "AMD_RX7900XT")) {
+        return true
+    }
+
     if ((osName == "Windows" && mode == "Desktop") || (osName == "Web" && mode == "Web")) {
         return false
     }
@@ -68,7 +137,7 @@ def removeClosedPRs(Map options) {
  }
 
 
-def uninstallAMDRenderStudio(String osName, Map options) {
+def uninstallAMDRenderStudio(String osName, Map options, Boolean clearCaches = true) {
     def installedProductCode = powershell(script: """(Get-WmiObject -Class Win32_Product -Filter \"Name LIKE 'AMD RenderStudio'\").IdentifyingNumber""", returnStdout: true)
 
     // TODO: compare product code of built application and installed application
@@ -77,13 +146,40 @@ def uninstallAMDRenderStudio(String osName, Map options) {
         uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
 
         utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\AppData\\Roaming\\AMDRenderStudio\\Storage")
+        utils.removeDir(this, osName, "C:\\Users\\%USERNAME%\\Documents\\AMD RenderStudio Home")
+
+        if (clearCaches) {
+            println("[INFO] Clearing caches...")
+            for (cache in caches) {
+                if (fileExists(cache)) {
+                    try {
+                        bat """
+                            del /q \"${cache}\"
+                            for /d %i in (\"${cache}\") do @rmdir /s /q "%i"
+                        """
+                        println("[INFO] Path \"${cache}\" is cleared.")
+                    } catch(Exception e) {
+                        println("[ERROR] Can't clear directory")
+                        println(e.toString())
+                        println(e.getMessage())
+                    }
+                }
+            }
+        }
     }
 }
 
 
 def installAMDRenderStudio(String osName, Map options) {
-    dir("${CIS_TOOLS}\\..\\PluginsBinaries") {
-        bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+    if (options["installerPath"]) {
+        // install custom Render Studio installer
+        bat "msiexec.exe /i ${options['installerPath']} /qb"
+    } else {
+        if (options["customRenderStudioHash"]) {
+            bat "msiexec.exe /i ${options['customRenderStudioHash']}.msi /qb"
+        } else {
+            bat "msiexec.exe /i ${options[getProduct.getIdentificatorKey('Windows', options)]}.msi /qb"
+        }
     }
 }
 
@@ -159,7 +255,7 @@ def runApplicationTests(String osName, Map options) {
     runApplication(appLink, osName, options)
 
     // Step 5: try to uninstall app (should be unsuccessfull, issue on Render Studio side)
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 6: close app window
     try {
@@ -175,7 +271,7 @@ def runApplicationTests(String osName, Map options) {
     // }
 
     // Step 8: uninstall app
-    uninstallAMDRenderStudio(osName, options)
+    uninstallAMDRenderStudio(osName, options, false)
 
     // Step 9: check processes after uninstalling
     Boolean processFound = utils.isProcessExists(this, "AMD RenderStudio", osName, options)
@@ -187,15 +283,21 @@ def runApplicationTests(String osName, Map options) {
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir('scripts') {
-        bat """
-            make_results_baseline.bat ${delete}
-        """
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir('scripts') {
+            bat """
+                make_results_baseline.bat ${delete}
+            """
+        }
     }
 }
 
 
-def executeTestCommand(String osName, String asicName, Map options) {
+def executeTestCommand(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
     def testTimeout = options.timeouts["${options.tests}"]
     String testsNames
     String testsPackageName
@@ -218,199 +320,520 @@ def executeTestCommand(String osName, String asicName, Map options) {
     println "Set timeout to ${testTimeout}"
 
     timeout(time: testTimeout, unit: 'MINUTES') {
-        switch(osName) {
-            case 'Windows':
-                dir('scripts') {
+        if (clientType == "offline") {
+            switch(osName) {
+                case 'Windows':
+                    dir('scripts') {
+                        bat """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+                    break
+                case 'Web':
+                    // TODO: rename system name
+                    dir("scripts") {
+                        sh """
+                            set TOOL_VERSION=${options.version}
+                            run_offline.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ^
+                            ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        """
+                    }
+            }
+        } else {
+            dir('scripts') {
+                String modeKey = getLiveModeKey(clientType, clientNumber)
+                String primaryClientIP = options["liveModeInfo"]["primary"]["ip"]
+                String primaryClientPort = options["liveModeInfo"]["primary"]["port"]
+
+                withEnv(["RENDER_STUDIO_LIVE_CHANNEL_NAME=auto_${primaryClientIP}"]) {
                     bat """
                         set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
+                        run_live_mode.bat \"${testsPackageName}\" \"${testsNames}\" desktop ${modeKey} ${primaryClientIP} ${primaryClientPort} ^
+                        ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${modeKey}_${options.currentTry}.log\"  2>&1
                     """
                 }
-                break
-            case 'Web':
-                // TODO: rename system name
-                dir("scripts") {
-                    sh """
-                        set TOOL_VERSION=${options.version}
-                        run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.mode.toLowerCase()} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\"  2>&1
-                    """
-                }
+            }
         }
+    }
+}
+
+
+def checkoutAutotests(Map options) {
+    withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+        timeout(time: "5", unit: "MINUTES") {
+            cleanWS("Windows")
+            checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+        }
+    }
+}
+
+
+def prepareAMDRenderStudio(String osName, Map options, String clientType, int clientNumber = -1) {
+    if (osName == "Windows") {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
+            timeout(time: "10", unit: "MINUTES") {
+                try {
+                    if (options["PRJ_NAME"] == "RS") {
+                        getProduct("Windows", options, "", false)
+                        runApplicationTests(osName, options)
+                    } else if (options["customRenderStudioInstaller"]) {
+                        // some custom Render Studio installer should be installed for Live Mode
+                        // use copy of options to do not lost original data
+                        Map newOptions = options.clone()
+                        newOptions["isPreBuilt"] = true
+                        newOptions["customBuildLinkWindows"] = options["customRenderStudioInstaller"]
+                        newOptions["configuration"] = PIPELINE_CONFIGURATION
+                        getProduct("Windows", newOptions, "", false)
+                        options["customRenderStudioHash"] = newOptions[getProduct.getIdentificatorKey("Windows", options)]
+                    } else {
+                        // use the latest Render Studio installer for Live Mode
+                        options["installerPath"] = "RS.msi"
+                        downloadLiveModeInstaller(osName, options, options["installerPath"])
+                    }
+                } catch (e) {
+                    if (e instanceof ExpectedExceptionWrapper) {
+                        options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
+                    }
+                    throw e
+                }
+            }
+        }
+
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
+            timeout(time: "10", unit: "MINUTES") {
+                uninstallAMDRenderStudio(osName, options, true)
+                installAMDRenderStudio(osName, options)
+
+                // open application once to generate Storage files
+                String appLink = getDesktopLink(osName, options)
+                runApplication(appLink, osName, options)
+                sleep(10)
+                utils.closeProcess(this, "AMD RenderStudio", osName, options)
+            }
+        }
+
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
+            String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_assets" : "/mnt/c/TestResources/render_studio_autotests_assets"
+            downloadFiles("/volume1/web/Assets/render_studio_autotests/", assetsDir)
+        }
+    } else {
+        withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+            String url
+
+            if (options.deployEnvironment == "prod") {
+                url = TEMPLATE.replace("<instance>.", "")
+            } else {
+                url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+            }
+
+            String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
+            writeFile(file: "local_config.py", text: localConfigContent)
+        }
+    }
+}
+
+
+def prepareTools(String osName, Map options, String clientType, int clientNumber = -1) {
+    prepareAMDRenderStudio(osName, options, clientType, clientNumber)
+
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+    List testGroups
+
+    if (options.testsPackage != "none" && !options.isPackageSplitted) {
+        // some parts of regression contain live mode tests
+        int partNumber = options.tests.split("\\.")[1] as int
+
+        testGroups = options.packageInfo["groups"][partNumber].keySet() as List
+    } else {
+        testGroups = options.tests.split("-")[0].split() as List
+    }
+
+    // check that should USD Maya plugin be installed
+    boolean shouldInstallUSDMaya = false
+
+    for (testGroup in testGroups) {
+        if (options["liveModeConfiguration"].live_mode_client.containsKey(testGroup) && options["liveModeConfiguration"].live_mode_client[testGroup][modeKey] == "usd_maya") {
+            shouldInstallUSDMaya = true
+            break
+        }
+    }
+
+    if (shouldInstallUSDMaya) {
+        timeout(time: "15", unit: "MINUTES") {
+            usd_maya.uninstallRPRMayaPlugin(osName, options)
+            usd_maya.uninstallRPRMayaUSDPlugin(osName, options)
+            rpr_maya.downloadMayaPrefs(osName, "2024")
+            usd_maya.downloadLiveModePlugin(osName, options, "MayaUSD.exe")
+            usd_maya.installRPRMayaUSDPlugin(osName, options, "MayaUSD.exe")
+        }
+    }
+}
+
+
+def executeTestsOnClient(String osName, String asicName, Map options, String clientType, int clientNumber = -1) {
+    String refPathProfile
+
+    if (clientType == "offline") {
+        refPathProfile = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
+    } else {
+        String modeKey = getLiveModeKey(clientType, clientNumber)
+        refPathProfile = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}-${modeKey}"
+    }
+
+    String logName = clientType == "offline" ? "" : "${STAGE_NAME}_${clientType}"
+    outputEnvironmentInfo("Windows", logName, options.currentTry)
+
+    if (options["updateRefs"].contains("Update")) {
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
+            executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
+            uploadFiles("./Work/GeneratedBaselines/", refPathProfile)
+            // delete generated baselines when they're sent 
+            bat """
+                if exist Work\\GeneratedBaselines rmdir /Q /S Work\\GeneratedBaselines
+            """
+        }
+    } else {
+        withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
+            String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
+            println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
+            options.tests.split(" ").each() {
+                if (it.contains(".json")) {
+                    downloadFiles("${refPathProfile}/", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                } else {
+                    downloadFiles("${refPathProfile}/${it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
+            }
+        }
+        withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
+            executeTestCommand("Windows", asicName, options, clientType, clientNumber)
+        }
+    }
+}
+
+
+String getLiveModeKey(String clientType, int clientNumber = -1) {
+    return clientType == "secondary" ? "secondary-${clientNumber}" : "primary"
+}
+
+
+def processClientException(def exception, Map options, String clientType, int clientNumber = -1) {
+    if (clientType != "offline") {
+        String key = getLiveModeKey(clientType, clientNumber)
+        options["liveModeInfo"][key]["exception"] = exception
+    }
+
+    if (options.currentTry < options.nodeReallocateTries - 1) {
+        options["stashResults"] = false
+    } else {
+        currentBuild.result = "FAILURE"
+    }
+    println exception.toString()
+    if (exception instanceof ExpectedExceptionWrapper) {
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${exception.getMessage()}", "${env.BUILD_URL}")
+        throw new ExpectedExceptionWrapper("${exception.getMessage()}", exception.getCause())
+    } else {
+        GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
+        throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", exception)
+    }
+}
+
+
+def saveTestResults(String osName, Map options, String clientType, int clientNumber = -1) {
+    String stashPostfix = ""
+    String modeKey = ""
+
+    if (clientType != "offline") {
+        // if the client type isn't offline - add the postfix with the client type
+        modeKey = getLiveModeKey(clientType, clientNumber)
+        stashPostfix = "_${modeKey}"
+    }
+
+    if (clientType == "primary") {
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            while (!options["liveModeInfo"][key]["stashed"]) {
+                if (options["liveModeInfo"][key]["exception"]) {
+                    throw new Exception("${key} was failed")
+                }
+
+                sleep(5)
+            }
+        }
+
+        println("All secondary clients stashed results. Start results merge")
+
+        List secondaryResutlsDirs = []
+
+        for (key in options["liveModeInfo"].keySet()) {
+            if (key == "primary") {
+                continue
+            }
+
+            dir("Work") {
+                makeUnstash(name: "${options.testResultsName}_${key}_artifacts", storeOnNAS: options.storeOnNAS)
+            }
+            dir(key) {
+                makeUnstash(name: "${options.testResultsName}_${key}_data", storeOnNAS: options.storeOnNAS)
+                secondaryResutlsDirs.add("..\\${key}")
+            }
+        }
+
+        dir ("scripts") {
+            python3("unite_results.py --primary_results_dir ..\\Work --secondary_results_dirs ${secondaryResutlsDirs.join(',')}")
+        }
+    }
+
+    try {
+        dir(options.stageName) {
+            utils.moveFiles(this, "Windows", "../*.log", ".")
+            utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
+            utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}${stashPostfix}_engine_${options.currentTry}.log")
+        }
+        archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
+        if (options["stashResults"]) {
+            dir('Work') {
+                if (fileExists("Results/RenderStudio/session_report.json")) {
+                    println "Stashing test results to : ${options.testResultsName}"
+
+                    if (clientType == "secondary") {
+                        // save results to merge them on the primary client
+                        makeStash(includes: '**/*.log,**/*.jpg,**/*.webp', name: "${options.testResultsName}${stashPostfix}_artifacts", storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: "**/*.json", name: "${options.testResultsName}${stashPostfix}_data", storeOnNAS: options.storeOnNAS)
+                        options["liveModeInfo"][modeKey]["stashed"] = true
+                    } else {
+                        def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
+
+                        if (sessionReport.summary.error > 0) {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
+
+                            dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
+                                utils.removeDir(this, osName, "AMDRenderStudio")
+                            }
+                        } else if (sessionReport.summary.failed > 0) {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${env.BUILD_URL}")
+                        } else {
+                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
+                        }
+
+                        utils.stashTestData(this, options, options.storeOnNAS)
+
+                        if (options.reportUpdater) {
+                            if (options.engine) {
+                                options.reportUpdater.updateReport(options.engine)
+                            } else {
+                                options.reportUpdater.updateReport(options.mode)
+                            }
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
+                            removeInstaller(osName: "Windows", options: options, extension: "msi")
+                            throw e
+                        }
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        // throw exception in finally block only if test stage was finished
+        if (options.executeTestsFinished) {
+            if (e instanceof ExpectedExceptionWrapper) {
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${env.BUILD_URL}")
+                throw e
+            } else {
+                GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${env.BUILD_URL}")
+                throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
+            }
+        }
+    }
+}
+
+
+def executeOfflineTests(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareAMDRenderStudio(osName, options, "offline")
+        executeTestsOnClient(osName, asicName, options, "offline")
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "offline")
+    } finally {
+        saveTestResults(osName, options, "offline")
+    }
+}
+
+
+def disableFirewallNotifications() {
+    // disable notifications about disabled firewall
+    powershell """
+        reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender Security Center\\Notifications" /v DisableNotifications -t REG_DWORD /d 1 /f
+    """
+}
+
+
+def syncLMClients(String osName, Map options, String clientType, int clientNumber = -1) {
+    String modeKey = getLiveModeKey(clientType, clientNumber)
+
+    if (clientType == "primary") {
+        options["liveModeInfo"][modeKey]["ip"] = getIpAddress()
+        options["liveModeInfo"][modeKey]["port"] = getCommunicationPort()
+    }
+
+    options["liveModeInfo"][modeKey]["ready"] = true
+
+    for (key in options["liveModeInfo"].keySet()) {
+        while (!options["liveModeInfo"][key]["ready"]) {
+            if (options["liveModeInfo"][key]["exception"]) {
+                throw new Exception("${key} was failed")
+            }
+
+            sleep(5)
+        }
+    }
+
+    println("[INFO] ${env.NODE_NAME} (${modeKey} client) is ready")
+}
+
+
+def getIpAddress() {
+    for (line in bat(script: "ipconfig",returnStdout: true).split("\n")) {
+        if (line.contains("172.19.140") && !line.contains("172.19.140.1")) {
+            return line.split("IPv4 Address")[1].split(":")[1].split()[0].trim()
+        }
+    }
+}
+
+
+def getCommunicationPort() {
+    // always use port 20000 to synchronize autotests
+    return "20000"
+}
+
+
+def executeLMTestsPrimary(String osName, String asicName, Map options) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    options["stashResults"] = true
+
+    try {
+        checkoutAutotests(options)
+        prepareTools(osName, options, "primary")
+        disableFirewallNotifications()
+        syncLMClients(osName, options, "primary")
+        executeTestsOnClient(osName, asicName, options, "primary")
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "primary")
+    } finally {
+        saveTestResults(osName, options, "primary")
+    }
+}
+
+
+def executeLMTestsSecondary(String osName, String asicName, Map options, int clientNumber) {
+    // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
+    try {
+        checkoutAutotests(options)
+        prepareTools(osName, options, "secondary", clientNumber)
+        disableFirewallNotifications()
+        syncLMClients(osName, options, "secondary", clientNumber)
+        executeTestsOnClient(osName, asicName, options, "secondary", clientNumber)
+
+        options.executeTestsFinished = true
+
+        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
+    } catch (e) {
+        processClientException(e, options, "secondary", clientNumber)
+    } finally {
+        saveTestResults(osName, options, "secondary", clientNumber)
     }
 }
 
 
 def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
-    Boolean stashResults = true
+    options["stashResults"] = true
+
     try {
-        withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
-            timeout(time: "5", unit: "MINUTES") {
-                cleanWS("Windows")
-                checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
+        int requiredClientsNumber = getNumberOfRequiredClients(options)
 
-                dir("driver") {
-                    if (osName == "Windows") {
-                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_desktop.exe", ".")
-                        bat("rename chromedriver_desktop.exe chromedriver.exe")
-                    } else {
-                        downloadFiles("/volume1/CIS/WebUSD/Drivers/chromedriver_web.exe", ".")
-                        bat("rename chromedriver_web.exe chromedriver.exe")
-                    }
-                }
+        if (requiredClientsNumber == 0) {
+            // run offline autotests
+            throw new Exception("Required 0 clients. Unexpected situation")
+        } else if (requiredClientsNumber == 1) {
+            // reboot to prevent appearing of Windows activation watermark
+            utils.reboot(this, osName)
+            executeOfflineTests(osName, asicName, options)
+        } else if (requiredClientsNumber > 1) {
+            // run Live Mode autotests
+            // take one client as primary client, and other clients as secondary clients
+
+            options["liveModeInfo"] = [:]
+
+            // create threads for the primary client and the secondary clients and run them parallel
+            Map threads = [:]
+
+            threads["${options.stageName}-primary"] = { 
+                options["liveModeInfo"]["primary"] = new ConcurrentHashMap()
+                // reboot to prevent appearing of Windows activation watermark
+                utils.reboot(this, osName)
+                executeLMTestsPrimary(osName, asicName, options)
             }
-        }
 
-        if (osName == "Windows") {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.RUN_APPLICATION_TESTS) {
-                timeout(time: "10", unit: "MINUTES") {
-                    try {
-                        getProduct("Windows", options)
-                        runApplicationTests(osName, options)
-                    } catch (e) {
-                        if (e instanceof ExpectedExceptionWrapper) {
-                            options.problemMessageManager.saveSpecificFailReason(e.getMessage(), options["stageName"], osName)
+            println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the primary client")
+
+            // one of required clients is the primary client
+            options["secondaryClientsNumber"] = requiredClientsNumber - 1
+
+            for (int i = 0; i < options["secondaryClientsNumber"]; i++) {
+                int clientNumber = i
+                options["liveModeInfo"]["secondary-${clientNumber}"] = new ConcurrentHashMap()
+                threads["${options.stageName}-secondary-${i}"] = {
+                    node(getLabels(options)) {
+                        timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
+                            ws("WS/${options.PRJ_NAME}_Test") {
+                                println("[INFO] Take ${env.NODE_NAME} ${asicName}-${osName} node as the secondary client #${clientNumber}")
+                                // reboot to prevent appearing of Windows activation watermark
+                                utils.reboot(this, osName)
+                                executeLMTestsSecondary(osName, asicName, options, clientNumber)
+                            }
                         }
-                        throw e
                     }
                 }
             }
 
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
-                timeout(time: "10", unit: "MINUTES") {
-                    uninstallAMDRenderStudio(osName, options)
-                    installAMDRenderStudio(osName, options)
+            parallel threads
 
-                    // open application once to generate Storage files
-                    String appLink = getDesktopLink(osName, options)
-                    runApplication(appLink, osName, options)
-                    sleep(10)
-                    utils.closeProcess(this, "AMD RenderStudio", osName, options)
+            for (entry in options["liveModeInfo"]) {
+                if (entry.value["exception"]) {
+                    def exception = entry.value["exception"]
+                    throw new ExpectedExceptionWrapper("Client side tests got an error: ${exception.getMessage()}", exception)
                 }
-            }
-
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_SCENES) {
-                String assetsDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_assets" : "/mnt/c/TestResources/render_studio_autotests_assets"
-                downloadFiles("/volume1/web/Assets/render_studio_autotests/", assetsDir)
-            }
-        } else {
-            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-                String url
-
-                if (options.deployEnvironment == "prod") {
-                    url = TEMPLATE.replace("<instance>.", "")
-                } else {
-                    url = TEMPLATE.replace("<instance>", options.deployEnvironment)
-                }
-
-                String localConfigContent = readFile("local_config.py").replace("<domain_name>", url)
-                writeFile(file: "local_config.py", text: localConfigContent)
             }
         }
-
-        options.REF_PATH_PROFILE = "/volume1/Baselines/render_studio_autotests/${asicName}-${osName}-${options.mode}"
-
-        outputEnvironmentInfo("Windows", "", options.currentTry)
-
-        if (options["updateRefs"].contains("Update")) {
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-                executeTestCommand("Windows", asicName, options)
-                executeGenTestRefCommand("Windows", options, options["updateRefs"].contains("clean"))
-                uploadFiles("./Work/GeneratedBaselines/", options.REF_PATH_PROFILE)
-                // delete generated baselines when they're sent 
-                bat """
-                    if exist Work\\GeneratedBaselines rmdir /Q /S Work\\GeneratedBaselines
-                """
-            }
-        } else {
-            withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
-                String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/render_studio_autotests_baselines" : "/mnt/c/TestResources/render_studio_autotests_baselines"
-                println "[INFO] Downloading reference images for ${options.tests}-${options.mode}"
-                options.tests.split(" ").each() {
-                    if (it.contains(".json")) {
-                        downloadFiles("${options.REF_PATH_PROFILE}/", baselineDir)
-                    } else {
-                        downloadFiles("${options.REF_PATH_PROFILE}/${it}", baselineDir)
-                    }
-                }
-            }
-            withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
-                executeTestCommand("Windows", asicName, options)
-            }
-        }
-        options.executeTestsFinished = true
-
-        utils.compareDriverVersion(this, "${options.stageName}_${options.currentTry}.log", "Windows")
     } catch (e) {
-        if (options.currentTry < options.nodeReallocateTries - 1) {
-            stashResults = false
-        } else {
-            currentBuild.result = "FAILURE"
-        }
-        println e.toString()
         if (e instanceof ExpectedExceptionWrapper) {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${e.getMessage()}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${e.getMessage()}", e.getCause())
         } else {
-            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${BUILD_URL}")
+            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, "${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", "${env.BUILD_URL}")
             throw new ExpectedExceptionWrapper("${NotificationConfiguration.REASON_IS_NOT_IDENTIFIED}", e)
-        }
-    } finally {
-        try {
-            dir(options.stageName) {
-                utils.moveFiles(this, "Windows", "../*.log", ".")
-                utils.moveFiles(this, "Windows", "../scripts/*.log", ".")
-                utils.renameFile(this, "Windows", "launcher.engine.log", "${options.stageName}_${options.currentTry}.log")
-            }
-            archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
-            if (stashResults) {
-                dir('Work') {
-                    if (fileExists("Results/RenderStudio/session_report.json")) {
-
-                        def sessionReport = readJSON file: 'Results/RenderStudio/session_report.json'
-
-                        if (sessionReport.summary.error > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${BUILD_URL}")
-
-                            dir("C:\\Users\\${env.USERNAME}\\AppData\\Roaming") {
-                                utils.removeDir(this, osName, "AMDRenderStudio")
-                            }
-                        } else if (sessionReport.summary.failed > 0) {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.SOME_TESTS_FAILED, "${BUILD_URL}")
-                        } else {
-                            GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${BUILD_URL}")
-                        }
-
-                        println "Stashing test results to : ${options.testResultsName}"
-
-                        utils.stashTestData(this, options, options.storeOnNAS)
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                uninstallMSI("AMD RenderStudio", options.stageName, options.currentTry)
-                                removeInstaller(osName: "Windows", options: options, extension: "msi")
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
-                        if (options.reportUpdater) {
-                            options.reportUpdater.updateReport(options.mode)
-                        }
-                    }
-                }
-            }
-        } catch(e) {
-            // throw exception in finally block only if test stage was finished
-            if (options.executeTestsFinished) {
-                if (e instanceof ExpectedExceptionWrapper) {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, e.getMessage(), "${BUILD_URL}")
-                    throw e
-                } else {
-                    GithubNotificator.updateStatus("Test", options['stageName'], "failure", options, NotificationConfiguration.FAILED_TO_SAVE_RESULTS, "${BUILD_URL}")
-                    throw new ExpectedExceptionWrapper(NotificationConfiguration.FAILED_TO_SAVE_RESULTS, e)
-                }
-            }
         }
     }
 }
@@ -473,19 +896,25 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     }
 
     dir("Build/Downloads/lights") {
-        downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-210") {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR210/", ".", , "--quiet")
+        } else if (options.projectBranchName.contains("agurov/pre-release") || (env.BRANCH_NAME && env.BRANCH_NAME == "PR-216")) {
+            downloadFiles("/volume1/CIS/WebUSD/LightsPR216/", ".", , "--quiet")
+        } else {
+            downloadFiles("/volume1/CIS/WebUSD/Lights/", ".", , "--quiet")
+        }
     }
 
     if (options.rebuildUSD) {
         if (isUnix()) {
             sh """
                 export OS=
-                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.RS.log 2>&1
             """
         } else {
             bat """
-                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.log 2>&1
+                call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.RS.log 2>&1
+                python Tools/Build.py -ss -sr -sl -sh -sa -v >> ${STAGE_NAME}.Build.RS.log 2>&1
             """
         }
 
@@ -505,122 +934,138 @@ def executeBuildScript(String osName, Map options, String usdPath = "default") {
     if (isUnix()) {
         sh """
             export OS=
-            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.RS.log 2>&1
         """
     } else {
         bat """
-            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-            python Tools/Build.py -v >> ${STAGE_NAME}.Build.log 2>&1
+            call "%VS2019_VSVARSALL_PATH%" >> ${STAGE_NAME}.EnvVariables.RS.log 2>&1
+            python Tools/Build.py -v >> ${STAGE_NAME}.Build.RS.log 2>&1
         """
     }
 }
 
 
-def executeBuildWindows(Map options) {
+def executeBuildWindows(Map options, boolean saveBinaries = true) {
     options["stage"] = "Build"
 
-    withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
-        utils.reboot(this, "Windows")
+    withEnv(["PATH=C:\\Cmake326\\bin;${PATH}"]) {
+        withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
+            utils.reboot(this, "Windows")
 
-        Boolean failure = false
-        String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
-        String amfPath = "C:\\JN\\thirdparty\\amf"
+            String webrtcPath = "C:\\JN\\thirdparty\\webrtc"
+            String amfPath = "C:\\JN\\thirdparty\\amf"
 
-        downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
-        downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+            downloadFiles("/volume1/CIS/radeon-pro/webrtc-win/", webrtcPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
+            downloadFiles("/volume1/CIS/WebUSD/AMF-WIN", amfPath.replace("C:", "/mnt/c").replace("\\", "/"), , "--quiet")
 
-        if (options.projectBranchName.contains("demo/november")) {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
-            bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
-        } else {
-            downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "${env.WORKSPACE.replace('C:', '/mnt/c').replace('\\', '/')}/Frontend", "--quiet")
-            bat "move Frontend\\env.desktop.template Frontend\\.env.production"
-        }
+            if (options.projectBranchName.contains("demo/november")) {
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.demo.desktop.template", "Frontend", "--quiet")
+                bat "move Frontend\\env.demo.desktop.template Frontend\\.env.production"
+            } else {
+                downloadFiles("/volume1/CIS/WebUSD/Additional/templates/env.desktop.template", "Frontend", "--quiet")
+                bat "move Frontend\\env.desktop.template Frontend\\.env.production"
+            }
 
-        String frontendVersion
-        String renderStudioVersion
+            String frontendVersion
+            String renderStudioVersion
 
-        dir("Frontend") {
-            frontendVersion = readFile("VERSION.txt").trim()
-        }
+            dir("Frontend") {
+                frontendVersion = readFile("VERSION.txt").trim()
+            }
 
-        renderStudioVersion = readFile("VERSION.txt").trim()
+            renderStudioVersion = readFile("VERSION.txt").trim()
 
-        String envProductionContent = readFile("./Frontend/.env.production")
-        envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
+            String envProductionContent = readFile("./Frontend/.env.production")
+            envProductionContent = envProductionContent + "VUE_APP_FRONTEND_VERSION=${frontendVersion}\nVUE_APP_RENDER_STUDIO_VERSION=${renderStudioVersion}"
 
-        withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
-            String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
+            withCredentials([string(credentialsId: "WebUsdUrlTemplate", variable: "TEMPLATE")]) {
+                String url = TEMPLATE.replace("<instance>", options.deployEnvironment)
 
-            envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
-        }
+                envProductionContent = envProductionContent.replace("VUE_APP_URL_STORAGE=", "VUE_APP_URL_STORAGE=\"${url}/storage/\"")
+            }
 
-        writeFile(file: "./Frontend/.env.production", text: envProductionContent)
+            writeFile(file: "./Frontend/.env.production", text: envProductionContent)
 
-        try {
-            withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
-                bat """
-                    cmake --version >> ${STAGE_NAME}.Build.log 2>&1
-                    python--version >> ${STAGE_NAME}.Build.log 2>&1
-                    python -m pip install conan >> ${STAGE_NAME}.Build.log 2>&1
-                    mkdir Build
-                    echo [WebRTC] >> Build\\LocalBuildConfig.txt
-                    echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
-                    echo [AMF] >> Build/LocalBuildConfig.txt
-                    echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
-                """
+            try {
+                withEnv(["PATH=c:\\CMake322\\bin;c:\\python37\\;c:\\python37\\scripts\\;${PATH}", "PYTHON39_PATH=c:\\Python39\\python.exe", "PYTHON39_SCRIPTS_PATH=c:\\Python39\\Scripts"]) {
+                    bat """
+                        cmake --version >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        python--version >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        python -m pip install conan >> ${STAGE_NAME}.Build.RS.log 2>&1
+                        if exist Build rmdir Build /q /s
+                        mkdir Build
+                        echo [WebRTC] >> Build\\LocalBuildConfig.txt
+                        echo path = ${webrtcPath.replace("\\", "/")}/src >> Build\\LocalBuildConfig.txt
+                        echo [AMF] >> Build/LocalBuildConfig.txt
+                        echo path = ${amfPath.replace("\\", "/")}/AMF-WIN >> Build\\LocalBuildConfig.txt
+                    """
 
-                executeBuildScript("Windows", options)
+                    executeBuildScript("Windows", options)
 
-                println("[INFO] Start building installer")
+                    println("[INFO] Start building installer")
 
-                bat """
-                    python Tools/Package.py -v >> ${STAGE_NAME}.Package.log 2>&1
-                """
+                    bat """
+                        python Tools/Package.py -v >> ${STAGE_NAME}.Package.RS.log 2>&1
+                    """
 
-                println("[INFO] Saving exe files to NAS")
+                    println("[INFO] Saving exe files to NAS")
 
-                dir("Frontend\\dist_electron") {
-                    def exeFile = findFiles(glob: '*.msi')
-                    println("Found MSI files: ${exeFile}")
-                    for (file in exeFile) {
-                        renamedFilename = file.toString().replace(" ", "_")
+                    dir("Frontend\\dist_electron") {
+                        def exeFile = findFiles(glob: '*.msi')
+                        println("Found MSI files: ${exeFile}")
+                        for (file in exeFile) {
+                            renamedFilename = file.toString().replace(" ", "_")
 
-                        if (options.branchPostfix) {
-                            String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
+                            if (options.branchPostfix) {
+                                String filenameWithPostfix = file.toString().replace(" ", "_").replace(".msi", "(${options.branchPostfix}).msi")
 
-                            bat """
-                                rename "${file}" "${filenameWithPostfix}"
-                            """
+                                bat """
+                                    rename "${file}" "${filenameWithPostfix}"
+                                """
 
-                            makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
+                                makeArchiveArtifacts(name: filenameWithPostfix, storeOnNAS: true)
 
-                            bat """
-                                rename "${filenameWithPostfix}" "${renamedFilename}"
-                            """
-                        } else {
-                            bat """
-                                rename "${file}" "${renamedFilename}"
-                            """  
+                                bat """
+                                    rename "${filenameWithPostfix}" "${renamedFilename}"
+                                """
+                            } else {
+                                bat """
+                                    rename "${file}" "${renamedFilename}"
+                                """  
 
-                            makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                                if (saveBinaries) {
+                                    makeArchiveArtifacts(name: renamedFilename, storeOnNAS: true)
+                                }
+                            }
+
+                            if (saveBinaries) {
+                                makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
+                            }
                         }
-
-                        makeStash(includes: renamedFilename, name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
                     }
                 }
-            }
-        } catch(e) {
-            println("Error during build on Windows")
-            println(e.toString())
-            failure = true
-        } finally {
-            archiveArtifacts "*.log"
-            if (failure) {
-                currentBuild.result = "FAILED"
-                error "error during build"
-            }
-        } 
+            } catch(e) {
+                println("Error during build on Windows")
+                println(e.toString())
+
+                def exception = e
+
+                try {
+                    String buildLogContent = readFile("${STAGE_NAME}.Build.RS.log")
+                    if (buildLogContent.contains("CMake error : Cannot restore timestamp")) {
+                        exception = new ExpectedExceptionWrapper(NotificationConfiguration.USD_GLTF_BUILD_ERROR, e)
+
+                        utils.reboot(this, osName)
+                    }
+                } catch (e1) {
+                    println("[WARNING] Could not analyze build log")
+                }
+
+                throw exception
+            } finally {
+                archiveArtifacts "*.log"
+            } 
+        }
     }
 }
 
@@ -679,7 +1124,7 @@ def executeBuildLinux(Map options) {
 
     options["stage"] = "Build"
 
-    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_WEBUSD) {
+    withNotifications(title: "Web", options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE_RENDER_STUDIO) {
         println "[INFO] Start build" 
         println "[INFO] Download Web-rtc and AMF" 
         downloadFiles("/volume1/CIS/radeon-pro/webrtc-linux/", "${CIS_TOOLS}/../thirdparty/webrtc", "--quiet")
@@ -780,43 +1225,53 @@ def executeBuildLinux(Map options) {
 }
 
 
+def patchEngine(Map options) {
+    // TODO: replace customHybridWin and customHybridLinux by customHybridProWindowsLink and customHybridProUbuntuLink params
+    if (options.customHybridLinux && isUnix()) {
+        if (options["customHybridProUbuntuLink"]) {
+            dir("Engine/RadeonProRenderUSD/deps/RPR") {
+                hybrid.replaceHybridPro("Ubuntu", options)
+            }
+        } else {
+            downloadFiles(options.customHybridLinux, ".")
+
+            sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
+
+            sh """
+                yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
+                yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+                yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
+            """
+        }
+    } else if (options.customHybridWin && !isUnix()) {
+        if (options["customHybridProWindowsLink"]) {
+            dir("Engine/RadeonProRenderUSD/deps/RPR") {
+                hybrid.replaceHybridPro("Windows", options)
+            }
+        } else {
+            downloadFiles(options.customHybridWin, ".")
+
+            unzip dir: '.', glob: '', zipFile: 'RenderStudioRPRSDK.zip'
+
+            bat """
+                xcopy /Y/E RadeonProRender\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender
+            """
+        }
+    }
+
+    dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
+        downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
+    }
+}
+
+
 def executeBuild(String osName, Map options) {  
     try {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.DOWNLOAD_SOURCE_CODE_REPO) {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo)
 
             patchVersions(options)
-
-            if (options.customHybridLinux && isUnix()) {
-                downloadFiles(options.customHybridLinux, ".")
-
-                sh "tar -xJf BaikalNext_Build-Ubuntu20.tar.xz"
-
-                sh """
-                    yes | cp -rf BaikalNext/bin/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/binUbuntu18
-                    yes | cp -rf BaikalNext/inc/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                    yes | cp -rf BaikalNext/inc/Rpr/* Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/inc
-                """
-
-                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-                    downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
-                }
-            } else if (options.customHybridWin && !isUnix()) {
-                downloadFiles(options.customHybridWin, ".")
-
-                unzip dir: '.', glob: '', zipFile: 'BaikalNext_Build-Windows.zip'
-
-                bat """
-                    copy /Y BaikalNext\\bin\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\binWin64
-                    copy /Y BaikalNext\\inc\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\inc\\Rpr\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\inc
-                    copy /Y BaikalNext\\lib\\* Engine\\RadeonProRenderUSD\\deps\\RPR\\RadeonProRender\\libWin64
-                """
-
-                dir ("Engine/RadeonProRenderUSD/deps/RPR/RadeonProRender/rprTools") {
-                    downloadFiles("/volume1/CIS/WebUSD/Additional/RadeonProRenderCpp.cpp", ".")
-                }
-            }
+            patchEngine(options)
         }
 
         utils.removeFile(this, osName, "*.log")
@@ -835,7 +1290,6 @@ def executeBuild(String osName, Map options) {
                 println "[WARNING] ${osName} is not supported"
         }
     } catch (e) {
-        currentBuild.result = "FAILED"
         throw e
     } finally {
         archiveArtifacts "*.log"
@@ -859,7 +1313,7 @@ def notifyByTg(Map options){
     String branchURL = isPR ? env.CHANGE_URL : "https://github.com/Radeon-Pro/WebUsdViewer/tree/${branchName}" 
     withCredentials([string(credentialsId: "WebUsdTGBotHost", variable: "tgBotHost")]){
         res = sh(
-            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"build_url\":\"${env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
+            script: "curl -X POST ${tgBotHost}/auto/notifications -H 'Content-Type: application/json' -d '{\"status\":\"${statusMessage}\",\"env.BUILD_URL\":\"${env.env.BUILD_URL}\", \"branch_url\": \"${branchURL}\", \"is_pr\": ${isPR}, \"user\": \"${options.commitAuthor}\"}'",
             returnStdout: true,
             returnStatus: true
         )
@@ -868,12 +1322,22 @@ def notifyByTg(Map options){
 
 
 def getReportBuildArgs(String mode, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    String buildNumber = ""
+
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "main") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
 
     if (options["isPreBuilt"]) {
-        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     } else {
-        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """RenderStudio ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(mode)}\" ${buildNumber}"""
     }
 }
 
@@ -884,9 +1348,23 @@ def fillDescription(Map options) {
     currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
     currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
 
+    if (options.hybridProSHA) {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> ${options.hybridProSHA}<br/>"
+    } else {
+        currentBuild.description += "<b>Commit HybridPro SHA:</b> unknown, used prebuilt installer<br/>"
+    }
+
     currentBuild.description += "<br/>"
 
-    currentBuild.description += "<b>Render Studio version:</b> ${options.version}<br/>"
+    def majorVersion = options.version.tokenize('.')[0]
+    def minorVersion = options.version.tokenize('.')[1]
+    def patchVersion = options.version.tokenize('.')[2]
+
+    currentBuild.description += "<b>Render Studio version: </b>"
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Major", majorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Minor", minorVersion)
+    currentBuild.description += increment_version.addVersionButton("Render Studio", "Patch", patchVersion)
+    currentBuild.description += "<br/>"
 
     dir("Frontend") {
         String version = readFile("VERSION.txt").trim()
@@ -915,6 +1393,31 @@ def fillDescription(Map options) {
 }
 
 
+def saveHybridProLinks(Map options) {
+    String url = "${env.JENKINS_URL}/job/HybridPro-Build-Auto/job/master/api/json?tree=lastSuccessfulBuild[number,url,description],lastUnstableBuild[number,url,description]"
+
+    def rawInfo = httpRequest(
+        url: url,
+        authentication: 'jenkinsCredentials',
+        httpMode: 'GET'
+    )
+
+    def parsedInfo = parseResponse(rawInfo.content)
+
+    if (options.customHybridProVersion) {
+        options.hybridProSHA = options.customHybridProVersion
+    } else {
+        options.hybridProSHA = "RRPSDK 46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa"
+    }
+
+    withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
+        options.customHybridWin = "/volume1/CIS/bin-storage/RenderStudioRPRSDK.zip"
+    }
+
+    rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="https://github.com/GPUOpen-LibrariesAndSDKs/RadeonProRenderSDK/commit/46de32b3c9beb1df6b9c5c5b7fd28e26ff12dafa">[HybridPro] Link to the used HybridPro build</a></h3>""")
+}
+
+
 def executePreBuild(Map options) {
     options.executeTests = true
 
@@ -929,34 +1432,7 @@ def executePreBuild(Map options) {
 
     if (options["executeBuild"]) {
         // get links to the latest built HybridPro
-        String url = "${env.JENKINS_URL}/job/RadeonProRender-Hybrid/job/master/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
-
-        def rawInfo = httpRequest(
-            url: url,
-            authentication: 'jenkinsCredentials',
-            httpMode: 'GET'
-        )
-
-        def parsedInfo = parseResponse(rawInfo.content)
-
-
-        Integer hybridBuildNumber
-        //String hybridBuildUrl
-
-        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
-            hybridBuildNumber = parsedInfo.lastSuccessfulBuild.number
-            hybridBuildUrl = parsedInfo.lastSuccessfulBuild.url
-        } else {
-            hybridBuildNumber = parsedInfo.lastUnstableBuild.number
-            hybridBuildUrl = parsedInfo.lastUnstableBuild.url
-        }
-
-        withCredentials([string(credentialsId: "nasURLFrontend", variable: "REMOTE_HOST")]) {
-            options.customHybridWin = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Windows.zip"
-            options.customHybridLinux = "/volume1/web/RadeonProRender-Hybrid/master/${hybridBuildNumber}/Artifacts/BaikalNext_Build-Ubuntu20.tar.xz"
-        }
-
-        //rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${hybridBuildUrl}">[HybridPro] Link to the used HybridPro build</a></h3>""")
+        saveHybridProLinks(options)
 
         // branch postfix
         options["branchPostfix"] = ""
@@ -966,6 +1442,7 @@ def executePreBuild(Map options) {
             options["branchPostfix"] = "manual" + "_" + options.projectBranch.replace('/', '-').replace('origin-', '') + "_" + env.BUILD_NUMBER
         }
     }
+
 
     if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith("PR-")) {
         options.deployEnvironment = "pr${env.BRANCH_NAME.split('-')[1]}"
@@ -983,7 +1460,7 @@ def executePreBuild(Map options) {
                 GithubNotificator githubNotificator = new GithubNotificator(this, options)
                 githubNotificator.init(options)
                 options["githubNotificator"] = githubNotificator
-                githubNotificator.initPreBuild("${BUILD_URL}")
+                githubNotificator.initPreBuild("${env.BUILD_URL}")
                 options.projectBranchName = githubNotificator.branchName
             }
 
@@ -1004,21 +1481,14 @@ def executePreBuild(Map options) {
 
             if ((env.BRANCH_NAME == "main" || env.BRANCH_NAME == "release") && options.commitAuthor != "radeonprorender") {
                 println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                println "[INFO] Current build version: ${version}"
 
                 if (env.BRANCH_NAME == "release") {
-                    version = version_inc(version, 2)
+                    version = increment_version("Render Studio", "Minor", true)
                 } else {
-                    version = version_inc(version, 3)
+                    version = increment_version("Render Studio", "Patch", true)
                 }
 
                 println "[INFO] New build version: ${version}"
-                writeFile(file: "VERSION.txt", text: version)
-
-                bat """
-                    git commit VERSION.txt -m "buildmaster: version update to ${version}"
-                    git push origin HEAD:${env.BRANCH_NAME}
-                """
 
                 //get commit's sha which have to be build
                 options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -1046,16 +1516,15 @@ def executePreBuild(Map options) {
                 options['jobsLauncherBranch'] = utils.getBatOutput(this, "git log --format=%%H -1 ")
             }
             println "[INFO] Test branch hash: ${options['testsBranch']}"
-            def packageInfo
 
             if (options.testsPackage != "none") {
                 if (fileExists("jobs/${options.testsPackage}")) {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage}"
+                    options.packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 } else {
-                    packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-desktop.json')}"
+                    options.packageInfo = readJSON file: "jobs/${options.testsPackage.replace('.json', '-desktop.json')}"
                 }
 
-                options.isPackageSplitted = packageInfo["split"]
+                options.isPackageSplitted = options.packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
                 if (options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
@@ -1081,11 +1550,11 @@ def executePreBuild(Map options) {
                 // receive list of group names from package
                 List groupsFromPackage = []
 
-                if (packageInfo["groups"] instanceof Map) {
-                    groupsFromPackage = packageInfo["groups"].keySet() as List
+                if (options.packageInfo["groups"] instanceof Map) {
+                    groupsFromPackage = options.packageInfo["groups"].keySet() as List
                 } else {
                     // iterate through all parts of package
-                    packageInfo["groups"].each() {
+                    options.packageInfo["groups"].each() {
                         groupsFromPackage.addAll(it.keySet() as List)
                     }
                 }
@@ -1104,7 +1573,7 @@ def executePreBuild(Map options) {
                 options.tests = tempTests
 
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, "${it}", "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.modes.each { mode ->
@@ -1120,7 +1589,7 @@ def executePreBuild(Map options) {
                 } else {
                     options.testsPackage = modifiedPackageName
                     // check that package is splitted to parts or not
-                    if (packageInfo["groups"] instanceof Map) {
+                    if (options.packageInfo["groups"] instanceof Map) {
                         options.modes.each { mode ->
                             tests << "${modifiedPackageName}-${mode}"
                         } 
@@ -1128,12 +1597,12 @@ def executePreBuild(Map options) {
                     } else {
                         // add group stub for each part of package
                         options.modes.each { mode ->
-                            for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                            for (int i = 0; i < options.packageInfo["groups"].size(); i++) {
                                 tests << "${modifiedPackageName}-${mode}".replace(".json", ".${i}.json")
                             }
                         }
 
-                        for (int i = 0; i < packageInfo["groups"].size(); i++) {
+                        for (int i = 0; i < options.packageInfo["groups"].size(); i++) {
                             options.timeouts[options.testsPackage.replace(".json", ".${i}.json")] = options.NON_SPLITTED_PACKAGE_TIMEOUT + options.ADDITIONAL_XML_TIMEOUT
                         }
                     }
@@ -1141,7 +1610,7 @@ def executePreBuild(Map options) {
             } else if (options.tests) {
                 options.tests =  options.tests.split(" ") as List
                 options.tests.each() {
-                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simpleRender.py", options.ADDITIONAL_XML_TIMEOUT)
+                    def xml_timeout = utils.getTimeoutFromXML(this, it, "simple", options.ADDITIONAL_XML_TIMEOUT)
                     options.timeouts["${it}"] = (xml_timeout > 0) ? xml_timeout : options.TEST_TIMEOUT
                 }
                 options.modes.each { mode ->
@@ -1153,24 +1622,58 @@ def executePreBuild(Map options) {
                 options.executeTests = false
             }
             options.tests = tests
+
+            options["liveModeConfiguration"] = readJSON(file: "jobs/live_mode_configuration.json")
         }
         
         options.testsList = options.tests
 
         println "timeouts: ${options.timeouts}"
+
+        // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+        multiplatform_pipeline.initProfiles(options)
+
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
+
+        if (env.BRANCH_NAME && options.githubNotificator) {
+            options.githubNotificator.initChecks(options, "${env.BUILD_URL}")
+        }
+    }
+}
+
+
+def downloadLiveModeInstaller(String osName, Map options, String installerName = null) {
+    // download the latest stable installer from the main branch of the auto job
+    if (!options["globalStorage"]["rsBuildNumber"]) {
+        String url = "${env.JENKINS_URL}/job/RenderStudio-Auto/job/main/api/json?tree=lastSuccessfulBuild[number,url],lastUnstableBuild[number,url]"
+
+        def rawInfo = httpRequest(
+            url: url,
+            authentication: 'jenkinsCredentials',
+            httpMode: 'GET'
+        )
+
+        def parsedInfo = parseResponse(rawInfo.content)
+
+        String buildUrl
+
+        if (parsedInfo.lastSuccessfulBuild.number > parsedInfo.lastUnstableBuild.number) {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastSuccessfulBuild.number
+            buildUrl = parsedInfo.lastSuccessfulBuild.url
+        } else {
+            options["globalStorage"]["rsBuildNumber"] = parsedInfo.lastUnstableBuild.number
+            buildUrl = parsedInfo.lastUnstableBuild.url
+        }
+
+        rtp(nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${buildUrl}">[RS] Link to the used Render Studio</a></h3>""")
     }
 
-    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
-    multiplatform_pipeline.initProfiles(options)
+    downloadFiles("/volume1/web/RenderStudio-Auto/main/${options['globalStorage']['rsBuildNumber']}/Artifacts/AMD_RenderStudio*", ".")
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
-    }
-
-    if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, "${BUILD_URL}")
-    }
+    utils.renameFile(this, osName, "AMD_RenderStudio*", installerName)
 }
 
 
@@ -1180,22 +1683,28 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
         String modeName = options.displayingTestProfiles[mode]
 
         if (options['executeTests'] && testResultList) {
-            withNotifications(title: "Building test report for ${modeName}", options: options, startUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
+            withNotifications(title: "Building test report for ${modeName}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                 checkoutScm(branchName: options.testsBranch, repositoryUrl: options.testRepo)
             }
 
             List lostStashes = []
+            List skippedGroups = []
 
             dir("summaryTestResults") {
                 testResultList.each() {
                     if (it.endsWith(mode)) {
                         List testNameParts = it.replace("testResult-", "").split("-") as List
+                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
 
                         if (filter(options, testNameParts.get(0), testNameParts.get(1), testNameParts.get(2), mode)) {
+                            testNameParts.get(2).split().each() { group ->
+                                lostStashes.add("'${testName}'")
+                                skippedGroups.add("'${testName}'")
+                            }
+
                             return
                         }
 
-                        String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                         dir(testName) {
                             try {
                                 makeUnstash(name: "$it", storeOnNAS: options.storeOnNAS)
@@ -1218,7 +1727,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 
                 dir("jobs_launcher") {
                     bat """
-                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"{}\"
+                        count_lost_tests.bat \"${lostStashes}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]\" \"${mode}\" \"${skippedGroups}\"
                     """
                 }
             } catch (e) {
@@ -1226,12 +1735,17 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             try {
-                boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-                boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-                String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/${mode}"
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${BUILD_URL}")
+                String metricsRemoteDir
 
-                if (useTrackedMetrics) {
+                if (env.BRANCH_NAME) {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/auto/main/${mode}"
+                } else {
+                    metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/RenderStudio/weekly/${mode}"
+                }
+
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "in_progress", options, NotificationConfiguration.BUILDING_REPORT, "${env.BUILD_URL}")
+
+                if (options.useTrackedMetrics) {
                     utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
                 }
 
@@ -1266,7 +1780,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                             bat "build_reports.bat ..\\summaryTestResults ${getReportBuildArgs(modeName, options)}"
                         } catch (e) {
                             String errorMessage = utils.getReportFailReason(e.getMessage())
-                            GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${BUILD_URL}")
+                            GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                             if (utils.isReportFailCritical(e.getMessage())) {
                                 throw e
                             } else {
@@ -1277,22 +1791,22 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
                     }
                 }
 
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
                 String errorMessage = utils.getReportFailReason(e.getMessage())
                 options.problemMessageManager.saveSpecificFailReason(errorMessage, "Deploy")
-                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${BUILD_URL}")
+                GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "failure", options, errorMessage, "${env.BUILD_URL}")
                 println("[ERROR] Failed to build test report.")
                 println(e.toString())
                 println(e.getMessage())
                 if (!options.testDataSaved && !options.storeOnNAS) {
                     try {
                         // Save test data for access it manually anyway
-                        utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                        utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                             "Test Report ${modeName}", "Summary Report, Compare Report" , options.storeOnNAS, \
-                            ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                            ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                         options.testDataSaved = true 
                     } catch(e1) {
@@ -1326,7 +1840,12 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
 
             Map summaryTestResults = [:]
             try {
-                def summaryReport = readJSON file: 'summaryTestResults/summary_status.json'
+                def summaryReport
+                dir("summaryTestResults") {
+                    archiveArtifacts artifacts: "summary_status.json"
+                    summaryReport = readJSON file: "summary_status.json"
+                }
+
                 summaryTestResults['passed'] = summaryReport.passed
                 summaryTestResults['failed'] = summaryReport.failed
                 summaryTestResults['error'] = summaryReport.error
@@ -1358,16 +1877,16 @@ def executeDeploy(Map options, List platformList, List testResultList, String mo
             }
 
             withNotifications(title: "Building test report for ${modeName}", options: options, configuration: NotificationConfiguration.PUBLISH_REPORT) {
-                utils.publishReport(this, "${BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
+                utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                     "Test Report ${modeName}", "Summary Report, Compare Report" , options.storeOnNAS, \
-                    ["jenkinsBuildUrl": BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
+                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                 if (summaryTestResults) {
                     // add in description of status check information about tests statuses
                     // Example: Report was published successfully (passed: 69, failed: 11, error: 0)
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, "${NotificationConfiguration.REPORT_PUBLISHED} Results: passed - ${summaryTestResults.passed}, failed - ${summaryTestResults.failed}, error - ${summaryTestResults.error}.", "${env.BUILD_URL}/Test_20Report")
                 } else {
-                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${BUILD_URL}/Test_20Report")
+                    GithubNotificator.updateStatus("Deploy", "Building test report for ${modeName}", "success", options, NotificationConfiguration.REPORT_PUBLISHED, "${env.BUILD_URL}/Test_20Report")
                 }
             }
 
@@ -1390,7 +1909,6 @@ def call(
     String projectBranch = "",
     String testsBranch = "master",
     String platforms = 'Windows:AMD_RX6800XT,AMD_RX7900XT',
-    Boolean enableNotifications = false,
     Boolean generateArtifact = true,
     Boolean deploy = true,
     String deployEnvironment = 'pr',
@@ -1403,8 +1921,15 @@ def call(
     Boolean skipBuild = false,
     String customBuildLinkWindows = "",
     Boolean rebuildUSD = false,
-    Boolean saveUSD = false
-) {
+    Boolean saveUSD = false,
+    String customHybridProWindowsLink = "",
+    String customHybridProUbuntuLink = "",
+    String customHybridProVersion = "")
+{
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-206") {
+        testsBranch = "sshikalova/pr_206"
+    }
+
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
 
     if (env.BRANCH_NAME) {
@@ -1418,7 +1943,7 @@ def call(
         }
     }
 
-    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows:")) {
+    if (skipBuild && !customBuildLinkWindows && platforms.contains("Windows")) {
         skipBuild = false
     } else if (customBuildLinkWindows && !skipBuild) {
         skipBuild = true
@@ -1443,13 +1968,22 @@ def call(
         Is prebuilt: ${isPreBuilt}
         Modes: ${modes}
     """
+
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && testsPackage == "Full.json")
+        || env.BRANCH_NAME)
+    boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "main")
+
+    if (env.BRANCH_NAME && env.BRANCH_NAME == "PR-202") {
+        rebuildUSD = true
+    }
+
     def options = [configuration: PIPELINE_CONFIGURATION,
                                 platforms: platforms,
                                 projectBranch:projectBranch,
                                 projectRepo:PROJECT_REPO,
                                 testRepo:TEST_REPO,
                                 testsBranch:testsBranch,
-                                enableNotifications:enableNotifications,
                                 deployEnvironment: deployEnvironment,
                                 customDomain: customDomain,
                                 disableSsl: disableSsl,
@@ -1470,6 +2004,7 @@ def call(
                                 skipCallback: this.&filter,
                                 modes: modes,
                                 testsPackage:testsPackage,
+                                testsPackageOriginal:testsPackage,
                                 tests:tests,
                                 updateRefs:updateRefs,
                                 testCaseRetries:testCaseRetries,
@@ -1480,9 +2015,20 @@ def call(
                                 rebuildUSD: rebuildUSD,
                                 saveUSD: saveUSD,
                                 finishedBuildStages: new ConcurrentHashMap(),
-                                testsPreCondition: this.&isWebDeployed,
-                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes")
+                                parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
+                                useTrackedMetrics:useTrackedMetrics,
+                                saveTrackedMetrics:saveTrackedMetrics,
+                                globalStorage: new ConcurrentHashMap(),
+                                testsPreCondition: this.&hasIdleClients,
+                                customHybridProWindowsLink: customHybridProWindowsLink,
+                                customHybridProUbuntuLink: customHybridProUbuntuLink,
+                                customHybridProVersion: customHybridProVersion
                                 ]
+
+    withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+        validateParameters(options)
+    }
+
     try {
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)
         if (currentBuild.result == null) {
@@ -1496,7 +2042,7 @@ def call(
     } finally {
         String problemMessage = problemMessageManager.publishMessages()
         if (env.CHANGE_URL){
-            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}", options)
+            GithubNotificator.sendPullRequestComment("Jenkins build finished as ${currentBuild.result}\n${env.BUILD_URL}", options)
         } 
     }
 }

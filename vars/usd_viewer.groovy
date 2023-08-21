@@ -129,20 +129,26 @@ def buildRenderCache(String osName, Map options, Boolean cleanInstall=true, Bool
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete} RPRViewer
-                """
-                break
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete} RPRViewer
+                    """
+                    break
 
-            case "OSX":
-                println "OSX isn't supported"
-                break
+                case "OSX":
+                    println "OSX isn't supported"
+                    break
 
-            default:
-                println "Linux isn't supported"
+                default:
+                    println "Linux isn't supported"
+            }
         }
     }
 }
@@ -193,6 +199,8 @@ def executeTests(String osName, String asicName, Map options) {
     // used for mark stash results or not. It needed for not stashing failed tasks which will be retried.
     Boolean stashResults = true
     try {
+        utils.removeEnvVars(this)
+
         if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
             if (options.tests.contains("CPU") || options.tests.contains("weekly.2") || options.tests.contains("regression.2")) {
                 throw new ExpectedExceptionWrapper(
@@ -367,7 +375,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_rprviewer_autotests_baselines" : "/mnt/c/TestResources/usd_rprviewer_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
@@ -392,6 +402,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         try {
+            utils.removeEnvVars(this)
+
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
                 utils.moveFiles(this, osName, "../scripts/*.log", ".")
@@ -845,11 +857,11 @@ def executePreBuild(Map options) {
         }
         options.testsList = options.tests
         println "timeouts: ${options.timeouts}"
-    }
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
     }
 }
 

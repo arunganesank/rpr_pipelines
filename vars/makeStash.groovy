@@ -1,5 +1,20 @@
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
+
+def getStoragesCredentials(Boolean replicate) {
+    if (env.NODE_LABELS.split().contains("OldNAS")) {
+        return [
+                   ["url": "nasURL", "port": "nasSSHPort"],
+                   ["url": "nasURLOld", "port": "nasSSHPort"]
+               ]
+    } else {
+        return [
+                   ["url": "nasURL", "port": "nasSSHPort"]
+               ]
+    }
+}
+
+
 /**
  * Implementation of stashes through custom machine
  *
@@ -29,6 +44,7 @@ def call(Map params) {
         Boolean preZip = params.containsKey("preZip") ? params["preZip"] : true
         Boolean postUnzip = params.containsKey("postUnzip") ? (preZip && params["postUnzip"]) : false
         Boolean storeOnNAS = params.containsKey("storeOnNAS") ? params["storeOnNAS"] : false
+        Boolean replicate = params.containsKey("replicate") ? params["replicate"] : true
 
         if (storeOnNAS) {
             def includeParams = []
@@ -89,107 +105,88 @@ def call(Map params) {
                 throw new Exception("Empty stash")
             }
 
-            int times = 3
-            int retries = 0
-            int status = 0
+            for (storageCredentials in getStoragesCredentials(replicate)) {
+                int times = 3
+                int retries = 0
 
-            boolean stashUploaded = false
-            boolean cantUpload = false
+                boolean stashUploaded = false
 
-            while (retries++ < times) {
-                try {
-                    print("Try to make stash №${retries}")
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
-                        // Escaping of space characters should be done by different ways for local path and remote paths
-                        // Read more about it here: https://rsync.samba.org/FAQ.html#9
-                        if (isUnix()) {
-                            if (preZip) {
-                                status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                while (retries++ < times) {
+                    try {
+                        print("Try to make stash №${retries}")
+
+                        int status = 0
+
+                        withCredentials([string(credentialsId: storageCredentials["url"], variable: "REMOTE_HOST"), string(credentialsId: storageCredentials["port"], variable: "SSH_PORT")]) {
+                            // Escaping of space characters should be done by different ways for local path and remote paths
+                            // Read more about it here: https://rsync.samba.org/FAQ.html#9
+                            if (isUnix()) {
+                                // on MacOS and Ubuntu spaces are processing differently by rsync tool
+                                // TODO: replace spaces by some reserved symbol
+                                def uname = sh script: "uname", returnStdout: true
+                                boolean isMacOS = uname.startsWith("Darwin")
+
+                                if (isMacOS) {
+                                    if (preZip) {
+                                        status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                    } else {
+                                        status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                    }
+                                } else {
+                                    if (preZip) {
+                                        status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " \"${zipName.replace('(', '\\(').replace(')', '\\)')}\" \"${remotePath}\" " + '$REMOTE_HOST $SSH_PORT')
+                                    } else {
+                                        status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath}\" " + '$REMOTE_HOST $SSH_PORT')
+                                    }
+                                }
                             } else {
-                                status = sh(returnStatus: true, script: '$CIS_TOOLS/uploadFiles.sh' + " ${includes.replace('(', '\\(').replace(')', '\\)')} \"${remotePath.replace(" ", "\\ ")}\" " + '$REMOTE_HOST $SSH_PORT')
+                                if (preZip) {
+                                    status = bat(returnStatus: true, script: '%CIS_TOOLS%\\uploadFiles.bat' + " \"${zipName.replace('(', '\\(').replace(')', '\\)').replace(" ", "\\ ")}\" \"${remotePath.replace(" ", "\\ ")}\" " + '%REMOTE_HOST% %SSH_PORT%')
+                                } else {
+                                    status = bat(returnStatus: true, script: '%CIS_TOOLS%\\uploadFiles.bat' + " ${includes.replace('(', '\\(').replace(')', '\\)').replace(" ", "\\ ")} \"${remotePath.replace(" ", "\\ ")}\" " + '%REMOTE_HOST% %SSH_PORT%')
+                                }
                             }
+                        }
+
+                        if (status == 0) {
+                            stashUploaded = true
+                            break
                         } else {
-                            if (preZip) {
-                                status = bat(returnStatus: true, script: '%CIS_TOOLS%\\uploadFiles.bat' + " \"${zipName.replace('(', '\\(').replace(')', '\\)').replace(" ", "\\ ")}\" \"${remotePath.replace(" ", "\\ ")}\" " + '%REMOTE_HOST% %SSH_PORT%')
-                            } else {
-                                status = bat(returnStatus: true, script: '%CIS_TOOLS%\\uploadFiles.bat' + " ${includes.replace('(', '\\(').replace(')', '\\)').replace(" ", "\\ ")} \"${remotePath.replace(" ", "\\ ")}\" " + '%REMOTE_HOST% %SSH_PORT%')
-                            }
+                            print("[ERROR] Rsync returned non-zero exit code: ${status}")
                         }
+                    } catch (FlowInterruptedException e1) {
+                        println("[INFO] Making of stash with name '${stashName}' was aborting.")
+                        throw e1
+                    } catch(e1) {
+                        println(e1.toString())
+                        println(e1.getMessage())
+                        println(e1.getStackTrace())
                     }
-
-                    if (status == 23) {
-                        println("[ERROR] Failed to upload stash")
-                    } else if (status == 24) {
-                        print("[ERROR] Partial transfer due to vanished source files")
-                    } else if (status != 0) {
-                        println("[ERROR] Uploading script returned non-zero code: ${status}")
-
-                        if (status == 255) {
-                            cantUpload = true
-                        }
-                    } else {
-                        stashUploaded = true
-                        break
-                    }
-                } catch (FlowInterruptedException e1) {
-                    println("[INFO] Making of stash with name '${stashName}' was aborting.")
-                    throw e1
-                } catch(e1) {
-                    println(e1.toString())
-                    println(e1.getMessage())
-                    println(e1.getStackTrace())
                 }
-            }
 
-            if (!stashUploaded) {
-                // reboot and retry in case of failed uploading
-                if (cantUpload) {
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {
-                        try {
-                            if (isUnix) {
-                                sh """
-                                    ping -c 10 ${REMOTE_HOST}
-                                    tracepath ${REMOTE_HOST}
-                                """
+                if (!stashUploaded) {
+                    // reboot and retry in case of failed uploading
+                    throw new Exception("Failed to create stash. All attempts has been exceeded")
+                }
+
+                if (preZip) {
+                    if (postUnzip) {
+                        withCredentials([string(credentialsId: storageCredentials["url"], variable: "REMOTE_HOST"), string(credentialsId: storageCredentials["port"], variable: "SSH_PORT")]) {
+                            if (isUnix()) {
+                                stdout = sh(returnStdout: true, script: '$CIS_TOOLS/unzipFile.sh $REMOTE_HOST $SSH_PORT' + " \"${remotePath}${zipName}\" \"${remotePath}\" true")
                             } else {
-                                bat """
-                                    ping -n 10 ${REMOTE_HOST}
-                                    tracert ${REMOTE_HOST}
-                                """
+                                stdout = bat(returnStdout: true, script: '%CIS_TOOLS%\\unzipFile.bat %REMOTE_HOST% %SSH_PORT%' + " \"${remotePath.replace(" ", "\\ ")}${zipName.replace(" ", "\\ ")}\" \"${remotePath.replace(" ", "\\ ")}\" true")
                             }
-                        } catch(e) {
-                            println("Failed to collect traces")
-                            println(e.toString())
-                            println(e.getMessage())
-                            println(e.getStackTrace())
+                        }
+
+                        if (debug) {
+                            println(stdout)
                         }
                     }
-
-                    utils.reboot(this, isUnix() ? "Unix" : "Windows")
-
-                    exception = new ExpectedExceptionWrapper("Failed to create stash. All attempts has been exceeded")
-                    exception.retry = true
-                    throw exception
-                } else {
-                    throw new Exception("Failed to create stash. All attempts has been exceeded")
                 }
             }
 
             if (preZip) {
-                if (postUnzip) {
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
-                        if (isUnix()) {
-                            stdout = sh(returnStdout: true, script: '$CIS_TOOLS/unzipFile.sh $REMOTE_HOST $SSH_PORT' + " \"${remotePath}${zipName}\" \"${remotePath}\" true")
-                        } else {
-                            stdout = bat(returnStdout: true, script: '%CIS_TOOLS%\\unzipFile.bat %REMOTE_HOST% %SSH_PORT%' + " \"${remotePath.replace(" ", "\\ ")}${zipName.replace(" ", "\\ ")}\" \"${remotePath.replace(" ", "\\ ")}\" true")
-                        }
-                    }
-
-                    if (debug) {
-                        println(stdout)
-                    }
-                }
-
                 if (isUnix()) {
                     sh "rm -rf \"${zipName}\""
                 } else {

@@ -71,11 +71,7 @@ def executeTests(String osName, String asicName, Map options) {
             }
         } finally {
             try {
-                dir(options.stageName) {
-                    utils.moveFiles(this, osName, "../*.log", ".")
-                }
-
-                archiveArtifacts artifacts: "${options.stageName}/*.log", allowEmptyArchive: true
+                archiveArtifacts artifacts: "*.log", allowEmptyArchive: true
 
                 if (stashResults) {
                     allure([

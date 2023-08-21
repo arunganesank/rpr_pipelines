@@ -10,28 +10,10 @@ public class NotificationConfiguration {
 
     def static NO_OUTPUT_IMAGE_SANITY_CHECK = "No output image after sanity check."
     
-    def static ENGINES_PARAM = [
+    def static VALIDATION_FAILED = [
         "exceptions": [
             [
-                "class": Exception, "problemMessage": "Engines parameter is required.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
-            ]
-        ]
-    ]
-
-    def static HOUDINI_VERSIONS_PARAM = [
-        "exceptions": [
-            [
-                "class": Exception, "problemMessage": "Only one Houdini version for build can be selected in case of Pre Built plugin.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
-            ]
-        ]
-    ]
-
-    def static DELEGATES_PARAM = [
-        "exceptions": [
-            [
-                "class": Exception, "problemMessage": "Delegates parameter is required.", 
+                "class": Exception, "problemMessage": "Parameters validation isn't passed.", 
                 "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
             ]
         ]
@@ -51,25 +33,25 @@ public class NotificationConfiguration {
 
         "exceptions": [
             [
-                "class": Exception, "problemMessage": "PR is not mergeable.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
-                "getMessage": ["Not mergeable"],
+                "class": Exception, "problemMessage": "Merge conflict detected. Please, contact the developers.",
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
+                "getMessage": ["Not mergeable"], "abort": true,
                 "githubNotification": ["status": "failure"]
             ],
             [
-                "class": "TimeoutExceeded", "problemMessage": "Failed to download source code repository due to timeout.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "class": "TimeoutExceeded", "problemMessage": "Failed to download source code repository due to timeout. Please, contact the CIS command.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "timed_out"]
             ],
             [
-                "class": Exception, "problemMessage": "Failed to merge branches.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
-                "getMessage": ["Branch not suitable for integration"],
+                "class": Exception, "problemMessage": "Failed to merge branches. Please, contact the CIS command.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
+                "getMessage": ["Branch not suitable for integration"], "abort": true,
                 "githubNotification": ["status": "failure"]
             ],
             [
-                "class": Exception, "problemMessage": "Failed to download source code repository.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "class": Exception, "problemMessage": "Failed to download source code repository. Please, contact the CIS command.",
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "failure"]
             ]
         ]
@@ -202,7 +184,7 @@ public class NotificationConfiguration {
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to configurate tests.", 
-                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC,
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "githubNotification": ["status": "action_required"]
             ]
         ]
@@ -250,9 +232,9 @@ public class NotificationConfiguration {
         ]
     ]
 
-    def static BUILD_SOURCE_CODE_WEBUSD = [
-        "begin": ["message": "WebUSD build started."],
-        "end": ["message": "WebUSD build finished."],
+    def static BUILD_SOURCE_CODE_RENDER_STUDIO = [
+        "begin": ["message": "Render Studio build started."],
+        "end": ["message": "Render Studio build finished."],
         "exceptions": [
             [
                 "class": Exception, "problemMessage": "Failed to build the project.", 
@@ -769,6 +751,8 @@ public class NotificationConfiguration {
 
     def static SEGMENTATION_FAULT = "Segmentation fault detected."
 
+    def static USD_GLTF_BUILD_ERROR = "Failed to build usdGltf library."
+
     def static FILES_CRASHED = "Corrupted autotest JSON files detected."
 
     def static FAILED_UPDATE_BASELINES_NAS = "Failed to update baselines on NAS"
@@ -783,4 +767,23 @@ public class NotificationConfiguration {
 
     def static FAILED_UNIT_TESTS = "Some unit tests were marked as failed"
 
+
+    // messages for validation problems
+    def static EMPTY_PROJECT_REPO = "<b>The projectRepo parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_PROJECT_BRANCH = "<b>The projectBranch parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static INVALID_PREBUILD_LINK = "<b>The link in the <paramName> parameter is invalid.</b> Please, check the correctness of the provided data and restart the build."
+
+    def static EMPTY_ENGINES = "<b>The engines parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_DELEGATES = "<b>The delegates parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_HOUDINI_VERSIONS = "<b>The houdiniVersions parameter is empty.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static UPDATE_DEPS_WITHOUT_REBUILD = "<b>The updateDeps parameter is selected, but the rebuildDeps parameter is unselected.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static UPDATE_USD_WITHOUT_REBUILD = "<b>The saveUSD parameter is selected, but the rebuildUSD parameter is unselected.</b> Please, check the correctness of the selected values and restart the build."
+
+    def static EMPTY_HIPBIN_LINK = "<b>The customHipBin parameter is empty</b> This parameter is mandatory in case of prebuilt RPR SDK. Please, provide it in a new build."
 }

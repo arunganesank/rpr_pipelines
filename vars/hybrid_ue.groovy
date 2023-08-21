@@ -47,7 +47,7 @@ def getUE(Map options, String projectName) {
         String iniFile = projectsInfo[projectName]["iniFile"]
 
         dir("RPRHybrid-UE/Engine/Config") {
-            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".")
+            downloadFiles("/volume1/CIS/bin-storage/HybridUE/BuildConfigs/${iniFile}", ".", "", true, "nasURL", "nasSSHPort", true)
             utils.removeFile(this, "Windows", "BaseEngine.ini")
             utils.renameFile(this, "Windows", "${iniFile}", "BaseEngine.ini")
         }
@@ -352,7 +352,7 @@ def executePreBuild(Map options) {
 
 
 def call(String projectBranch = "",
-         String ueBranch = "rpr_material_serialization_particles",
+         String ueBranch = "rpr_master",
          String platforms = "Windows",
          String projects = "",
          Boolean saveEngine = false,
@@ -424,6 +424,7 @@ def call(String projectBranch = "",
                                 movieQuality:movieQuality,
                                 resX: resX,
                                 resY: resY,
+                                retriesForBuildStage: 2,
                                 windowed: windowed,
                                 forceRes: forceRes,
                                 onlyVideo:onlyVideo])

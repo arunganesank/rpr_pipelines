@@ -11,7 +11,7 @@ Boolean call(String osName, String pluginPath, Map options) {
     // check that size of plugin isn't less than 10Mb
     if (pluginFile.length < 10 * 1024 * 1024) {
         def exception = new ExpectedExceptionWrapper(NotificationConfiguration.INVALID_PLUGIN_SIZE, new Exception(NotificationConfiguration.INVALID_PLUGIN_SIZE))
-        exception.abortCurrentOS = true
+        exception.abort = true
         throw exception
     }
 
@@ -24,7 +24,7 @@ Boolean call(String osName, String pluginPath, Map options) {
             }
         } catch (e) {
             def exception = new ExpectedExceptionWrapper(NotificationConfiguration.CORRUPTED_ZIP_PLUGIN, e)
-            exception.abortCurrentOS = true
+            exception.abort = true
             throw exception
         }
     }
@@ -44,7 +44,7 @@ Boolean call(String osName, String pluginPath, Map options) {
             println("[INFO] Product code of pre built plugin: ${productCode}")
         } catch (e) {
             def exception = new ExpectedExceptionWrapper(NotificationConfiguration.CORRUPTED_MSI_PLUGIN, e)
-            exception.abortCurrentOS = true
+            exception.abort = true
             throw exception
         }
     }

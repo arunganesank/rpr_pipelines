@@ -35,6 +35,12 @@ class SlackUtils {
         }
     }
 
+    static def publishSubscriptionRedirectPage(def context) {
+        context.configFileProvider([context.configFile(fileId: 'subscription_redirect_page', targetLocation: 'slack_redirect_page.html')]) {
+            context.publishHTML([keepAll: true, reportDir: "", includes: 'slack_redirect_page.html', reportFiles: 'slack_redirect_page.html', reportName: 'Subscribe'])
+        }
+    }
+
     static def sendAttachments(def context, def attachments, SlackWorkspace workspace, String channel) {
         def slackMessage = [
             attachments: attachments,
