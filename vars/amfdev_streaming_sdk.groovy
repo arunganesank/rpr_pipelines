@@ -2069,8 +2069,7 @@ def call(String projectBranch = "",
 
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            // temporary take built Streaming SDK from NAS
-            Boolean executeBuild = false
+            Boolean executeBuild = true
             String winTestingDriverName = ""
             String branchName = ""
             Boolean isDevelopBranch = false
@@ -2129,20 +2128,8 @@ def call(String projectBranch = "",
                 executeBuild = false
             }
 
-            String[] tagParts = clientTags.split(";")
-            String firstClientMachine = ""
-            String secondClientMachine = ""
-
-            if (tagParts.size() > 0) {
-                firstClientMachine = tagParts[0]
-            }
-
-            if (tagParts.size() == 2) {
-                secondClientMachine = tagParts[1]
-            }
-
-            String firstClientTag = firstClientMachine ? "StreamingSDKClient && (${firstClientMachine})" : "StreamingSDKClient"
-            String secondClientTag = secondClientMachine ? "StreamingSDKClient && (${secondClientMachine})" : "StreamingSDKClient"
+            String firstClientTag = "StreamingSDKClient"
+            String secondClientTag = "StreamingSDKClient"
 
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
