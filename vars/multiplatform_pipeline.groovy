@@ -534,15 +534,6 @@ def call(String platforms, def executePreBuild, def executeBuild, def executeTes
             milestone(buildNumber) 
         }
 
-        node("Windows && PreBuild") {
-            try {
-                SlackUtils.publishSubscriptionRedirectPage(this)
-            } catch (e) {
-                println("[ERROR] Failed to publish Slack subscription page")
-                println(e.toString())
-            }
-        }
-
         def date = new Date()
         dateFormatter = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss")
         dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT+3:00"))
