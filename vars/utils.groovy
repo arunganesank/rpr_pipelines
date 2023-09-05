@@ -88,10 +88,39 @@ class utils {
 
             String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/${reportName}/${subFolder}/${stashName}/" 
 
-            self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true)
-            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true)
+            self.makeStash(includes: '**/*', excludes: excludes, name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
+            self.makeStash(includes: '*.json', excludes: '*/events/*.json', name: subFolder ? "${options.testResultsName}-${subFolder}" : options.testResultsName, allowEmpty: true, storeOnNAS: true, replicate: false)
         } else {
             self.makeStash(includes: '**/*', excludes: excludes, name: options.testResultsName, allowEmpty: true)
+        }
+    }
+
+    static def saveProblemsData(Object self, Map options) {
+        if (options.storeOnNAS) {
+            String profile = ""
+            String stashName = ""
+            String reportName = ""
+            List testsResultsParts = options.testResultsName.split("-") as List
+            if (options.containsKey("testProfiles")) {
+                profile = testsResultsParts[-1]
+                // Remove "testResult" prefix and profile from stash name
+                stashName = testsResultsParts.subList(1, testsResultsParts.size() - 1).join("-")
+            } else {
+                // Remove "testResult" prefix from stash name
+                stashName = testsResultsParts.subList(1, testsResultsParts.size()).join("-")
+            }
+
+            if (options.containsKey("testProfiles")) {
+                String profileName = options.containsKey("displayingTestProfiles") ? options.displayingTestProfiles[profile] : profile
+                reportName = "Test_Report_${profileName}"
+            } else {
+                reportName = "Test_Report"
+            }
+
+            String path = "/volume1/web/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Debug/${reportName}/${stashName}/${options.currentTry}/"
+            self.makeStash(includes: '**/*', name: stashName, allowEmpty: true, customLocation: path, preZip: true, postUnzip: true, storeOnNAS: true, replicate: false)
+        } else {
+            self.println("[WARNING] Problems data saving is supported only with NAS")
         }
     }
 
@@ -659,7 +688,7 @@ class utils {
 
                     // check that overview report isn't deployed yet
                     self.httpRequest(
-                        url: "${self.BUILD_URL}/${publishedReportName}/",
+                        url: "${self.env.BUILD_URL}/${publishedReportName}/",
                         authentication: 'jenkinsCredentials',
                         httpMode: 'GET'
                     )
@@ -688,7 +717,7 @@ class utils {
                         try {
                             // check that all necessary reports are published
                             self.httpRequest(
-                                url: "${self.BUILD_URL}/${publishedReportName}/",
+                                url: "${self.env.BUILD_URL}/${publishedReportName}/",
                                 authentication: 'jenkinsCredentials',
                                 httpMode: 'GET'
                             )
@@ -701,11 +730,11 @@ class utils {
                         if (options.storeOnNAS) {
                             self.withCredentials([self.string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
                                 locations = locations ?
-                                    "${locations}::http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
-                                    "http://172.19.140.133/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
+                                    "${locations}::${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
+                                    "${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
                             }
                         } else {
-                            locations = locations ? "${locations}::${self.BUILD_URL}/${publishedReportName}" : "${self.BUILD_URL}/${publishedReportName}"
+                            locations = locations ? "${locations}::${self.env.BUILD_URL}/${publishedReportName}" : "${self.env.BUILD_URL}/${publishedReportName}"
                         }
                     }
 
@@ -718,7 +747,9 @@ class utils {
                             }
                         }
 
-                        publishReport(self, "${self.BUILD_URL}", "OverviewReport", "summary_report.html", "Test Report", "Summary Report (Overview)", options.storeOnNAS)
+                        publishReport(self, "${self.env.BUILD_URL}", "OverviewReport", "summary_report.html", \
+                            "Test Report", "Summary Report (Overview)", options.storeOnNAS, \
+                            ["jenkinsBuildUrl": self.env.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName])
                     }
                 }
             }
@@ -773,7 +804,7 @@ class utils {
         }
     }
 
-    def closeProcess(Object self, String procName, String osName, Map options){
+    static def closeProcess(Object self, String procName, String osName, Map options){
         switch(osName) {
             case "Windows":
                 self.powershell"""
@@ -785,10 +816,10 @@ class utils {
     }
 
 
-    def isProcessExists(Object self, String procName, String osName, Map options) {
+    static def isProcessExists(Object self, String procName, String osName, Map options) {
         switch(osName) {
             case 'Windows':
-                try{
+                try {
                     self.powershell """
                         Get-Process "${procName}" -ErrorAction Stop
                     """
@@ -801,5 +832,149 @@ class utils {
         }
 
         return true
+    }
+
+    static def removeEnvVars(Object self) {
+        if (!self.isUnix()) {
+            try {
+                self.bat """
+                    REG delete \"HKCU\\Environment\" /F /V HDRPR_CACHE_PATH_OVERRIDE
+                """
+            } catch (e) {
+            }
+
+            try {
+                self.bat """
+                    REG delete \"HKCU\\Environment\" /F /V RPRTRACEPATH
+                """
+            } catch (e) {
+            }
+        }
+    }
+
+    static def unzip(Object self, String zipName) {
+        if (self.isUnix()) {
+            self.sh """
+                unzip -o -u "${zipName}"
+            """
+        } else {
+            self.bat """
+                ${self.CIS_TOOLS}\\7-Zip\\7z.exe x "${zipName}" -aoa"
+            """
+        }
+    }
+
+    static def generateRandomString(Object self, int length) {
+        String alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        def random = new Random()
+
+        return (1..length).collect { alphabet[ random.nextInt( alphabet.length() ) ] }.join("")
+    }
+
+    static def createDir(Object self, String dirName) {
+        self.dir(dirName) { self.isUnix() ? self.sh("") : self.bat("") }
+    }
+
+    static def getIpAddress(Object self) {
+        if (self.isUnix()) {
+            throw new Exception("Not supported")
+        } else {
+            String output = self.utils.getBatOutput(self, "ipconfig")
+
+            String necessaryAdapterName = "Ethernet adapter Ethernet:"
+            boolean necessaryAdapterFound = false
+
+            for (line in output.split("\n")) {
+                if (line.contains(necessaryAdapterName)) {
+                    necessaryAdapterFound = true
+                }
+
+                if (necessaryAdapterFound && line.contains("IPv4 Address")) {
+                    return line.split(":")[1].trim()
+                }
+            }
+        }
+
+        throw new Exception("Could not determine Ip adress")
+    }
+
+    static def analyzeResults(Object self, def sessionReport, Map options, double threshold = 0.0) {
+        self.println """
+            Total: ${sessionReport.summary.total}
+            Errors: ${sessionReport.summary.error}
+            Skips: ${sessionReport.summary.skipped}
+        """
+
+        // always retry situation when all test cases are errors
+        // if test group is fully errored or number of test cases is equal to zero
+        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+            // check that group isn't fully skipped
+            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
+                String errorMessage
+
+                if (options.currentTry < options.nodeReallocateTries) {
+                    errorMessage = "All tests were marked as error. The test group will be restarted."
+                } else {
+                    errorMessage = "All tests were marked as error."
+                }
+
+                self.utils.saveProblemsData(self, options)
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+            }
+        }
+
+        if (threshold < 0) {
+            String errorMessage = "Threshold can't be less than 0."
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+        } else if (threshold > 1) {
+            String errorMessage = "Threshold can't be greater than 1."
+            throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage)) 
+        }
+
+        if ((sessionReport.summary.total - sessionReport.summary.skipped) * threshold < sessionReport.summary.error) {
+            self.utils.saveProblemsData(self, options)
+
+            // retry problems detected with threshold only once
+            if (options.containsKey("problemsDetected") && options["problemsDetected"]) {
+                self.println("[WARNING] Problems detected with threshold second time. Retry won't be processed.")
+            } else {
+                options["problemsDetected"] = true
+                def errorsPercent = (sessionReport.summary.error / (sessionReport.summary.total - sessionReport.summary.skipped) * 100).doubleValue().round(1)
+                String errorMessage = "Detected problems detected with threshold (${errorsPercent}% errors). Test cases will be retried."
+                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
+            }
+        }
+    }
+
+    static def doRequest(Object self, String url, String httpMode = "GET") {
+        def rawInfo = self.httpRequest(
+            url: url,
+            authentication: "jenkinsCredentials",
+            httpMode: httpMode
+        )
+
+        return parseJson(self, rawInfo.content)
+    }
+
+    static def getTriggeredBuildLink(Object self, String jobUrl) {
+        String url = "${jobUrl}/api/json?tree=lastBuild[number,url]"
+
+        self.withCredentials([self.string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            url = url.replace(self.env.JENKINS_URL, self.JENKINS_INTERNAL_URL)
+        }
+
+        def parsedInfo = doRequest(self, url)
+
+        return parsedInfo.lastBuild.url
+    }
+
+    static def getBuildInfo(Object self, String buildUrl, String fields = "result,description,inProgress") {
+        self.withCredentials([self.string(credentialsId: "jenkinsInternalURL", variable: "JENKINS_INTERNAL_URL")]) {
+            buildUrl = buildUrl.replace(self.env.JENKINS_URL, self.JENKINS_INTERNAL_URL)
+        }
+
+        def parsedInfo = doRequest(self, "${buildUrl}/api/json?tree=${fields}")
+
+        return parsedInfo
     }
 }

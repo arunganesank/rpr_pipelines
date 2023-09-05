@@ -1,5 +1,19 @@
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
 
+
+String getSuitableStorageURL() {
+    if (env.NODE_LABELS.split().contains("OldNAS")) {
+        return "nasURLOld"
+    } else {
+        return "nasURL"
+    }
+}
+
+String getSuitableStoragePort() {
+    return "nasSSHPort"
+}
+
+
 /**
  * Implementation of stashes through custom machine
  *
@@ -26,14 +40,19 @@ def call(Map params) {
 
             int times = 3
             int retries = 0
-            int status = 0
 
             String zipName = "stash_${stashName}.zip"
 
             while (retries++ < times) {
                 try {
                     print("Try to make unstash №${retries}")
-                    withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: "nasSSHPort", variable: "SSH_PORT")]) {
+
+                    int status = 0
+
+                    String storageURLCredential = getSuitableStorageURL()
+                    String storageSSHPortCredential = getSuitableStoragePort()
+
+                    withCredentials([string(credentialsId: storageURLCredential, variable: "REMOTE_HOST"), string(credentialsId: storageSSHPortCredential, variable: "SSH_PORT")]) {
                         if (isUnix()) {
                             status = sh(returnStatus: true, script: '$CIS_TOOLS/downloadFiles.sh' + " \"${remotePath}\" . " + '$REMOTE_HOST $SSH_PORT')
                         } else {
@@ -41,14 +60,10 @@ def call(Map params) {
                         }
                     }
 
-                    if (status == 23) {
-                        println("[ERROR] Failed to download stash")
-                    } else if (status == 24) {
-                        print("[ERROR] Partial transfer due to vanished source files")
-                    } else if (status != 0) {
-                        println("[ERROR] Download script returned non-zero code: ${status}")
-                    } else {
+                    if (status == 0) {
                         break
+                    } else {
+                        print("[ERROR] Rsync returned non-zero exit code: ${status}")
                     }
                 } catch (FlowInterruptedException e1) {
                     println("[INFO] Making of unstash of stash with name '${stashName}' was aborting.")

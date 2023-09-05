@@ -146,7 +146,7 @@ def executeTests(String osName, String asicName, Map options)
             sendFiles('./Work/Baseline/', REF_PATH_PROFILE)
         }
 
-        if (!options['updateORRefs'] && !options['updateRefs']) {	
+        if (!options['updateORRefs'] && !options['updateRefs']) {    
             try {
                 options.tests.split(" ").each() {
                     receiveFiles("${REF_PATH_PROFILE}/${it}", './Work/Baseline/')

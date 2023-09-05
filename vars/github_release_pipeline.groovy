@@ -11,8 +11,8 @@ def parseDescriptionRow(String row) {
     return row.split(':')[1].replace('<b>', '').replace('</b>', '').trim()
 }
 
-def createRelease(String jobName, String repositoryUrl, String branch) {
-    List possibleArtifactsExtensions = ['.zip', '.msi', '.dmg'] 
+def createRelease(String jobName, String repositoryUrl, String branch, int artifactsNumber) {
+    List possibleArtifactsExtensions = ['.zip', '.msi', '.dmg', '.tar.gz'] 
 
     String jenkinsUrl
     withCredentials([string(credentialsId: 'jenkinsURL', variable: 'JENKINS_URL')]) {
@@ -23,15 +23,18 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
     String repositoryUploadUrl = repositoryUrl.replace('https://github.com', 'https://uploads.github.com/repos')
 
     cleanWS('Windows')
+
     def buildsList = httpRequest(
         url: "${jenkinsUrl}/job/${jobName}/job/${branch}/api/json?tree=builds[url]",
         authentication: 'jenkinsCredentials',
         httpMode: 'GET'
     )
+
     String targetUrl
     String description
     def buildsListParsed = parseResponse(buildsList.content)
     def buildInfoParsed
+
     for (build in buildsListParsed['builds']) {
         String buildUrl = build['url']
         def buildInfo = httpRequest(
@@ -39,7 +42,9 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
             authentication: 'jenkinsCredentials',
             httpMode: 'GET'
         )
+
         buildInfoParsed = parseResponse(buildInfo.content)
+
         if (buildInfoParsed['result'] == 'SUCCESS' || buildInfoParsed['result'] == 'UNSTABLE') {
             println("[INFO] Success build was found: ${buildUrl}")
             targetUrl = buildUrl
@@ -47,23 +52,55 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
             break
         }
     }
+
     if (targetUrl) {
+        // validate that the found build contains expected number of artifacts
+        String nasArtifactsPath = "/volume1/web/${jobName}/${branch}/${buildInfoParsed.number}/Artifacts/"
+
+        String[] nasFileNames
+
+        withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: 'nasSSHPort', variable: 'SSH_PORT')]) {
+            nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
+        }
+
+        println("[INFO] List of files from NAS: ${nasFileNames}")
+
+        List downloadedFiles = []
+
+        for (fileName in nasFileNames) {
+            for (extension in possibleArtifactsExtensions) {
+                println("[INFO] Process '${fileName}'")
+
+                if (fileName.endsWith(extension)) {
+                    println("[INFO] The '${fileName}' artifact has the '${extension}' extension. It'll be uploaded to the release")
+                    downloadedFiles.add(fileName)
+                }
+            }
+        }
+
         String version = ""
         String commitSha = ""
         String[] descriptionParts = description.split('<br/>')
+
         for (part in descriptionParts) {
-            if (part.contains('Version')) {
-                version = parseDescriptionRow(part)
+            if (part.contains('=Major')) {
+                String majorVersion = part.split("=Major")[1].split("</button>")[0].split(">")[1].trim()
+                String minorVersion = part.split("=Minor")[1].split("</button>")[0].split(">")[1].trim()
+                String patchVersion = part.split("=Patch")[1].split("</button>")[0].split(">")[1].trim()
+
+                version = "${majorVersion}.${minorVersion}.${patchVersion}"
             } else if (part.contains('Commit SHA')) {
                 commitSha = parseDescriptionRow(part)
             }
         }
+
         if (version) {
             println("[INFO] Plugin version was found: ${version}")
         } else {
             println("[ERROR] Plugin version wan't found")
             throw new Exception("Plugin version wan't found")
         }
+
         if (commitSha) {
             println("[INFO] Commit SHA was found: ${commitSha}")
         } else {
@@ -77,10 +114,12 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
             authentication: 'radeonprorender',
             httpMode: 'GET'
         )
+
         def releasesParsed = parseResponse(releases.content)
         def shouldBeUploaded = false
         def tagIsBusy = false
         def releaseAlreadyPushed = false
+
         for (release in releasesParsed) {
             if (release['tag_name'] == "v${version}" && release['author']['login'] != 'radeonprorender') {
                 println("[INFO] Release with same tag has already published by other user")
@@ -103,6 +142,7 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
                 break
             }
         }
+
         if (!tagIsBusy && !releaseAlreadyPushed) {
             shouldBeUploaded = true
         }
@@ -140,63 +180,36 @@ def createRelease(String jobName, String repositoryUrl, String branch) {
             )
             def releaseInfoParsed = parseResponse(releaseInfo.content)
 
-            // get list of artifacts from Jenkins and attach them to Github release
-            def fileNames = httpRequest(
-                url: "${targetUrl}/api/json?tree=artifacts[fileName]",
-                authentication: 'jenkinsCredentials',
-                httpMode: 'GET'
-            )
-
-            def fileNamesParsed = parseResponse(fileNames.content)
-            for (fileName in fileNamesParsed['artifacts']) {
-                for (extension in possibleArtifactsExtensions) {
-                    String assetName = fileName['fileName']
-                    if (assetName.endsWith(extension)) {
-                        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkinsCredentials', usernameVariable: 'JENKINS_USERNAME', passwordVariable: 'JENKINS_PASSWORD']]) {
-                            bat """
-                                curl --retry 5 -L -O -J -u %JENKINS_USERNAME%:%JENKINS_PASSWORD% "${targetUrl}/artifact/${fileName.fileName}"
-                            """
-                        }
-                        withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
-                            bat """
-                                curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${assetName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${assetName}"
-                            """
-                        }
-                    }
-                }
-            }
-
-            // get list of artifacts from NAS and attach them to Github release
+            // download artifacts from NAS and attach them to Github release
             try {
-                String nasArtifactsPath = "/volume1/web/${jobName}/${branch}/${buildInfoParsed.number}/Artifacts/"
-
-                String[] nasFileNames
-
-                withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"), string(credentialsId: 'nasSSHPort', variable: 'SSH_PORT')]) {
-                    nasFileNames = bat(returnStdout: true, script: "@bash.exe -c \"ssh" + ' %REMOTE_HOST% -p %SSH_PORT%' + " ls ${nasArtifactsPath}\"").trim().split("\n")
+                if (downloadedFiles.size() != artifactsNumber) {
+                    throw new Exception("Found ${downloadedFiles.size()} artifacts. Expected ${artifactsNumber}")
                 }
 
-                println(nasFileNames)
+                for (fileName in downloadedFiles) {
+                    println("[INFO] Download and upload '${fileName}'")
 
-                for (fileName in nasFileNames) {
-                    for (extension in possibleArtifactsExtensions) {
-                        println(fileName)
-                        println(extension)
-                        if (fileName.endsWith(extension)) {
-                            downloadFiles("${nasArtifactsPath}/${fileName}", ".")                        
+                    downloadFiles("${nasArtifactsPath}/${fileName}", ".")
 
-                            withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
-                                bat """
-                                    curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${fileName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${fileName}"
-                                """
-                            }
-                        }
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'radeonprorender', usernameVariable: 'GITHUB_USERNAME', passwordVariable: 'GITHUB_PASSWORD']]) {
+                        bat """
+                            curl -X POST --retry 5 -H "Content-Type: application/octet-stream" --data-binary @${fileName} -u %GITHUB_USERNAME%:%GITHUB_PASSWORD% "${repositoryUploadUrl}/releases/${releaseInfoParsed.id}/assets?name=${fileName}"
+                        """
                     }
                 }
             } catch (e) {
                 println("[ERROR] Failed to attach files from NAS for ${jobName} job")
                 println(e.toString())
-                println(e.getMessage())
+                println(e.getMessage()) 
+
+                // remove release
+                httpRequest(
+                    url: "${repositoryApiUrl}/releases/${releaseInfoParsed.id}",
+                    authentication: 'radeonprorender',
+                    httpMode: 'DELETE'
+                )
+
+                throw e
             }
         }
     } else {
@@ -219,7 +232,7 @@ def call(List targets) {
                     stage(stageName) {
                         node("Windows && Builder") {
                             ws("WS/${PRJ_NAME}") {
-                                createRelease(target['jobName'], target['repositoryUrl'], target['branch'])
+                                createRelease(target['jobName'], target['repositoryUrl'], target['branch'], target['artifactsNumber'])
                             }
                         }
                     }

@@ -61,7 +61,11 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
         title = "Building test report"
     }
 
+    String statusCheckStageName = options.containsKey("customStageName") ? options["customStageName"] : stageName
+
     for (int i = 0; i < tries; i++) {
+        successCurrentNode = false
+
         String nodeName = ""
         options['currentTry'] = i
         options['nodeReallocateTries'] = tries
@@ -86,6 +90,13 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
             // check that there is some condition which should be true before take node
             if (stageName == "Test" && options.containsKey("testsPreCondition")) {
                 while (!options["testsPreCondition"](options)) {
+                    sleep(60)
+                }
+            }
+
+            // check that there is some condition which should be true before take node
+            if (stageName == "Deploy" && options.containsKey("deployPreCondition")) {
+                while (!options["deployPreCondition"](options)) {
                     sleep(60)
                 }
             }
@@ -117,26 +128,30 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
             Boolean isExceptionAllowed = !checkIsExceptionAllowed
 
             if (e instanceof ExpectedExceptionWrapper) {
-                if (e.abortCurrentOS) {
-                    println("[ERROR] Detected abortCurrentOS flag in catched exception. Abort next tests on ${osName} OS")
-                    i = tries + 1
+                if (e.abort) {
+                    println("[ERROR] Detected abort flag in catched exception")
+                    i = tries - 1
                 } else if (e.retry) {
                     println("[INFO] Retry detected. Exception is allowed")
                     isExceptionAllowed = true
                 }
 
-                e = e.getCause()
-
-                if (e instanceof ExpectedExceptionWrapper) {
-                    if (e.abortCurrentOS) {
-                        println("[ERROR] Detected abortCurrentOS flag in catched exception. Abort next tests on ${osName} OS")
-                        i = tries + 1
-                    } else if (e.retry) {
-                        println("[INFO] Retry detected. Exception is allowed")
-                        isExceptionAllowed = true
-                    }
-
+                if (e.getCause()) {
                     e = e.getCause()
+
+                    if (e instanceof ExpectedExceptionWrapper) {
+                        if (e.abort) {
+                            println("[ERROR] Detected abort flag in catched exception")
+                            i = tries - 1
+                        } else if (e.retry) {
+                            println("[INFO] Retry detected. Exception is allowed")
+                            isExceptionAllowed = true
+                        }
+
+                        if (e.getCause()) {
+                            e = e.getCause()
+                        }
+                    }
                 }
             }
 
@@ -186,7 +201,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                 || exceptionClassName.contains("InterruptedException") || exceptionClassName.contains("AgentOfflineException")) {
 
                 isExceptionAllowed = true
-                GithubNotificator.updateStatus(stageName, title, "failure", options, NotificationConfiguration.LOST_CONNECTION_WITH_MACHINE)
+                GithubNotificator.updateStatus(statusCheckStageName, title, "failure", options, NotificationConfiguration.LOST_CONNECTION_WITH_MACHINE)
             }
 
             println("[ERROR] Failed on ${env.NODE_NAME} node")
@@ -196,7 +211,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
             println("Exception stack trace: ${e.getStackTrace()}")
 
             if (utils.isTimeoutExceeded(e)) {
-                GithubNotificator.updateStatus(stageName, title, "timed_out", options, NotificationConfiguration.STAGE_TIMEOUT_EXCEEDED)
+                GithubNotificator.updateStatus(statusCheckStageName, title, "timed_out", options, NotificationConfiguration.STAGE_TIMEOUT_EXCEEDED)
             }
 
             if (!isExceptionAllowed) {
@@ -210,7 +225,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                         options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, stageName, osName)
                     }
                 }
-                GithubNotificator.updateStatus(stageName, title, "action_required", options)
+                GithubNotificator.updateStatus(statusCheckStageName, title, "action_required", options)
                 if (stageName == 'Build') {
                     GithubNotificator.failPluginBuilding(options, osName)
 
@@ -236,7 +251,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                         options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.UNKNOWN_REASON, stageName, osName)
                     }
                 }
-                GithubNotificator.updateStatus(stageName, title, "action_required", options)
+                GithubNotificator.updateStatus(statusCheckStageName, title, "action_required", options)
                 if (stageName == 'Build') {
                     GithubNotificator.failPluginBuilding(options, osName)
 

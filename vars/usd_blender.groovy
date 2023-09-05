@@ -28,7 +28,7 @@ import java.text.SimpleDateFormat
 
 
 Boolean filterTests(Map options, String asicName, String osName, String testName, String engine) {
-    if (osName.startsWith("Ubuntu") && engine == "HdStormRendererPlugin") {
+    if (osName.startsWith("Ubuntu") && (engine == "HdStormRendererPlugin" || engine == "Hybrid")) {
         return true
     }
 
@@ -42,18 +42,24 @@ Boolean filterTests(Map options, String asicName, String osName, String testName
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir('scripts') {
-        switch(osName) {
-            case 'Windows':
-                bat """
-                    make_results_baseline.bat ${delete}
-                """
-                break
-            // OSX & Ubuntu
-            default:
-                sh """
-                    ./make_results_baseline.sh ${delete}
-                """
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir('scripts') {
+            switch(osName) {
+                case 'Windows':
+                    bat """
+                        make_results_baseline.bat ${delete}
+                    """
+                    break
+                // OSX & Ubuntu
+                default:
+                    sh """
+                        ./make_results_baseline.sh ${delete}
+                    """
+            }
         }
     }
 }
@@ -100,21 +106,31 @@ def executeTestCommand(String osName, String asicName, Map options) {
 
     println "Set timeout to ${testTimeout}"
 
-    timeout(time: testTimeout, unit: 'MINUTES') { 
-        switch(osName) {
-        case 'Windows':
-            dir('scripts') {
-                bat """
-                    run.bat \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
-                """
-            }
-            break
-        // OSX & Ubuntu
-        default:
-            dir("scripts") {
-                sh """
-                    ./run.sh \"${testsPackageName}\" \"${testsNames}\" ${options.resX} ${options.resY} ${options.iter} ${options.threshold} ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
-                """
+    timeout(time: testTimeout, unit: 'MINUTES') {
+        def tracesVariable = []
+
+        if (options.collectTraces) {
+            tracesVariable = "RPRTRACEPATH=${env.WORKSPACE}/traces"
+            tracesVariable = isUnix() ? [tracesVariable] : [tracesVariable.replace("/", "\\")]
+            utils.createDir(this, "traces")
+        }
+
+        withEnv(tracesVariable) {
+            switch(osName) {
+            case 'Windows':
+                dir('scripts') {
+                    bat """
+                        run.bat \"${testsPackageName}\" \"${testsNames}\" 0 0 50 0.05 ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"..\\${options.stageName}_${options.currentTry}.log\"  2>&1
+                    """
+                }
+                break
+            // OSX & Ubuntu
+            default:
+                dir("scripts") {
+                    sh """
+                        ./run.sh \"${testsPackageName}\" \"${testsNames}\" 0 0 50 0.05 ${options.engine} ${options.toolVersion} ${options.testCaseRetries} ${options.updateRefs} 1>> \"../${options.stageName}_${options.currentTry}.log\" 2>&1
+                    """
+                }
             }
         }
     }
@@ -155,6 +171,8 @@ def executeTests(String osName, String asicName, Map options) {
     }
 
     try {
+        utils.removeEnvVars(this)
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "5", unit: "MINUTES") {
                 cleanWS(osName)
@@ -240,9 +258,9 @@ def executeTests(String osName, String asicName, Map options) {
 
                 options.tests.split(" ").each() {
                     if (it.contains(".json")) {
-                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     } else {
-                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir)
+                        downloadFiles("${REF_PATH_PROFILE}/${it}", baseline_dir, "", true, "nasURL", "nasSSHPort", true)
                     }
                 }
             }
@@ -313,25 +331,16 @@ def executeTests(String osName, String asicName, Map options) {
                         println "Stashing test results to : ${options.testResultsName}"
                         utils.stashTestData(this, options, options.storeOnNAS)
 
-                        // deinstalling broken addon
-                        // if test group is fully errored or number of test cases is equal to zero
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            // check that group isn't fully skipped
-                            if (sessionReport.summary.total != sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                                installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage
-                                if (options.currentTry < options.nodeReallocateTries) {
-                                    errorMessage = "All tests were marked as error. The test group will be restarted."
-                                } else {
-                                    errorMessage = "All tests were marked as error."
-                                }
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
-
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            installBlenderAddon(osName, 'hdusd', options.toolVersion, options, false, true)
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -568,12 +577,22 @@ def executeBuild(String osName, Map options) {
 }
 
 def getReportBuildArgs(String engineName, Map options) {
-    boolean collectTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
+    String buildNumber = ""
+
+    if (options.useTrackedMetrics) {
+        if (env.BRANCH_NAME && env.BRANCH_NAME != "master") {
+            // use any large build number in case of PRs and other branches in auto job
+            // it's required to display build as last one
+            buildNumber = "10000"
+        } else {
+            buildNumber = env.BUILD_NUMBER
+        }
+    }
 
     if (options["isPreBuilt"]) {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} "PreBuilt" "PreBuilt" "PreBuilt" \"${utils.escapeCharsByUnicode(engineName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     } else {
-        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${collectTrackedMetrics ? env.BUILD_NUMBER : ""}"""
+        return """${utils.escapeCharsByUnicode("Blender ")}${options.toolVersion} ${options.commitSHA} ${options.projectBranchName} \"${utils.escapeCharsByUnicode(options.commitMessage)}\" \"${utils.escapeCharsByUnicode(engineName)}\" ${options.useTrackedMetrics ? buildNumber : ""}"""
     }
 }
 
@@ -586,7 +605,7 @@ def executePreBuild(Map options)
         options.executeBuild = false
         options.executeTests = true
     // manual job
-    } else if (options.forceBuild) {
+    } else if (!env.BRANCH_NAME) {
         println "[INFO] Manual job launch detected"
         options['executeBuild'] = true
         options['executeTests'] = true
@@ -638,7 +657,7 @@ def executePreBuild(Map options)
             withNotifications(title: "Jenkins build configuration", options: options, configuration: NotificationConfiguration.INCREMENT_VERSION) {
                 options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ').replace(', ', '.')
 
-                if (options['incrementVersion']) {
+                if (env.BRANCH_NAME) {
                     withNotifications(title: "Jenkins build configuration", printMessage: true, options: options, configuration: NotificationConfiguration.CREATE_GITHUB_NOTIFICATOR) {
                         GithubNotificator githubNotificator = new GithubNotificator(this, options)
                         githubNotificator.init(options)
@@ -648,23 +667,8 @@ def executePreBuild(Map options)
                     }
                     
                     if (env.BRANCH_NAME == "master" && options.commitAuthor != "radeonprorender") {
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ')
                         println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                        println "[INFO] Current build version: ${options.pluginVersion}"
-
-                        def new_version = version_inc(options.pluginVersion, 3, ', ')
-                        println "[INFO] New build version: ${new_version}"
-                        version_write("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', new_version, ', ')
-
-                        options.pluginVersion = version_read("${env.WORKSPACE}\\BlenderUSDHydraAddon\\src\\hdusd\\__init__.py", '"version": (', ', ', "true").replace(', ', '.')
-                        println "[INFO] Updated build version: ${options.pluginVersion}"
-
-                        bat """
-                            git add src/hdusd/__init__.py
-                            git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                            git push origin HEAD:master
-                        """
+                        options.pluginVersion = increment_version("USD Blender", "Patch", true)
 
                         //get commit's sha which have to be build
                         options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -711,8 +715,16 @@ def executePreBuild(Map options)
                     options.projectBranchName = options.projectBranch
                 }
 
+                def majorVersion = options.pluginVersion.tokenize('.')[0]
+                def minorVersion = options.pluginVersion.tokenize('.')[1]
+                def patchVersion = options.pluginVersion.tokenize('.')[2]
+
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
-                currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+                currentBuild.description += "<b>Version: </b>"
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Major", majorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Minor", minorVersion)
+                currentBuild.description += increment_version.addVersionButton("USD Blender", "Patch", patchVersion)
+                currentBuild.description += "<br/>"
                 currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
                 currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
                 currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
@@ -739,7 +751,7 @@ def executePreBuild(Map options)
                 packageInfo = readJSON file: "jobs/${options.testsPackage}"
                 options.isPackageSplitted = packageInfo["split"]
                 // if it's build of manual job and package can be splitted - use list of tests which was specified in params (user can change list of tests before run build)
-                if (options.forceBuild && options.isPackageSplitted && options.tests) {
+                if (!env.BRANCH_NAME && options.isPackageSplitted && options.tests) {
                     options.testsPackage = "none"
                 }
             }
@@ -812,28 +824,28 @@ def executePreBuild(Map options)
         options.testsList = options.tests
 
         println "timeouts: ${options.timeouts}"
-    }
 
-    // make lists of raw profiles and lists of beautified profiles (displaying profiles)
-    multiplatform_pipeline.initProfiles(options)
+        // make lists of raw profiles and lists of beautified profiles (displaying profiles)
+        multiplatform_pipeline.initProfiles(options)
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
-    }
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
 
-    if (env.BRANCH_NAME && options.githubNotificator) {
-        options.githubNotificator.initChecks(options, "${BUILD_URL}")
-    }
+        if (env.BRANCH_NAME && options.githubNotificator) {
+            options.githubNotificator.initChecks(options, "${BUILD_URL}")
+        }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
-        // if something was merged into master branch it could trigger build in master branch of autojob
-        hybrid_to_blender_workflow.clearOldBranches("BlenderUSDHydraAddon", PROJECT_REPO, options)
-    }
+        if (env.BRANCH_NAME && env.BRANCH_NAME == "master") {
+            // if something was merged into master branch it could trigger build in master branch of autojob
+            hybrid_to_blender_workflow.clearOldBranches("BlenderUSDHydraAddon", PROJECT_REPO, options)
+        }
 
-    if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
-        // rebuild deps if new HybridPro is being tested
-        options["rebuildDeps"] = true
+        if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
+            // rebuild deps if new HybridPro is being tested
+            options["rebuildDeps"] = true
+        }
     }
 }
 
@@ -886,11 +898,15 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
             }
 
             String branchName = env.BRANCH_NAME ?: options.projectBranch
-            boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "Full.json"))
-            boolean saveTrackedMetrics = env.JOB_NAME.contains("Weekly")
-            String metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/${engine}"
+            String metricsRemoteDir
 
-            if (useTrackedMetrics) {
+            if (env.BRANCH_NAME || (env.JOB_NAME.contains("Manual") && options.testsPackageOriginal == "regression.json")) {
+                metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/auto/main/${engine}"
+            } else {
+                metricsRemoteDir = "/volume1/Baselines/TrackedMetrics/USD-BlenderPlugin/weekly/${engine}"
+            }
+
+            if (options.useTrackedMetrics) {
                 utils.downloadMetrics(this, "summaryTestResults/tracked_metrics", "${metricsRemoteDir}/")
             }
             
@@ -938,7 +954,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String en
                         }
                     }
                 }
-                if (saveTrackedMetrics) {
+                if (options.saveTrackedMetrics) {
                     utils.uploadMetrics(this, "summaryTestResults/tracked_metrics", metricsRemoteDir)
                 }
             } catch(e) {
@@ -1061,20 +1077,12 @@ def appendPlatform(String filteredPlatforms, String platform) {
 def call(String projectRepo = PROJECT_REPO,
     String projectBranch = "",
     String testsBranch = "master",
-    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
+    String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,AMD_RX7900XTX,NVIDIA_RTX3080TI,AMD_RX5700XT,AMD_WX9100;Ubuntu20:AMD_RX6700XT',
     Boolean rebuildDeps = false,
     Boolean updateDeps = false,
     String updateRefs = 'No',
-    Boolean enableNotifications = true,
-    Boolean incrementVersion = true,
     String testsPackage = "",
     String tests = "",
-    Boolean forceBuild = false,
-    Boolean splitTestsExecution = true,
-    String resX = '0',
-    String resY = '0',
-    String iter = '50',
-    String threshold = '0.05',
     String customBuildLinkWindows = "",
     String customBuildLinkUbuntu20 = "",
     String customBuildLinkOSX = "",
@@ -1083,7 +1091,8 @@ def call(String projectRepo = PROJECT_REPO,
     String toolVersion = "3.2",
     String mergeablePR = "",
     String parallelExecutionTypeString = "TakeAllNodes",
-    Integer testCaseRetries = 3
+    Integer testCaseRetries = 3,
+    Boolean collectTraces = false
     )
 {
     ProblemMessageManager problemMessageManager = new ProblemMessageManager(this, currentBuild)
@@ -1091,21 +1100,16 @@ def call(String projectRepo = PROJECT_REPO,
     options["stage"] = "Init"
     options["problemMessageManager"] = problemMessageManager
 
-    resX = (resX == 'Default') ? '0' : resX
-    resY = (resY == 'Default') ? '0' : resY
-    iter = (iter == 'Default') ? '50' : iter
-    threshold = (threshold == 'Default') ? '0.05' : threshold
     def nodeRetry = []
     Map errorsInSuccession = [:]
 
+    boolean useTrackedMetrics = (env.JOB_NAME.contains("Weekly") 
+        || (env.JOB_NAME.contains("Manual") && (testsPackage == "Full.json" || testsPackage == "regression.json"))
+        || env.BRANCH_NAME)
+    boolean saveTrackedMetrics = (env.JOB_NAME.contains("Weekly") || (env.BRANCH_NAME && env.BRANCH_NAME == "master"))
+
     try {
         withNotifications(options: options, configuration: NotificationConfiguration.INITIALIZATION) {
-            withNotifications(options: options, configuration: NotificationConfiguration.DELEGATES_PARAM) {
-                if (!enginesNames) {
-                    throw new Exception()
-                }
-            }
-
             if (env.BRANCH_NAME && env.BRANCH_NAME.startsWith(hybrid_to_blender_workflow.BRANCH_NAME_PREFIX)) {
                 enginesNames = "Hybrid"
             }
@@ -1163,7 +1167,6 @@ def call(String projectRepo = PROJECT_REPO,
             println "Platforms: ${platforms}"
             println "Tests: ${tests}"
             println "Tests package: ${testsPackage}"
-            println "Split tests execution: ${splitTestsExecution}"
             println "Tests execution type: ${parallelExecutionType}"
 
             String prRepoName = ""
@@ -1181,30 +1184,23 @@ def call(String projectRepo = PROJECT_REPO,
                         testRepo:"git@github.com:luxteam/jobs_test_usdblender.git",
                         testsBranch:testsBranch,
                         updateRefs:updateRefs,
-                        enableNotifications:enableNotifications,
                         PRJ_NAME:"BlenderUSDHydraPlugin",
                         PRJ_ROOT:"rpr-plugins",
-                        incrementVersion:incrementVersion,
                         rebuildDeps:rebuildDeps,
                         updateDeps:updateDeps,
                         testsPackage:testsPackage,
                         tests:tests,
                         toolVersion:toolVersion,
                         isPreBuilt:isPreBuilt,
-                        forceBuild:forceBuild,
                         reportName:'Test_20Report',
-                        splitTestsExecution:splitTestsExecution,
+                        splitTestsExecution:true,
                         gpusCount:gpusCount,
                         TEST_TIMEOUT:240,
                         ADDITIONAL_XML_TIMEOUT:30,
                         NON_SPLITTED_PACKAGE_TIMEOUT:90,
                         DEPLOY_TIMEOUT:30,
                         BUILDER_TAG:'BuilderHydra',
-                        TESTER_TAG:tester_tag,
-                        resX: resX,
-                        resY: resY,
-                        iter: iter,
-                        threshold: threshold,
+                        TESTER_TAG:tester_tag,,
                         customBuildLinkWindows: customBuildLinkWindows,
                         customBuildLinkUbuntu20: customBuildLinkUbuntu20,
                         customBuildLinkOSX: customBuildLinkOSX,
@@ -1221,8 +1217,15 @@ def call(String projectRepo = PROJECT_REPO,
                         flexibleUpdates: true,
                         skipCallback: this.&filterTests,
                         forceReinstall: true,
-                        testsPackageOriginal: testsPackage
+                        testsPackageOriginal: testsPackage,
+                        collectTraces: collectTraces,
+                        useTrackedMetrics:useTrackedMetrics,
+                        saveTrackedMetrics:saveTrackedMetrics
                         ]
+
+            withNotifications(options: options, configuration: NotificationConfiguration.VALIDATION_FAILED) {
+                validateParameters(options)
+            }
         }
 
         multiplatform_pipeline(platforms, this.&executePreBuild, this.&executeBuild, this.&executeTests, this.&executeDeploy, options)

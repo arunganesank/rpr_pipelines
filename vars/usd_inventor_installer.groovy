@@ -147,20 +147,26 @@ def buildRenderCache(String osName, String toolVersion, Map options, Boolean cle
 
 
 def executeGenTestRefCommand(String osName, Map options, Boolean delete) {
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                bat """
-                    make_results_baseline.bat ${delete} Inventor
-                """
-                break
+    withEnv([
+            "BASELINES_UPDATE_INITIATOR=${baseline_updater_pipeline.getBaselinesUpdateInitiator()}",
+            "BASELINES_ORIGINAL_BUILD=${baseline_updater_pipeline.getBaselinesOriginalBuild(env.JOB_NAME, env.BUILD_NUMBER)}",
+            "BASELINES_UPDATING_BUILD=${baseline_updater_pipeline.getBaselinesUpdatingBuild()}"
+    ]) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    bat """
+                        make_results_baseline.bat ${delete} Inventor
+                    """
+                    break
 
-            case "OSX":
-                println "OSX isn't supported"
-                break
+                case "OSX":
+                    println "OSX isn't supported"
+                    break
 
-            default:
-                println "Linux isn't supported"
+                default:
+                    println "Linux isn't supported"
+            }
         }
     }
 }
@@ -212,6 +218,8 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
+        utils.removeEnvVars(this)
+
         if (env.NODE_NAME == "PC-TESTER-MILAN-WIN10") {
             if (options.tests.contains("CPU") || options.tests.contains("weekly.2") || options.tests.contains("regression.2")) {
                 throw new ExpectedExceptionWrapper(
@@ -242,7 +250,7 @@ def executeTests(String osName, String asicName, Map options) {
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.DOWNLOAD_PREFERENCES) {
             timeout(time: "5", unit: "MINUTES") {
                 String prefsDir = "/mnt/c/Users/${env.USERNAME}/AppData/Roaming/Autodesk/Inventor 2023"
-                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2023/*", prefsDir, "", false)
+                downloadFiles("/volume1/CIS/tools-preferences/Inventor/${osName}/2023/*", prefsDir, "", false, "nasURL", "nasSSHPort", true)
                 bat "reg import \"${prefsDir.replace("/mnt/c", "C:").replace("/", "\\")}\\inventor_window.reg\""
             }
         }
@@ -358,7 +366,9 @@ def executeTests(String osName, String asicName, Map options) {
             withNotifications(title: options["stageName"], printMessage: true, options: options, configuration: NotificationConfiguration.COPY_BASELINES) {
                 String baselineDir = isUnix() ? "${CIS_TOOLS}/../TestResources/usd_inventor_autotests_baselines" : "/mnt/c/TestResources/usd_inventor_autotests_baselines"
                 println "[INFO] Downloading reference images for ${options.tests}"
-                options.tests.split(" ").each { downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir) }
+                options.tests.split(" ").each {
+                    downloadFiles("${REF_PATH_PROFILE}/${it.contains(".json") ? "" : it}", baselineDir, "", true, "nasURL", "nasSSHPort", true)
+                }
             }
             withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.EXECUTE_TESTS) {
                 executeTestCommand(osName, asicName, options)
@@ -383,6 +393,8 @@ def executeTests(String osName, String asicName, Map options) {
         }
     } finally {
         try {
+            utils.removeEnvVars(this)
+
             dir(options.stageName) {
                 utils.moveFiles(this, osName, "../*.log", ".")
                 utils.moveFiles(this, osName, "../scripts/*.log", ".")
@@ -404,20 +416,17 @@ def executeTests(String osName, String asicName, Map options) {
                         }
 
                         println "Stashing test results to : ${options.testResultsName}"
-
                         utils.stashTestData(this, options, options.storeOnNAS)
-                        // reallocate node if there are still attempts
-                        if (sessionReport.summary.total == sessionReport.summary.error + sessionReport.summary.skipped || sessionReport.summary.total == 0) {
-                            if (sessionReport.summary.total != sessionReport.summary.skipped) {
-                                // remove broken usdviewer
-                                removeInstaller(osName: osName, options: options, extension: "zip")
-                                String errorMessage = (options.currentTry < options.nodeReallocateTries) ? "All tests were marked as error. The test group will be restarted." : "All tests were marked as error."
-                                throw new ExpectedExceptionWrapper(errorMessage, new Exception(errorMessage))
-                            }
-                        }
 
                         if (options.reportUpdater) {
                             options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        try {
+                            utils.analyzeResults(this, sessionReport, options)
+                        } catch (e) {
+                            removeInstaller(osName: osName, options: options, extension: "zip")
+                            throw e
                         }
                     }
                 }
@@ -445,69 +454,27 @@ def executeTests(String osName, String asicName, Map options) {
 
 def executeBuildWindows(Map options) {
     withEnv(["PATH=c:\\python37\\;c:\\CMake323\\bin;c:\\python37\\scripts\\;${PATH}", "WORKSPACE=${env.WORKSPACE.toString().replace('\\', '/')}"]) {
-        dir("RPRViewer") {
-            outputEnvironmentInfo("Windows", "${STAGE_NAME}.EnvVariables")
+        dir("RenderStudio") {
+            // build Render Studio installer
+            options.deployEnvironment = "prod"
+            options.rebuildUSD = true
+            options.saveUSD = false
 
-            // vcvars64.bat sets VS/msbuild env
-            withNotifications(title: "Windows", options: options, logUrl: "${BUILD_URL}/artifact/${STAGE_NAME}.HdRPRPlugin.log", configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
-                bat """
-                    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat" >> ${STAGE_NAME}.EnvVariables.log 2>&1
-
-                    RPRViewer\\tools\\build_usd_windows.bat >> ..\\${STAGE_NAME}.USDPixar.log 2>&1
-                """
-
-                bat """
-                    RPRViewer\\tools\\build_hdrpr_windows.bat >> ..\\${STAGE_NAME}.HdRPRPlugin.log 2>&1
-                """
-
-                bat """
-                    RPRViewer\\tools\\build_compatibility_checker_windows.bat >> ..\\${STAGE_NAME}.CompatibilityChecker.log 2>&1
-                """
-            }
-            String buildName = "RadeonProUSDViewer_Windows.zip"
-            withNotifications(title: "Windows", options: options, configuration: NotificationConfiguration.BUILD_PACKAGE_USD_VIEWER)  {
-                // delete files before zipping
-                bat """
-                    del RPRViewer\\binary\\windows\\inst\\pxrConfig.cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\include
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\lib\\cmake
-                    rmdir /Q /S RPRViewer\\binary\\windows\\inst\\lib\\pkgconfig
-                    del RPRViewer\\binary\\windows\\inst\\bin\\*.lib
-                    del RPRViewer\\binary\\windows\\inst\\bin\\*.pdb
-                    del RPRViewer\\binary\\windows\\inst\\lib\\*.lib
-                    del RPRViewer\\binary\\windows\\inst\\lib\\*.pdb
-                    del RPRViewer\\binary\\windows\\inst\\plugin\\usd\\*.lib
-                """
-
-                withEnv(["PYTHONPATH=%INST%\\lib\\python;%INST%\\lib"]) {
-                    bat """
-                        RPRViewer\\tools\\build_package_windows.bat >> ..\\${STAGE_NAME}.USDViewerPackage.log 2>&1
-                    """
-
-                    //TODO: remove after fix
-                    bat """
-                        copy LICENSE.txt RPRViewer\\LICENSE.txt
-                    """
-
-                    dir("RPRViewer") {
-                        bat """
-                            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" installer.iss >> ..\\..\\${STAGE_NAME}.USDViewerInstaller.log 2>&1
-                            move RPRViewer_Setup.exe ..\\..\\RPRViewer_Setup.exe
-                        """
-                    }
-                }
-            }
+            render_studio.patchEngine(options)
+            render_studio.executeBuildWindows(options, false)
         }
 
-        dir("tools") {
-            bat """
-                build_releases.cmd >> ..\\${STAGE_NAME}.BuildReleases.log 2>&1
-            """
-        }
+        utils.moveFiles(this, "Windows", "RenderStudio\\Frontend\\dist_electron\\*.msi", ".")
+        utils.renameFile(this, "Windows", "*.msi", "AMD_RenderStudio.msi")
+
+        utils.reboot(this, "Windows")
 
         bat """
-            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.RPRInventorPluginInstaller.log 2>&1
+            tools\\build_releases.cmd >> ${STAGE_NAME}.BuildReleases.Inventor.log 2>&1
+        """
+
+        bat """
+            "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" rprplugin_installer.iss >> ${STAGE_NAME}.BuildInstaller.Inventor.log 2>&1
         """
 
         makeStash(includes: "RPRInventorPlugin_Setup.exe", name: getProduct.getStashName("Windows", options), preZip: false, storeOnNAS: options.storeOnNAS)
@@ -661,6 +628,8 @@ def executePreBuild(Map options) {
         options.commitSHA = utils.getBatOutput(this, "git log --format=%%H -1 ")
         options.branchName = env.BRANCH_NAME ?: options.projectBranch
 
+        render_studio.saveHybridProLinks(options)
+
         println """
             The last commit was written by ${options.commitAuthor}.
             Commit message: ${options.commitMessage}
@@ -683,20 +652,7 @@ def executePreBuild(Map options) {
                 if (env.BRANCH_NAME == "master" && !options.commitMessage.contains("buildmaster: version update to")) {
 
                     println "[INFO] Incrementing version of change made by ${options.commitAuthor}."
-                    println "[INFO] Current build version: ${options.pluginVersion}"
-
-                    def new_plugin_version = version_inc(options.pluginVersion, 2)
-                    println "[INFO] New build version: ${new_plugin_version}"
-                    version_write("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=', new_plugin_version)
-
-                    options.pluginVersion = version_read("${env.WORKSPACE}\\rprplugin_installer.iss", 'AppVersion=')
-                    println "[INFO] Updated build version: ${options.pluginVersion}"
-
-                    bat """
-                        git add ${env.WORKSPACE}\\rprplugin_installer.iss
-                        git commit -m "buildmaster: version update to ${options.pluginVersion}"
-                        git push origin HEAD:master
-                    """
+                    options.pluginVersion = increment_version("USD Inventor", "Minor", true)
 
                     // Get commit's sha which have to be build
                     options.commitSHA = bat (script: "git log --format=%%H -1 ", returnStdout: true).split('\r\n')[2].trim()
@@ -718,8 +674,14 @@ def executePreBuild(Map options) {
                 options.projectBranchName = options.projectBranch
             }
 
+            def majorVersion = options.pluginVersion.tokenize('.')[0]
+            def minorVersion = options.pluginVersion.tokenize('.')[1]
+
             currentBuild.description = "<b>Project branch:</b> ${options.projectBranchName}<br/>"
-            currentBuild.description += "<b>Version:</b> ${options.pluginVersion}<br/>"
+            currentBuild.description += "<b>Version:</b> "
+            currentBuild.description += increment_version.addVersionButton("USD Inventor", "Major", majorVersion)
+            currentBuild.description += increment_version.addVersionButton("USD Inventor", "Minor", minorVersion)
+            currentBuild.description += "<br/>"
             currentBuild.description += "<b>Commit author:</b> ${options.commitAuthor}<br/>"
             currentBuild.description += "<b>Commit message:</b> ${options.commitMessage}<br/>"
             currentBuild.description += "<b>Commit SHA:</b> ${options.commitSHA}<br/>"
@@ -822,11 +784,11 @@ def executePreBuild(Map options) {
         }
         options.testsList = options.tests
         println "timeouts: ${options.timeouts}"
-    }
 
-    if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
-        options.reportUpdater = new ReportUpdater(this, env, options)
-        options.reportUpdater.init(this.&getReportBuildArgs)
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
     }
 }
 
@@ -995,7 +957,7 @@ def executeDeploy(Map options, List platformList, List testResultList) {
 
 def call(String projectBranch = "",
          String testsBranch = "master",
-         String platforms = 'Windows:AMD_RadeonVII,AMD_RX6800XT,AMD_RX7900XT,NVIDIA_RTX3080TI',
+         String platforms = 'Windows',
          String updateRefs = 'No',
          Boolean enableNotifications = true,
          String testsPackage = "",
