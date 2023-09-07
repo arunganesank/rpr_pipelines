@@ -266,8 +266,8 @@ def prepareTool(String osName, Map options, String executionType = null) {
                 downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
                 unzip(zipFile: "StreamingSDK_Windows.zip")
             } else {
-                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
-                unzip(zipFile: "StreamingSDK_Windows.zip")
+                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "${options.winTestingBuildName}.zip")
 
                 if (options["engine"] == "LatencyTool") {
                     downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
@@ -284,7 +284,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             break
         case "Ubuntu20":
             utils.clearCurrentDir(this, osName)
-            downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Ubuntu20.zip", ".")
+            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
             sh("chmod u+x RemoteGameServer")
             break
