@@ -1,6 +1,6 @@
 def call() {
 
-    String remotePath = "/volume1/Stashes/${env.JOB_NAME}/${env.BUILD_NUMBER}/"
+    String remotePath = "/volume1/Stash/${env.JOB_NAME}/${env.BUILD_NUMBER}/"
 
     try {
         withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST")]) {

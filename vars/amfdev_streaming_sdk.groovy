@@ -7,17 +7,16 @@ import net.sf.json.JsonConfig
 import TestsExecutionType
 
 
-@Field final String PROJECT_REPO = "https://github.amd.com/AMD-Radeon-Driver/drivers"
-@Field final String TESTS_REPO = "https://github.com/arunganesank/jobs_test_streaming_sdk"
+@Field final String PROJECT_REPO = "https://github.com/amfdev/StreamingSDK.git"
+@Field final String TESTS_REPO = "https://github.com/luxteam/jobs_test_streaming_sdk.git"
 @Field final String DRIVER_REPO = "https://github.com/amfdev/AMDVirtualDrivers.git"
 @Field final String AMF_TESTS_REPO = "https://github.com/amfdev/AMFTests.git"
 @Field final Map driverTestsExecuted = new ConcurrentHashMap()
 @Field final List WEEKLY_REGRESSION_CONFIGURATION = ["HeavenDX11", "HeavenOpenGL", "ValleyDX11", "ValleyOpenGL", "Dota2Vulkan"]
-@Field final def SPARSE_CHECKOUT_PATH = ['drivers/amf']
 @Field final String AUTOTESTS_PATH = "drivers/amf/stable/tools/tests/StreamingSDKTests"
 
 @Field final PipelineConfiguration PIPELINE_CONFIGURATION = new PipelineConfiguration(
-    supportedOS: ["Windows", "Android", "Ubuntu20"],
+    supportedOS: ["Windows", "Android", "Ubuntu20", "Ubuntu22"],
     testProfile: "engine",
     displayingProfilesMapping: [
         "engine": [
@@ -32,7 +31,8 @@ import TestsExecutionType
             "Dota2DX11": "Dota2DX11",
             "Dota2Vulkan": "Dota2Vulkan", 
             "LatencyTool": "LatencyTool",
-            "Non3DTestCases": "Non3DTestCases"
+            "Non3DTestCases": "Non3DTestCases",
+            "Paint": "Paint"
         ]
     ]
 )
@@ -44,11 +44,18 @@ Boolean shouldSkipBuild(Map options, String osName) {
 
 
 String getServerLabels(Map options) {
-    return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+    if (options.osName == "Windows" || options.osName == "Android") {
+        return "Windows && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+    } else if (options.osName == "Ubuntu20") {
+        return "Ubuntu20 && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+    } else if (options.osName == "Ubuntu22") {
+        return "Ubuntu22 && ${options.TESTER_TAG} && gpu${options.asicName} && !Disabled"
+    }
+
 }
 
 String getClientLabels(Map options) {
-    return "Windows && ${options.CLIENT_TAG} && !Disabled"
+    return "${options.CLIENT_TAG} && !Disabled"
 }
 
 String getMulticonnectionClientLabels(Map options) {
@@ -191,7 +198,7 @@ Boolean isIdleClient(Map options) {
         result &= devicesAvailable
         // wait when Windows artifact will be built
         return result && (options["finishedBuildStages"]["Windows"] || options.skipBuild.contains("Windows"))
-    } else if (options["osName"] == "Ubuntu20") {
+    } else if (options["osName"] in ["Ubuntu20", "Ubuntu22"]) {
         Boolean firstClientReady = false
 
         // wait client machine
@@ -214,18 +221,25 @@ Boolean isIdleClient(Map options) {
 }
 
 
+String getFlexibleLabels(Map options) {
+    if (options["engine"] == "LatencyTool") {
+        if (options["tests"].startsWith("Gms_")) {
+            return "gpuNvidia"
+        } else {
+            return "gpuAMD"
+        }
+    }
+
+    return ""
+}
+
+
 def getClientScreenWidth(String osName, Map options) {
     try {
-        switch(osName) {
-            case "Windows":
-                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Width", returnStdout: true).split()[-1].trim()
-            case "Ubuntu20":
-                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
+        if (isUnix()) {
+            return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[1]}'", returnStdout: true).trim()
+        } else {
+            return 1920
         }
     } catch (e) {
         println("[ERROR] Failed to get client screen width")
@@ -238,16 +252,10 @@ def getClientScreenWidth(String osName, Map options) {
 
 def getClientScreenHeight(String osName, Map options) {
     try {
-        switch(osName) {
-            case "Windows":
-                return powershell(script: "[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize.Height", returnStdout: true).split()[-1].trim()
-            case "Ubuntu20":
-                return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
-            case "OSX":
-                println("Unsupported OS")
-                break
-            default:
-                println("Unsupported OS")
+        if (isUnix()) {
+            return sh(script: "xdpyinfo | awk '/dimensions/{split(\$2,a,\"x\"); print a[2]}'", returnStdout: true).trim()
+        } else {
+            return 1080
         }
     } catch (e) {
         println("[ERROR] Failed to get client screen height")
@@ -259,34 +267,44 @@ def getClientScreenHeight(String osName, Map options) {
 
 
 def prepareTool(String osName, Map options, String executionType = null) {
+
     switch(osName) {
         case "Windows":
             utils.clearCurrentDir(this, osName)
-            if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
-                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
-                unzip(zipFile: "StreamingSDK_Windows.zip")
-            } else {
-                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
-                unzip(zipFile: "${options.winTestingBuildName}.zip")
+            downloadFiles("/volume1/StreamingSDK/Builds/${options.streamingPathWindows}", ".")
+            unzip(zipFile: options.streamingPathWindows.split("/")[-1])
 
                 if (options["engine"] == "LatencyTool") {
-                    downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
+                    downloadFiles("/volume1/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
+
+                    if (options["tests"].startsWith("Gms_") && executionType == "server") {
+                        downloadFiles("/volume1/StreamingSDK/Builds/latest/LatencyToolNvidiaDll_Windows.zip", ".")
+                        unzip(zipFile: "LatencyToolNvidiaDll_Windows.zip")
+                    }
                 }
-            }
 
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
+            unzip(zipFile: options.streamingPathAndroid.split("/")[-1])
             utils.removeFile(this, "Windows", "app-arm.apk")
             utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
             utils.clearCurrentDir(this, osName)
             makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: "StreamingSDK_Ubuntu20.zip")
-            sh("chmod u+x RemoteGameServer")
+            sh("unzip ${options.streamingPathUbuntu20.split('/')[-1]}")
+            println "[DEBUG] Ubuntu20 Streaming downloaded"
+            sh("chmod u+x RemoteGameServer RemoteGameClient")
+            break
+        case "Ubuntu22":
+            utils.clearCurrentDir(this, osName)
+            makeUnstash(name: "ToolUbuntu20", unzip: false, storeOnNAS: options.storeOnNAS)
+            sh("unzip ${options.streamingPathUbuntu22.split('/')[-1]}")
+            println "[DEBUG] Ubuntu22 Streaming downloaded"
+            sh("chmod u+x RemoteGameServer RemoteGameClient")
+
             break
         case "OSX":
             println("Unsupported OS")
@@ -357,29 +375,49 @@ def runDriverTests(Map options) {
 }
 
 
-def getServerIpAddress(String osName) {
-    switch(osName) {
-        case "Windows":
-            return bat(script: "echo %IP_ADDRESS%",returnStdout: true).split('\r\n')[2].trim()
-            break
-        case "Ubuntu20":
-            return sh(script: "echo \$IP_ADDRESS",returnStdout: true).trim()
-            break
-        default:
-            println("Unsupported OS")
+def getServerIpAddress() {
+    if(isUnix()) {
+        def interfaceName = ""
+        def ipAddressContent = sh script: "ip address show", returnStdout: true
+
+        for(line in ipAddressContent.split("\n")) {
+            if(line.contains("state UP")) {
+                // find line describing a running interface
+                interfaceName = line.split(": ")[1]
+            } else if(interfaceName.startsWith("en") && line.contains("inet ")) {
+                //inet 172.19.140.23/25 brd 172.19.140.127 scope global dynamic noprefixroute eno1 -> 172.19.140.23
+                return line.split()[1].split("/")[0].trim()
+            }
+        }
+    } else {
+        def targetLine
+        def ipConfigContent = bat script: "@ipconfig", returnStdout: true
+        for(line in ipConfigContent.split("\n")) {
+            if(line.contains("IPv4")) {
+                targetLine = line
+            } else if(line.contains("Default Gateway") && !line.split(":")[-1].contains("Default Gateway")) {
+                // check if adapter has a gateway
+                // IPv4 Address. . . . . . . . . . . : 192.168.15.16 -> 192.168.15.16
+                return targetLine.split(":")[-1].trim()
+            }
+        }
     }
 }
 
 
-def getGPUName(String osName) {
+def getGPUName(String osName, Map options) {
     try {
         dir("jobs_launcher") {
             dir("core") {
                 switch(osName) {
                     case "Windows":
-                        return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                        if (options.engine == "LatencyTool") {
+                            return "AMD Radeon RX 6750 XT - GeForce RTX 3080 Ti"
+                        } else {
+                            return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").split('\r\n')[2].trim()
+                        }
                         break
-                    case "Ubuntu20":
+                    case ["Ubuntu20", "Ubuntu22"]:
                         return python3("-c \"from system_info import get_gpu; print(get_gpu())\"").trim()
                         break
                     default:
@@ -402,7 +440,7 @@ def getOSName(String osName) {
                     case "Windows":
                         return python3("-c \"from system_info import get_os; print(get_os())\"").split('\r\n')[2].trim()
                         break
-                    case "Ubuntu20":
+                    case ["Ubuntu20", "Ubuntu22"]:
                         return python3("-c \"from system_info import get_os; print(get_os())\"").trim()
                         break
                     default:
@@ -422,7 +460,7 @@ def getCommunicationPort(String osName) {
         case "Windows":
             return bat(script: "echo %COMMUNICATION_PORT%",returnStdout: true).split('\r\n')[2].trim()
             break
-        case "Ubuntu20":
+        case ["Ubuntu20", "Ubuntu22"]:
             return sh(script: "echo \$COMMUNICATION_PORT",returnStdout: true).trim()
             break
         default:
@@ -479,64 +517,166 @@ def executeTestCommand(String osName, String asicName, Map options, String execu
         collectTraces = options.collectTracesType
     }
 
-    dir("scripts") {
-        switch (osName) {
-            case "Windows":
-                if (executionType == "mcClient") {
-                    bat """
-                        set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
-                    """
-                } else if (executionType == "client") {
-                    if (options.serverInfo.osName.contains("Windows")) {
+    def additionalVariables = []
+
+    if (options.engine == "LatencyTool") {
+        additionalVariables.add("CIS_RENDER_DEVICE=AMD Radeon RX 6750 XT - GeForce RTX 3080 Ti")
+    }
+
+    withEnv(additionalVariables) {
+        dir("scripts") {
+            switch (osName) {
+                case "Windows":
+                    if (executionType == "mcClient") {
                         bat """
                             set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                            run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            run_mc.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
                         """
-                    } else if (options.serverInfo.osName.contains("Ubuntu")) {
-                        bat """
-                            set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                            run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
-                        """
+                    } else if (executionType == "client") {
+                        if (options.serverInfo.osName.contains("Windows")) {
+                            bat """
+                                set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                                run_windows_client_for_windows.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            """
+                        } else if (options.serverInfo.osName.contains("Ubuntu")) {
+                            bat """
+                                set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                                run_windows_client_for_ubuntu.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            """
+                        } else {
+                            throw new Exception("Unknown server OS name ${options.serverInfo.osName}")
+                        }
                     } else {
-                        throw new Exception("Unknown server OS name ${options.serverInfo.osName}")
-                    }
-                } else {
-                    def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
+                        def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
+                        bat """
+                            set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                            run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    }
+
+                    break
+
+                case "Android":
                     bat """
                         set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                        run_windows_server.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
                     """
-                }
 
-                break
+                    break
 
-            case "Android":
-                bat """
-                    set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    run_android.bat \"${testsPackageName}\" \"${testsNames}\" \"${options.engine}\" \"${options.inGameResolution}\" ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\" 2>&1
-                """
+                case ["Ubuntu20", "Ubuntu22"]:
+                    if (executionType == "client") {
+                        // TODO: make more clear division between win and ubu clients
+                        if (options["serverInfo"]["serverOSName"] == "Windows") {
+                            sh """
+                                set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                                ./run_ubuntu_client_for_windows.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            """
+                        } else {
+                            sh """
+                                set COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                                ./run_ubuntu_client_for_ubuntu.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${options.serverInfo.gpuName}\" \"${options.serverInfo.osName}\" \"${options.engine}\" ${collectTraces} ${options.collectStreamingDump} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                            """
+                        }
+                    } else {
+                        def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
 
-                break
+                        sh """
+                            export COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
+                            ./run_ubuntu_server.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
+                        """
+                    }
 
-            case "Ubuntu20":
-                def screenResolution = "${options.clientInfo.screenWidth}x${options.clientInfo.screenHeight}"
+                    break
 
-                sh """
-                    export COLLECT_INTERNAL_DRIVER_VERSION=${options.collectInternalDriverVersion}
-                    ./run_ubuntu_server.sh \"${testsPackageName}\" \"${testsNames}\" \"${options.serverInfo.ipAddress}\" \"${options.serverInfo.communicationPort}\" \"${screenResolution}\" \"${options.engine}\" ${collectTraces} 1>> \"../${options.stageName}_${options.currentTry}_${executionType}.log\"  2>&1
-                """
-                break
-
-            default:
-                println "Linux isn't supported"
+                default:
+                    println "Linux isn't supported"
+            }
         }
     }
 }
 
 
 def saveResults(String osName, Map options, String executionType, Boolean stashResults, Boolean executeTestsFinished) {
+    if (options.engine == "LatencyTool") {
+        utils.reboot(this, osName)
+    }
+
+    String stashPostfix = "_${executionType}"
+
+    List clientsKeys = ["client", "mcClient"]
+
+    if (executionType == "server" || executionType == "android") {
+        for (key in clientsKeys) {
+            String infoKeyName = "${key}Info"
+
+            if (!options[infoKeyName]) {
+                continue
+            }
+
+            while (!options[infoKeyName]["stashed"]) {
+                if (options[infoKeyName]["exception"]) {
+                    def exception = options[infoKeyName]["exception"]
+                    throw new Exception("${key} was failed with exception ${exception.toString()}: ${exception.getMessage()}")
+                }
+
+                sleep(5)
+            }
+        }
+
+        println("All clients stashed results. Start results merge")
+
+        if (!options.testResultsName.contains("Android")) {
+            // in case of non-Android test cases move server data in other directory
+            dir("Work") {
+                makeStash(includes: '**/*.json', name: "${options.testResultsName}_server_data", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+            }
+            dir("serverTestResults") {
+                makeUnstash(name: "${options.testResultsName}_server_data", storeOnNAS: options.storeOnNAS)
+            }
+
+            if (options.testResultsName.endsWith(options.engine)) {
+                List testNameParts = options.testResultsName.split("-") as List
+                String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
+
+                dir("Work") {
+                    try {
+                        makeUnstash(name: "${options.testResultsName}_client_artifacts", storeOnNAS: options.storeOnNAS)
+                        makeUnstash(name: "${options.testResultsName}_client_data", storeOnNAS: options.storeOnNAS)
+                    } catch (e) {
+                        println "[ERROR] Failed to unstash ${options.testResultsName}_client_artifacts: ${e.toString()}"
+                    }
+                }
+
+                if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (options.testResultsName.split("-")[3].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
+                    try {
+                        dir("Work") {
+                            makeUnstash(name: "${options.testResultsName}_mcClient_artifacts", storeOnNAS: options.storeOnNAS)
+                        }
+                        dir("secondClientTestResults") {
+                            makeUnstash(name: "${options.testResultsName}_mcClient_data", storeOnNAS: options.storeOnNAS)
+                        }
+                    } catch (e) {
+                        println "[ERROR] Failed to unstash ${options.testResultsName}_mcClient_artifacts: ${e.toString()}"
+                    }
+                }
+            }
+        }
+
+        try {
+            dir("scripts") {
+                if (isUnix()) {
+                    python3("unite_case_results.py --target_dir \"../Work\" --source_dir \"../serverTestResults\" --second_client_dir \"../secondClientTestResults\"")
+                } else {
+                    python3("unite_case_results.py --target_dir \"..\\Work\" --source_dir \"..\\serverTestResults\" --second_client_dir \"..\\secondClientTestResults\"")
+                }
+            }
+        } catch (e) {
+            println "[ERROR] Can't unite server and client test results"
+        }
+    }
+
     try {
         dir(options.stageName) {
             utils.moveFiles(this, osName, "../*.log", ".")
@@ -551,16 +691,7 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                 if (fileExists("Results/StreamingSDK/session_report.json")) {
                     def sessionReport = readJSON file: "Results/StreamingSDK/session_report.json"
 
-                    if (executionType == "client" || executionType == "android") {
-                        String stashPostfix = executionType == "client" ? "_client" : ""
-
-                        println "Stashing all test results to : ${options.testResultsName}${stashPostfix}"
-                        makeStash(includes: '**/*', name: "${options.testResultsName}${stashPostfix}", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                    } else if (executionType == "mcClient") {
-                         println "Stashing results of multiconnection client"
-                        makeStash(includes: '**/*_second_client.html,**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_sec_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                        makeStash(includes: '**/*.json', name: "${options.testResultsName}_sec_cl_j", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                    } else {
+                    if (executionType == "server" || executionType == "android") {
                         if (sessionReport.summary.error > 0) {
                             GithubNotificator.updateStatus("Test", options['stageName'], "action_required", options, NotificationConfiguration.SOME_TESTS_ERRORED, "${env.BUILD_URL}")
                         } else if (sessionReport.summary.failed > 0) {
@@ -569,14 +700,19 @@ def saveResults(String osName, Map options, String executionType, Boolean stashR
                             GithubNotificator.updateStatus("Test", options['stageName'], "success", options, NotificationConfiguration.ALL_TESTS_PASSED, "${env.BUILD_URL}")
                         }
 
-                        println "Stashing logs to : ${options.testResultsName}_server"
-                        makeStash(includes: '**/*log,**/*html', name: "${options.testResultsName}_serv_l", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                        makeStash(includes: '**/*.json', name: "${options.testResultsName}_server", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                        makeStash(includes: '**/*.jpg,**/*.webp,**/*.mp4', name: "${options.testResultsName}_and_cl", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                        makeStash(includes: '**/*_server.zip', name: "${options.testResultsName}_ser_t", allowEmpty: true, storeOnNAS: options.storeOnNAS)
-                    }
+                        utils.stashTestData(this, options, options.storeOnNAS)
 
-                    utils.analyzeResults(this, sessionReport, options, 0.5)
+                        if (options.reportUpdater) {
+                            options.reportUpdater.updateReport(options.engine)
+                        }
+
+                        utils.analyzeResults(this, sessionReport, options, 0.5)
+                    } else {
+                        // save results to merge them on the server
+                        makeStash(includes: '**/*log,**/*html,**/*.jpg,**/*.webp,**/*.mp4,**/*.zip', name: "${options.testResultsName}${stashPostfix}_artifacts", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        makeStash(includes: '**/*.json', name: "${options.testResultsName}${stashPostfix}_data", allowEmpty: true, storeOnNAS: options.storeOnNAS)
+                        options["${executionType}Info"]["stashed"] = true
+                    }
                 }
             }
         }
@@ -600,8 +736,6 @@ def prepareLatencyToolEnvironment() {
             bat """
                 taskkill /f /im \"anydesk.exe\"
                 taskkill /f /im \"anydesk.exe\"
-                taskkill /f /im \"pservice.exe\"
-                taskkill /f /im \"parsecd.exe\"
                 taskkill /f /im \"steam.exe\"
             """
         } catch (e) {
@@ -616,18 +750,22 @@ def executeTestsClient(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-
-        try {
-            bat "taskkill /im adb.exe /f"
-        } catch (e) {
+        if (!isUnix()) {
+            try {
+                bat "taskkill /im adb.exe /f"
+            } catch (e) {
+            }
         }
-
 
         if (options.tests.contains("AMD_Link") || options.engine == "LatencyTool") {
             utils.reboot(this, osName)
         }
 
-        timeout(time: "30", unit: "MINUTES") {
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
+        }
+
+        timeout(time: "10", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
@@ -648,9 +786,16 @@ def executeTestsClient(String osName, String asicName, Map options) {
 
         timeout(time: "10", unit: "MINUTES") {
             dir("jobs_launcher/install"){
-                bat """
-                    install_pylibs.bat
-                """
+                if (isUnix()) {
+                    sh """
+                        chmod u+x install_pylibs.sh
+                        ./install_pylibs.sh
+                    """
+                } else {
+                    bat """
+                        install_pylibs.bat
+                    """
+                }
             }
 
             if (options.projectBranch && !options.skipBuild.contains("Windows")) {
@@ -741,6 +886,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
             utils.reboot(this, osName)
         }
 
+        if (options.engine == "LatencyTool") {
+            prepareLatencyToolEnvironment()
+        }
+
         withNotifications(title: options["stageName"], options: options, logUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
             timeout(time: "30", unit: "MINUTES") {
                 if (!options.skipBuild.contains(osName)) {
@@ -800,10 +949,10 @@ def executeTestsServer(String osName, String asicName, Map options) {
             }
         }
 
-        options["serverInfo"]["ipAddress"] = getServerIpAddress(osName)
+        options["serverInfo"]["ipAddress"] = getServerIpAddress()
         println("[INFO] IPv4 address of server: ${options.serverInfo.ipAddress}")
 
-        options["serverInfo"]["gpuName"] = getGPUName(osName)
+        options["serverInfo"]["gpuName"] = getGPUName(osName, options)
         println("[INFO] Name of GPU on server machine: ${options.serverInfo.gpuName}")
 
         options["serverInfo"]["osName"] = getOSName(osName)
@@ -1079,8 +1228,6 @@ def executeTestsAndroid(String osName, String asicName, Map options) {
             }
         }
 
-        initAndroidDevice()
-
         withNotifications(title: options["stageName"], options: options, configuration: NotificationConfiguration.INSTALL_PLUGIN) {
             timeout(time: "10", unit: "MINUTES") {
                 dir("jobs_launcher/install"){
@@ -1133,9 +1280,10 @@ def executeTests(String osName, String asicName, Map options) {
     Boolean stashResults = true
 
     try {
-        if (osName == "Windows" || osName == "Ubuntu20") {
+        if (osName == "Windows" || osName == "Ubuntu20" || osName == "Ubuntu22") {
             options["clientInfo"] = new ConcurrentHashMap()
             options["serverInfo"] = new ConcurrentHashMap()
+            options["serverInfo"]["serverOSName"] = osName
             options["mcClientInfo"] = new ConcurrentHashMap()
 
             println("[INFO] Start Client and Server processes for ${asicName}-${osName}")
@@ -1147,7 +1295,14 @@ def executeTests(String osName, String asicName, Map options) {
                     timeout(time: options.TEST_TIMEOUT, unit: "MINUTES") {
                         ws("WS/${options.PRJ_NAME}_Test") {
                             dir(AUTOTESTS_PATH) {
-                                executeTestsClient("Windows", asicName, options)
+                                def nodeName = env.NODE_NAME
+                                if (nodeName.contains("UBU20") || nodeName.contains("UBUNTU20")) {
+                                    executeTestsClient("Ubuntu20", asicName, options)
+                                } else if (nodeName.contains("UBU22") || nodeName.contains("UBUNTU22")) {
+                                    executeTestsClient("Ubuntu22", asicName, options)
+                                } else {
+                                    executeTestsClient("Windows", asicName, options)
+                                }
                             }
                         }
                     }
@@ -1401,7 +1556,7 @@ def executeBuildUbuntu(Map options) {
     String logName = "${STAGE_NAME}.log"
 
     dir("StreamingSDK/drivers/amf/public/src/components/ComponentsFFMPEG") {
-        GithubNotificator.updateStatus("Build", "Ubuntu20", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logName}")
+        GithubNotificator.updateStatus("Build", "Ubuntu", "in_progress", options, NotificationConfiguration.BUILD_SOURCE_CODE_START_MESSAGE, "${env.BUILD_URL}/artifact/${logName}")
 
         sh """
             make >> ../../../../../../../${logName} 2>&1
@@ -1426,7 +1581,7 @@ def executeBuildUbuntu(Map options) {
     }
 
     dir("StreamingSDK/amf/bin/dbg_64") {
-        String BUILD_NAME = "StreamingSDK_Ubuntu20.zip"
+        String BUILD_NAME = "StreamingSDK_Ubuntu.zip"
         
         sh("cp ../../bin/wirelessvr/build/lnx64a/B_dbg/libawvrrt64.so.1.4.10 libawvrrt64.so.1")
 
@@ -1438,7 +1593,7 @@ def executeBuildUbuntu(Map options) {
         rtp nullAction: "1", parserName: "HTML", stableText: """<h3><a href="${archiveUrl}">[BUILD: ${BUILD_ID}] ${BUILD_NAME}</a></h3>"""
     }
 
-    GithubNotificator.updateStatus("Build", "Ubuntu20", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
+    GithubNotificator.updateStatus("Build", "Ubuntu", "success", options, NotificationConfiguration.BUILD_SOURCE_CODE_END_MESSAGE)
 }
 
 
@@ -1466,7 +1621,7 @@ def executeBuild(String osName, Map options) {
                 case "Android":
                     executeBuildAndroid(options)
                     break
-                case "Ubuntu20":
+                case ["Ubuntu20", "Ubuntu22"]:
                     executeBuildUbuntu(options)
                     break
                 case "OSX":
@@ -1503,7 +1658,7 @@ def executePreBuild(Map options) {
 
     options["finishedBuildStages"]["Windows"] = true
     options["finishedBuildStages"]["Android"] = true
-    options["finishedBuildStages"]["Ubuntu20"] = true
+    options["finishedBuildStages"]["Ubuntu"] = true
 
 
     Boolean collectTraces = (options.clientCollectTraces || options.serverCollectTraces)
@@ -1511,7 +1666,7 @@ def executePreBuild(Map options) {
     if (options.projectBranch) {
         dir ("StreamingSDK") {
             checkoutScm(branchName: options.projectBranch, repositoryUrl: options.projectRepo, credentialsId: "SDKJenkinsAutomation", SparseCheckoutPaths: [AUTOTESTS_PATH], disableSubmodules: true)
-
+        
             if (options.projectBranch) {
                 currentBuild.description = "<b>Project branch:</b> ${options.projectBranch}<br/>"
             } else {
@@ -1699,6 +1854,7 @@ def executePreBuild(Map options) {
         }
 
         options["driverVersion"] = getProposedDriverVersion(options.driverIdentificator, "Windows", "preBuild").trim()
+        options["streamingTools"] = areLatencyTests(options.testsList)
 
         // make lists of raw profiles and lists of beautified profiles (displaying profiles)
         multiplatform_pipeline.initProfiles(options)
@@ -1710,6 +1866,11 @@ def executePreBuild(Map options) {
                 GithubNotificator.createStatus('Test', "Driver tests", 'queued', options, 'Scheduled', "${env.JOB_URL}")
             }
         }
+
+        if (options.flexibleUpdates && multiplatform_pipeline.shouldExecuteDelpoyStage(options)) {
+            options.reportUpdater = new ReportUpdater(this, env, options)
+            options.reportUpdater.init(this.&getReportBuildArgs)
+        }
     }
 }
 
@@ -1717,7 +1878,6 @@ def executePreBuild(Map options) {
 def executeDeploy(Map options, List platformList, List testResultList, String game) {
     dir(AUTOTESTS_PATH) {
         try {
-
             if (options["executeTests"] && testResultList) {
                 withNotifications(title: "Building test report for ${game}", options: options, startUrl: "${env.BUILD_URL}", configuration: NotificationConfiguration.DOWNLOAD_TESTS_REPO) {
                     dir("../../../../../..") {
@@ -1727,136 +1887,33 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                 List lostStashesWindows = []
                 List lostStashesAndroid = []
+                List lostStashesUbuntu = []
+
                 dir("summaryTestResults") {
                     testResultList.each {
                         Boolean groupLost = false
 
                         if (it.endsWith(game)) {
                             List testNameParts = it.split("-") as List
-
                             String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-                            dir(testName.replace("testResult-", "")) {
-                                if (it.contains("Android")) {
-                                    try {
-                                        makeUnstash(name: "${it}", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}
-                                            ${e.toString()}
-                                        """
 
-                                        lostStashesAndroid << ("'${it}'".replace("testResult-", ""))
-                                    }
-                                } else {
-                                    try {
-                                        makeUnstash(name: "${it}_serv_l", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}_serv_l
-                                            ${e.toString()}
-                                        """
-
-                                        groupLost = true
-                                    }
-
-                                    if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[3].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
-                                        try {
-                                            makeUnstash(name: "${it}_sec_cl", storeOnNAS: options.storeOnNAS)
-                                        } catch (e) {
-                                            println """
-                                                [ERROR] Failed to unstash ${it}_sec_cl
-                                                ${e.toString()}
-                                            """
-                                        }
-                                    }
-
-                                    try {
-                                        makeUnstash(name: "${it}_client", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}_client
-                                            ${e.toString()}
-                                        """
-
-                                        groupLost = true
-                                    }
-
-                                    try {
-                                        makeUnstash(name: "${it}_and_cl", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}_and_cl
-                                            ${e.toString()}
-                                        """
-                                    }
-
-                                    try {
-                                        makeUnstash(name: "${it}_ser_t", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}_ser_t
-                                            ${e.toString()}
-                                        """
-                                    }
-
-                                    if (groupLost) {
-                                        lostStashesWindows << ("'${it}'".replace("testResult-", ""))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                dir("serverTestResults") {
-                    testResultList.each {
-                        if (it.endsWith(game)) {
-                            List testNameParts = it.split("-") as List
-
-                            String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
                             dir(testName.replace("testResult-", "")) {
                                 try {
-                                    makeUnstash(name: "${it}_server", storeOnNAS: options.storeOnNAS)
+                                    makeUnstash(name: "${it}", storeOnNAS: options.storeOnNAS)
                                 } catch (e) {
-                                    println """
-                                        [ERROR] Failed to unstash ${it}_server
-                                        ${e.toString()}
-                                    """
-                                }
-                            }
-                        }
-                    }
-                }
+                                    println "[ERROR] Failed to unstash ${it} ${e.toString()}"
 
-                dir("secondClientTestResults") {
-                    testResultList.each {
-                        if (it.endsWith(game)) {
-                            List testNameParts = it.split("-") as List
-
-                            String testName = testNameParts.subList(0, testNameParts.size() - 1).join("-")
-
-                            if (options.multiconnectionConfiguration.second_win_client.any { testGroup -> (it.split("-")[3].split() as List).contains(testGroup) } || testName.contains("regression.1.json~") || testName.contains("regression.3.json~")) {
-                                dir(testName.replace("testResult-", "")) {
-                                    try {
-                                        makeUnstash(name: "${it}_sec_cl_j", storeOnNAS: options.storeOnNAS)
-                                    } catch (e) {
-                                        println """
-                                            [ERROR] Failed to unstash ${it}_sec_cl_j
-                                            ${e.toString()}
-                                        """
+                                    if (it.contains("Windows")) {
+                                        lostStashesWindows << ("'${it}'".replace("testResult-", ""))
+                                    } else if (it.contains("Android")) {
+                                        lostStashesAndroid << ("'${it}'".replace("testResult-", ""))
+                                    } else {
+                                        lostStashesUbuntu << ("'${it}'".replace("testResult-", ""))
                                     }
                                 }
                             }
                         }
                     }
-                }
-
-                try {
-                    dir ("scripts") {
-                        python3("unite_case_results.py --target_dir \"..\\summaryTestResults\" --source_dir \"..\\serverTestResults\" --second_client_dir \"..\\secondClientTestResults\"")
-                    }
-                } catch (e) {
-                    println "[ERROR] Can't unite server and client test results"
                 }
 
                 try {
@@ -1886,7 +1943,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
 
                     dir("jobs_launcher") {
                         bat """
-                            count_lost_tests.bat \"${lostStashesAndroid}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
+                            count_lost_tests.bat \"${lostStashesUbuntu}\" .. ..\\summaryTestResults \"${options.splitTestsExecution}\" \"${options.testsPackage}\" \"[]]\" \"${game}\" \"{}\"
                         """
                     }
                 } catch (e) {
@@ -1941,7 +1998,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                                 // FIXME: save reports on NAS
                                 utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                                     "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
-                                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                                    ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
                                 options.testDataSaved = true 
                             } catch (e1) {
                                 println """
@@ -2014,7 +2071,7 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
                     // FIXME: save reports on NAS
                     utils.publishReport(this, "${env.BUILD_URL}", "summaryTestResults", "summary_report.html, compare_report.html", \
                         "Test Report ${game}", "Summary Report, Compare Report", options.storeOnNAS, \
-                        ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName])
+                        ["jenkinsBuildUrl": env.BUILD_URL, "jenkinsBuildName": currentBuild.displayName, "updatable": options.containsKey("reportUpdater")])
 
                     if (summaryTestResults) {
                         GithubNotificator.updateStatus("Deploy", "Building test report for ${game}", "success", options,
@@ -2032,6 +2089,23 @@ def executeDeploy(Map options, List platformList, List testResultList, String ga
             utils.generateOverviewReport(this, this.&getReportBuildArgs, options)
         }
     }
+}
+
+
+def areLatencyTests(tests) {
+    def isLatencyGroup = true
+
+    tests.each { test ->
+        if (!test.contains("Latency")) {
+            isLatencyGroup = false
+        }
+    }
+
+    if (isLatencyGroup) {
+        println("[INFO] Latency tests detected")
+    }
+
+    return isLatencyGroup
 }
 
 
@@ -2080,7 +2154,7 @@ def call(String projectBranch = "",
 
             if (projectBranch) {
                 // Anroid and Ubuntu tests required built Windows Streaming SDK to run server side
-                if ((platforms.contains("Android:") || platforms.contains("Ubuntu20:")) && !platforms.contains("Windows")) {
+                if ((platforms.contains("Android:") || platforms.contains("Ubuntu:")) && !platforms.contains("Windows")) {
                     platforms = platforms + ";Windows"
 
                     winBuildConfiguration = "release"
@@ -2121,6 +2195,8 @@ def call(String projectBranch = "",
                 //Driver development is on hold
                 //isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
 
+                isDevelopBranch = (branchName == "origin/develop" || branchName == "develop")
+
                 if (tests.startsWith("FS_") || tests.contains(" FS_")) {
                     executeBuild = false
                 }
@@ -2128,8 +2204,20 @@ def call(String projectBranch = "",
                 executeBuild = false
             }
 
-            String firstClientTag = "StreamingSDKClient"
-            String secondClientTag = "StreamingSDKClient"
+            String[] tagParts = clientTags.split(";")
+            String firstClientMachine = ""
+            String secondClientMachine = ""
+
+            if (tagParts.size() > 0) {
+                firstClientMachine = tagParts[0]
+            }
+
+            if (tagParts.size() == 2) {
+                secondClientMachine = tagParts[1]
+            }
+
+            String firstClientTag = firstClientMachine ? "StreamingSDKClient && (${firstClientMachine})" : "StreamingSDKClient"
+            String secondClientTag = secondClientMachine ? "StreamingSDKClient && (${secondClientMachine})" : "StreamingSDKClient"
 
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
@@ -2166,6 +2254,7 @@ def call(String projectBranch = "",
                         serverCollectTraces:serverCollectTraces,
                         collectTracesType:collectTracesType,
                         storeOnNAS: storeOnNAS,
+                        flexibleUpdates: storeOnNAS,
                         finishedBuildStages: new ConcurrentHashMap(),
                         isDevelopBranch: isDevelopBranch,
                         collectInternalDriverVersion: collectInternalDriverVersion ? 1 : 0,
@@ -2174,6 +2263,7 @@ def call(String projectBranch = "",
                         inGameResolution: inGameResolution,
                         executeTests: true,
                         skipBuildCallback: this.&shouldSkipBuild,
+                        getFlexibleLabels: this.&getFlexibleLabels,
                         parallelExecutionType:TestsExecutionType.valueOf("TakeAllNodes"),
                         retriesForTestStage:2,
                         collectStreamingDump:collectStreamingDump,

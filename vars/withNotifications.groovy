@@ -90,6 +90,18 @@ def call(Map blockOptions, Closure code) {
                     }
                 }
 
+                if (exception["getCauseMessage"] && e.getCause()) {
+                    exceptionFound = false
+                    if (e.getCause().getMessage()) {
+                        for (message in exception["getCauseMessage"]) {
+                            if (e.getCause().getMessage().contains(message)) {
+                                exceptionFound = true
+                                break
+                            }
+                        }
+                    }
+                }
+
                 if (exceptionFound) {
                     // reboot machine if it's necessary
                     if (exception.containsKey("rebootConfiguration")) {

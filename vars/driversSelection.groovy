@@ -7,6 +7,7 @@ import groovy.transform.Field
 
 
 def updateDriver(driverIdentificator, osName, computer, driverVersion, logPath = ""){
+    Boolean newerDriverInstalled = false
     if (!logPath) {
         logPath = "${env.WORKSPACE}\\drivers\\amf\\stable\\tools\\tests\\StreamingSDKTests"
     }
@@ -15,10 +16,11 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion, logPath =
         try {
             switch(osName) {
                 case "Windows":
-                    if (driverVersion != getCurrentDriverVersion()) {
+                    if(driverVersion != getCurrentDriverVersion()) {
                         def setupDir = downloadDriverOnWindows(driverIdentificator, computer)
-                        installDriverOnWindows(driverIdentificator, computer, setupDir, logPath)
+                        newerDriverInstalled = installDriverOnWindows(driverIdentificator, computer, setupDir, logPath, driverVersion)
                     } else {
+                        newerDriverInstalled = true
                         println("Proposed driver is already installed")
                     }
                     break
@@ -33,6 +35,7 @@ def updateDriver(driverIdentificator, osName, computer, driverVersion, logPath =
             println(e.getMessage());
         }
     }
+    return newerDriverInstalled
 }
 
 def downloadDriverOnWindows(String driverIdentificator, computer) {
@@ -50,8 +53,12 @@ def downloadDriverOnWindows(String driverIdentificator, computer) {
         utils.unzip(this, "${archiveName}")
 
         // make path to setup directory
-        def parts = archiveName.split("_")
-        setupDir = setupDir + "\\" + parts[0] + "_" + parts[1]
+        if (driverIdentificator.contains("StreamingSDK")) {
+            def parts = archiveName.split("_")
+            setupDir = setupDir + "\\" + parts[0] + "_" + parts[1]
+        } else {
+            setupDir = "Bin64"
+        }
     } else if (driverIdentificator ==~ REVISION_NUMBER_PATTERN) {
         // public driver download
         bat "${CIS_TOOLS}\\driver_detection\\amd_request.bat \"${DRIVER_PAGE_URL}\" page.html >> page_download_${computer}.log 2>&1 "
@@ -86,7 +93,8 @@ def downloadDriverOnWindows(String driverIdentificator, computer) {
 }
 
 
-def installDriverOnWindows(String driverIdentificator, computer, setupDir, logPath) {
+def installDriverOnWindows(String driverIdentificator, computer, setupDir, logPath, driverVersion) {
+    Boolean newerDriverInstalled = false
     try {
         bat("start cmd.exe /k \"C:\\Python39\\python.exe ${CIS_TOOLS}\\driver_detection\\skip_warning_window.py && exit 0\"")
         println("[INFO] ${driverIdentificator} driver was found. Trying to install on ${computer}...")
@@ -102,9 +110,13 @@ def installDriverOnWindows(String driverIdentificator, computer, setupDir, logPa
         }
     }
 
-    println("[INFO] ${driverIdentificator} driver was installed on ${computer}")
-    newerDriverInstalled = true
+    if(driverVersion == getCurrentDriverVersion()) {
+        println("[INFO] ${driverIdentificator} driver was installed on ${computer}")
+        newerDriverInstalled = true
+    }
     utils.reboot(this, isUnix() ? "Unix" : "Windows")
+
+    return newerDriverInstalled
 }
 
 
@@ -121,10 +133,21 @@ def getCurrentDriverVersion() {
 
 
 def call(String driverIdentificator = "", String osName, String computer, String driverVersion) {
-    // check if driverIdentificator was given
-    if (driverIdentificator) { 
-        updateDriver(driverIdentificator, osName, computer, driverVersion)
-    } else {
+    Boolean installationResult = false
+    if(driverIdentificator == "") {
+        // check if driverIdentificator was given
         println("[INFO] Parameter driverIdentificator was not set.")
+        return
+    }
+
+    for(int i=0; i < 1; i++) {
+        // additional attempt to install the driver if it was not installed
+        installationResult = updateDriver(driverIdentificator, osName, computer, driverVersion)
+
+        if(installationResult) {
+            break
+        } else if(!installationResult && i == 1) {
+            throw new Exception("After two attempts driver was not installed")
+        }
     }
 }

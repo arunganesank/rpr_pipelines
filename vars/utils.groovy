@@ -146,7 +146,15 @@ class utils {
         }
     }
 
-    static def publishReport(Object self, String buildUrl, String reportDir, String reportFiles, String reportName, String reportTitles = "", Boolean publishOnNAS = false, Map nasReportInfo = [:]) {
+    static def publishReport(Object self,
+                             String buildUrl,
+                             String reportDir,
+                             String reportFiles,
+                             String reportName,
+                             String reportTitles = "",
+                             Boolean publishOnNAS = false,
+                             Map nasReportInfo = [:],
+                             Boolean publishReportLink = true) {
         Map params
 
         String redirectReportName = "redirect_report.html"
@@ -190,15 +198,17 @@ class utils {
             // TODO: jenkinsBuildName param is legacy and must be removed
             jenkinsBuildName = "#${self.env.BUILD_NUMBER} (Priority: ${getBuildPriority(self)})"
 
-            self.dir(reportDir) {
-                if (self.isUnix()) {
-                    // copy the necessary font file
-                    self.sh(script: 'cp $CIS_TOOLS/templates/Klavika-Regular.ttf Klavika-Regular.ttf')
-                    self.sh(script: '$CIS_TOOLS/make_wrapper_page.sh ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
-                } else {
-                    // copy the necessary font file
-                    self.bat(script: 'copy %CIS_TOOLS%\\templates\\Klavika-Regular.ttf Klavika-Regular.ttf')
-                    self.bat(script: '%CIS_TOOLS%\\make_wrapper_page.bat ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
+            if (publishReportLink) {
+                self.dir(reportDir) {
+                    if (self.isUnix()) {
+                        // copy the necessary font file
+                        self.sh(script: 'cp $CIS_TOOLS/templates/Klavika-Regular.ttf Klavika-Regular.ttf')
+                        self.sh(script: '$CIS_TOOLS/make_wrapper_page.sh ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
+                    } else {
+                        // copy the necessary font file
+                        self.bat(script: 'copy %CIS_TOOLS%\\templates\\Klavika-Regular.ttf Klavika-Regular.ttf')
+                        self.bat(script: '%CIS_TOOLS%\\make_wrapper_page.bat ' + " \"${jenkinsBuildUrl}\" \"${jenkinsBuildName}\" \"${links}\" \"${linksTitles}\" \"${reportName}\" \".\" \"${wrapperReportName}\"")
+                    }
                 }
             }
 
@@ -210,7 +220,7 @@ class utils {
                     self.makeStash(includes: '**/*', name: "report", allowEmpty: true, customLocation: remotePath, preZip: true, postUnzip: true, storeOnNAS: true)
                 }
             }
-            
+
             self.dir("redirect_links") {
                 if (self.isUnix()) {
                     self.sh(script: '$CIS_TOOLS/make_redirect_page.sh ' + " \"${authReportLinkBase}${wrapperReportName}\" \".\" \"${redirectReportName}\"")
@@ -218,12 +228,12 @@ class utils {
                     self.bat(script: '%CIS_TOOLS%\\make_redirect_page.bat ' + " \"${authReportLinkBase}${wrapperReportName}\"  \".\" \"${redirectReportName}\"")
                 }
             }
-            
+
             def updateReportFiles = []
             reportFiles.split(",").each() { reportFile ->
                 updateReportFiles << reportFile.trim().replace("/", "_")
             }
-            
+
             updateReportFiles = updateReportFiles.join(", ")
 
             params = [allowMissing: false,
@@ -247,7 +257,7 @@ class utils {
             }
         }
 
-        if (!nasReportInfo.containsKey("updatable") || !nasReportInfo["updatable"]) {
+        if ((!nasReportInfo.containsKey("updatable") || !nasReportInfo["updatable"]) && publishReportLink) {
             self.publishHTML(params)
             /*try {
                 self.httpRequest(
@@ -612,12 +622,12 @@ class utils {
                     break
                 case "OSX":
                     self.sh """
-                        (sleep 2; sudo reboot) &
+                        sudo reboot &
                     """
                 // Ubuntu
                 default:
                     self.sh """
-                        (sleep 2; sudo reboot) &
+                        sudo reboot &
                     """
             }
 
@@ -681,7 +691,7 @@ class utils {
 
     static def generateOverviewReport(Object self, def buildArgsFunc, Map options) {
         // do not build an overview report for builds with only one test profile
-        if (options.containsKey("testProfiles") && options["testProfiles"].size() > 1) {
+        if (options.containsKey("testProfiles") && options["testProfiles"].size() > 1 || options.streamingTools) {
             self.withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: 'jenkinsCredentials', usernameVariable: 'JENKINS_USERNAME', passwordVariable: 'JENKINS_PASSWORD']]) {
                 try {
                     String publishedReportName = getPublishedReportName("Test_Report")
@@ -740,10 +750,19 @@ class utils {
 
                     if (allReportsExists) {
                         self.dir("jobs_launcher") {
-                            self.withEnv(["BUILD_NAME=${options.baseBuildName}"]) {
-                                self.bat """
-                                    build_overview_reports.bat ..\\OverviewReport ${locations} ${self.JENKINS_USERNAME}:${self.JENKINS_PASSWORD} ${buildScriptArgs}
-                                """
+                            Boolean showGPUViewTraces = options.clientCollectTraces || options.serverCollectTraces
+
+                            self.withEnv(["BUILD_NAME=${options.baseBuildName}", "SHOW_GPUVIEW_TRACES=${showGPUViewTraces}"]) {
+                                // TODO: change to script call with parameters
+                                if (options.streamingTools) {
+                                    self.bat """
+                                        build_overview_reports_streaming_tools.bat ..\\OverviewReport ${locations} ${self.JENKINS_USERNAME}:${self.JENKINS_PASSWORD} ${buildScriptArgs} ${options.streamingTools}
+                                    """
+                                } else {
+                                    self.bat """
+                                        build_overview_reports.bat ..\\OverviewReport ${locations} ${self.JENKINS_USERNAME}:${self.JENKINS_PASSWORD} ${buildScriptArgs}
+                                    """
+                                }
                             }
                         }
 
@@ -753,6 +772,40 @@ class utils {
                     }
                 }
             }
+        }
+    }
+
+    static def updateOverviewReport(Object self, def buildArgsFunc, Map options) {
+        // do not update an overview report for builds with only one test profile
+        // current implementation support only reports stored on NAS
+        if (options.storeOnNAS && options.containsKey("testProfiles") && options["testProfiles"].size() > 1) {
+            // take only first 4 arguments: tool name, commit sha, project branch name and commit message
+            String buildScriptArgs = (buildArgsFunc("", options).split() as List).subList(0, 4).join(" ")
+
+            String locations = ""
+
+            Boolean allReportsExists = true
+
+            for (profile in options["testProfiles"].reverse()) {
+                self.withCredentials([self.string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
+                    locations = locations ?
+                        "${locations}::${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}" :
+                        "${self.REMOTE_URL}/${self.env.JOB_NAME}/${self.env.BUILD_NUMBER}/Test_Report_${profile}"
+                }
+            }
+
+            self.dir("jobs_launcher") {
+                self.withEnv(["BUILD_NAME=${options.baseBuildName}"]) {
+                    // user and password aren't required, use stub
+                    self.bat """
+                        build_overview_reports.bat ..\\Test_Report ${locations} user:password ${buildScriptArgs}
+                    """
+                }
+            }
+
+            publishReport(self, "${self.env.BUILD_URL}", "Test_Report", "summary_report.html", \
+                "Test Report", "Summary Report (Overview)", options.storeOnNAS, \
+                ["jenkinsBuildUrl": self.env.BUILD_URL, "jenkinsBuildName": self.currentBuild.displayName], false)
         }
     }
 

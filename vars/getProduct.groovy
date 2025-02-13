@@ -58,6 +58,12 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
             } else {
                 unzip zipFile: "${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}", dir: unpackDestination, quiet: true
             }
+        } else if (extension == "7z") {
+            if (isUnix()) {
+                sh("7z x \"${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}\" -o${unpackDestination} -y")
+            } else {
+                bat("${CIS_TOOLS}\\7-Zip\\7z.exe x \"${CIS_TOOLS}/../PluginsBinaries/${options[identificatorKey]}.${extension}\" -o${unpackDestination} -y")
+            }
         } else {
             throw new Exception("Unexpected extension '${extension}'")
         }
@@ -78,6 +84,12 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
             }
         } else if (extension == "zip") {
             unzip zipFile: "${options[identificatorKey]}.${extension}", dir: unpackDestination, quiet: true
+        } else if (extension == "7z") {
+            if (isUnix()) {
+                sh("7z x ${options[identificatorKey]}.${extension} -o${unpackDestination} -y")
+            } else {
+                bat("${CIS_TOOLS}\\7-Zip\\7z.exe x ${options[identificatorKey]}.${extension} -o${unpackDestination} -y")
+            }
         } else {
             throw new Exception("Unexpected extension '${extension}'")
         }
@@ -85,13 +97,13 @@ def unpack(String unpackDestination, String identificatorKey, String extension, 
 }
 
 
-def call(String osName, Map options, String unpackDestination = "", Boolean cacheInstaller = true, Integer oneTryTimeout=90) {
+def call(String osName, Map options, String unpackDestination = "", Boolean cacheInstaller = true, Integer oneTryTimeout=90, String productName = "") {
     if (!options["configuration"].supportedOS.contains(osName)) {
         throw new Exception("Unsupported OS")
     }
 
-    String identificatorKey = getIdentificatorKey(osName, options)
-    String stashName = getStashName(osName, options)
+    String identificatorKey = getIdentificatorKey(productName ? "${osName}${productName}" : osName, options)
+    String stashName = getStashName(productName ? "${osName}${productName}" : osName, options)
 
     String extension = options["configuration"]["productExtensions"][osName]
     // the name of the artifact without OS name / version. It must be same for any OS / version
@@ -117,7 +129,7 @@ def call(String osName, Map options, String unpackDestination = "", Boolean cach
             }
 
             println "[INFO] The product does not exist in the storage. Downloading and copying..."
-            downloadPlugin(osName, options, "", oneTryTimeout)
+            downloadPlugin(osName, options, "", oneTryTimeout, productName)
 
             saveDownloadedInstaller(artifactNameBase, extension, options[identificatorKey], cacheInstaller)
 

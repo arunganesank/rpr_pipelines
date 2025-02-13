@@ -1,20 +1,28 @@
-def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=120) {
+def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=120, Boolean useExternalNasAddress) {
     Integer currentTry = 0
     while (currentTry++ < tries) {
         println("[INFO] Try to download plugin through curl (try #${currentTry})")
         try {
             timeout(time: oneTryTimeout, unit: "SECONDS") {
-                withCredentials([string(credentialsId: "nasURLFrontend", variable: "NAS_URL"),
-                    string(credentialsId: "nasInternalIP", variable: "NAS_IP")]) {
-
+                if (useExternalNasAddress) {
                     if (isUnix()) {
-                        sh """
-                            ${curlCommand.replace(NAS_URL, NAS_IP)}
-                        """
+                        sh(script: curlCommand)
                     } else {
-                        bat """
-                            ${curlCommand.replace(NAS_URL, NAS_IP)}
-                        """
+                        bat(script: curlCommand)
+                    }
+                } else {
+                    withCredentials([string(credentialsId: "nasURLFrontend", variable: "NAS_URL"),
+                        string(credentialsId: "nasInternalIP", variable: "NAS_IP")]) {
+
+                        if (isUnix()) {
+                            sh """
+                                ${curlCommand.replace(NAS_URL, NAS_IP)}
+                            """
+                        } else {
+                            bat """
+                                ${curlCommand.replace(NAS_URL, NAS_IP)}
+                            """
+                        }
                     }
                 }
             }
@@ -29,7 +37,7 @@ def runCurl(String curlCommand, Integer tries=5, Integer oneTryTimeout=120) {
 }
 
 
-def call(String osName, Map options, String credentialsId = '', Integer oneTryTimeout = 120) {
+def call(String osName, Map options, String credentialsId = '', Integer oneTryTimeout = 120, String pluginName = "") {
     String customBuildLink = ""
     String extension = options["configuration"]["productExtensions"][osName]
     // the name of the artifact without OS name / version. It must be same for any OS / version
@@ -37,26 +45,29 @@ def call(String osName, Map options, String credentialsId = '', Integer oneTryTi
 
     switch(osName) {
         case 'Windows':
-            customBuildLink = options['customBuildLinkWindows']
+            customBuildLink = options["customBuildLinkWindows${pluginName}"]
             break
         case 'OSX':
-            customBuildLink = options['customBuildLinkOSX']
+            customBuildLink = options["customBuildLinkOSX${pluginName}"]
             break
         case 'MacOS':
-            customBuildLink = options['customBuildLinkMacOS']
+            customBuildLink = options["customBuildLinkMacOS${pluginName}"]
             break
         case 'MacOS_ARM':
-            customBuildLink = options['customBuildLinkMacOSARM']
+            customBuildLink = options["customBuildLinkMacOSARM${pluginName}"]
             break
         case 'Ubuntu':
-            customBuildLink = options['customBuildLinkLinux']
+            customBuildLink = options["customBuildLinkLinux${pluginName}"]
             break
         case 'Ubuntu18':
-            customBuildLink = options['customBuildLinkUbuntu18']
+            customBuildLink = options["customBuildLinkUbuntu18${pluginName}"]
+            break
+         case 'Ubuntu22':
+            customBuildLink = options["customBuildLinkUbuntu22${pluginName}"]
             break
         // Ubuntu20
         default:
-            customBuildLink = options['customBuildLinkUbuntu20']
+            customBuildLink = options["customBuildLinkUbuntu20${pluginName}"]
     }
 
     print "[INFO] Used specified pre built plugin."
@@ -98,5 +109,5 @@ def call(String osName, Map options, String credentialsId = '', Integer oneTryTi
     def pluginSha = sha1 "${artifactNameBase}_${osName}.${extension}"
     println "Downloaded plugin sha1: ${pluginSha}"
 
-    options[getProduct.getIdentificatorKey(osName, options)] = pluginSha
+    options[getProduct.getIdentificatorKey(pluginName ? "${osName}${pluginName}" : osName, options)] = pluginSha
 }
