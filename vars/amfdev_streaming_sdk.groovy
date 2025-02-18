@@ -1386,7 +1386,7 @@ def executeBuildWindows(Map options) {
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
-        String buildSln = "StreamingSDK_All_vs2019.sln"
+        String buildSln = "StreamingSDK_All_vs2022.sln"
         String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
