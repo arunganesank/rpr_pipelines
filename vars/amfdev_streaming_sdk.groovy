@@ -272,19 +272,19 @@ def prepareTool(String osName, Map options, String executionType = null) {
     switch(osName) {
         case "Windows":
             utils.clearCurrentDir(this, osName)
-            downloadFiles("/volume1/StreamingSDK/Builds/${options.streamingPathWindows}", ".")
-            unzip(zipFile: options.streamingPathWindows.split("/")[-1])
+            if (options.tests.startsWith("FS_") || options.tests.contains(" FS_")) {
+                downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/StreamingSDK_Windows.zip", ".")
+                unzip(zipFile: "StreamingSDK_Windows.zip")
+            } else {
+                makeUnstash(name: "ToolWindows", unzip: false, storeOnNAS: options.storeOnNAS)
+                unzip(zipFile: "${options.winTestingBuildName}.zip")
 
                 if (options["engine"] == "LatencyTool") {
-                    downloadFiles("/volume1/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
+                    downloadFiles("/volume1/CIS/StreamingSDK/Builds/latest/LatencyTool_Windows.zip", ".")
                     unzip(zipFile: "LatencyTool_Windows.zip")
-
-                    if (options["tests"].startsWith("Gms_") && executionType == "server") {
-                        downloadFiles("/volume1/StreamingSDK/Builds/latest/LatencyToolNvidiaDll_Windows.zip", ".")
-                        unzip(zipFile: "LatencyToolNvidiaDll_Windows.zip")
-                    }
                 }
-
+            }
+            
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
