@@ -1372,7 +1372,7 @@ def executeTests(String osName, String asicName, Map options) {
 }
 
 
-def executeBuildWindows(Map options) {
+def executeBuildWindows(Map options, String osName) {
     dir("StreamingSDK\\drivers\\amf") {
         bat "git submodule update --recursive --init ."
     }
@@ -1381,16 +1381,16 @@ def executeBuildWindows(Map options) {
 
         println "Current build configuration: ${winBuildConf}."
 
-        String winBuildName = "${winBuildConf}_vs2019"
+        String winBuildName = "${winBuildConf}_vs2022"
         String logName = "${STAGE_NAME}.${winBuildName}.log"
         String logNameDriver = "${STAGE_NAME}.${winBuildName}.driver.log"
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
         String buildSln = "StreamingSDK_All_vs2022.sln"
-        String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
-        String winArtifactsDir = "vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String msBuildPath = bat(script: "echo %VS2022_PATH%",returnStdout: true).split('\r\n')[2].trim()
+        String winArtifactsDir = "vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
-        String winLatencyToolDir = "amf/bin/vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String winLatencyToolDir = "amf/bin/vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
 
         if (options.isDevelopBranch) {
             dir("AMDVirtualDrivers") {
@@ -1617,7 +1617,7 @@ def executeBuild(String osName, Map options) {
         withNotifications(title: osName, options: options, configuration: NotificationConfiguration.BUILD_SOURCE_CODE) {
             switch(osName) {
                 case "Windows":
-                    executeBuildWindows(options)
+                    executeBuildWindows(options, osName)
                     break
                 case "Android":
                     executeBuildAndroid(options)
@@ -2115,7 +2115,7 @@ def call(String projectBranch = "",
     String platforms = "Windows:AMD_RX6700XT;Android:AMD_RX6700XT",
     String clientTags = "PC-TESTER-VILNIUS-WIN10",
     String winBuildConfiguration = "release,debug",
-    String winTestingBuildName = "release_vs2019",
+    String winTestingBuildName = "release_vs2022",
     String testsPackage = "regression.json",
     String tests = "",
     String desktopTesterTag = "StreamingSDK",
@@ -2159,7 +2159,7 @@ def call(String projectBranch = "",
                     platforms = platforms + ";Windows"
 
                     winBuildConfiguration = "release"
-                    winTestingBuildName = "release_vs2019"
+                    winTestingBuildName = "release_vs2022"
                 }
 
                 winTestingDriverName = winTestingBuildName ? winTestingBuildName.split("_")[0] : ""
