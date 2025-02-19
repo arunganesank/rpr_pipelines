@@ -766,7 +766,7 @@ def executeTestsClient(String osName, String asicName, Map options) {
             prepareLatencyToolEnvironment()
         }
 
-        timeout(time: "10", unit: "MINUTES") {
+        timeout(time: "30", unit: "MINUTES") {
             if (!options.skipBuild.contains("Windows")) {
                 cleanWS(osName)
             } else {
