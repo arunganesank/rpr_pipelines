@@ -1387,7 +1387,8 @@ def executeBuildWindows(Map options, String osName) {
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
         String buildSln = "StreamingSDK_All_vs2022.sln"
-        String msBuildPath = bat(script: "echo %VS2022_PATH%",returnStdout: true).split('\r\n')[2].trim()
+        // TODO: set VS2022_PATH env var on server and change msBuildPath
+        String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winLatencyToolDir = "amf/bin/vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
@@ -2205,20 +2206,8 @@ def call(String projectBranch = "",
                 executeBuild = false
             }
 
-            String[] tagParts = clientTags.split(";")
-            String firstClientMachine = ""
-            String secondClientMachine = ""
-
-            if (tagParts.size() > 0) {
-                firstClientMachine = tagParts[0]
-            }
-
-            if (tagParts.size() == 2) {
-                secondClientMachine = tagParts[1]
-            }
-
-            String firstClientTag = firstClientMachine ? "StreamingSDKClient && (${firstClientMachine})" : "StreamingSDKClient"
-            String secondClientTag = secondClientMachine ? "StreamingSDKClient && (${secondClientMachine})" : "StreamingSDKClient"
+            String firstClientTag = "StreamingSDKClient"
+            String secondClientTag = "StreamingSDKClient"
 
             options << [configuration: PIPELINE_CONFIGURATION,
                         projectRepo: PROJECT_REPO,
