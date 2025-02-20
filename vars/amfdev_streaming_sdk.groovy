@@ -1231,10 +1231,10 @@ def executeBuildWindows(Map options) {
         String logNameLatencyTool = "${STAGE_NAME}.${winBuildName}.latency_tool.log"
 
         String buildSln = "StreamingSDK_All_vs2022.sln"
-        String msBuildPath = bat(script: "echo %VS2019_PATH%",returnStdout: true).split('\r\n')[2].trim()
+        String msBuildPath = bat(script: "echo %VS2022_PATH%",returnStdout: true).split('\r\n')[2].trim()
         String winArtifactsDir = "vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
         String winDriverDir = "x64/${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
-        String winLatencyToolDir = "amf/bin/vs2019x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
+        String winLatencyToolDir = "amf/bin/vs2022x64${winBuildConf.substring(0, 1).toUpperCase() + winBuildConf.substring(1).toLowerCase()}"
 
         if (options.isDevelopBranch) {
             dir("AMDVirtualDrivers") {
@@ -1277,7 +1277,7 @@ def executeBuildWindows(Map options) {
                 dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2022.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
