@@ -1509,8 +1509,8 @@ def executeBuildAndroid(Map options) {
         bat "git submodule update --recursive --init ."
     }
 
-    // withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
     withEnv([]) {
+        // current Java version is 17 it is added to PATH on the server machine
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
             println "Current build configuration: ${androidBuildConf}."
