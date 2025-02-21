@@ -1529,7 +1529,7 @@ def executeBuildAndroid(Map options) {
 
                 String archiveUrl = ""
 
-                dir("app/build/outputs/apk/arm/${androidBuildConf}") {
+                dir("app/build/outputs/apk/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
                     zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
