@@ -1509,7 +1509,8 @@ def executeBuildAndroid(Map options) {
         bat "git submodule update --recursive --init ."
     }
 
-    withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
+    // withEnv(["PATH=C:\\Program Files\\Java\\jdk1.8.0_271\\bin;C:\\Program Files\\Java\\jdk1.8.0_241\\bin;${PATH}"]) {
+    withEnv([]) {
         options.androidBuildConfiguration.each() { androidBuildConf ->
 
             println "Current build configuration: ${androidBuildConf}."
