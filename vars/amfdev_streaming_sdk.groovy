@@ -290,7 +290,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
             unzip(zipFile: options.streamingPathAndroid.split("/")[-1])
             utils.removeFile(this, "Windows", "app-arm.apk")
-            utils.renameFile(this, "Windows", "app-arm-${options.androidTestingBuildName}.apk", "app-arm.apk")
+            utils.renameFile(this, "Windows", "app-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
         case "Ubuntu20":
             utils.clearCurrentDir(this, osName)
@@ -1532,7 +1532,7 @@ def executeBuildAndroid(Map options) {
                 dir("app/build/outputs/apk/${androidBuildConf}") {
                     String BUILD_NAME = "StreamingSDK_Android_${androidBuildName}.zip"
 
-                    zip archive: true, zipFile: BUILD_NAME, glob: "app-arm-${androidBuildConf}.apk"
+                    zip archive: true, zipFile: BUILD_NAME, glob: "app-${androidBuildConf}.apk"
 
                     if (options.androidTestingBuildName == androidBuildConf) {
                         utils.moveFiles(this, "Windows", BUILD_NAME, "android_${options.androidTestingBuildName}.zip")
