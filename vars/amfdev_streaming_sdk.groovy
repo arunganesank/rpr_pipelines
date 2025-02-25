@@ -288,7 +288,7 @@ def prepareTool(String osName, Map options, String executionType = null) {
             break
         case "Android":
             makeUnstash(name: "ToolAndroid", unzip: false, storeOnNAS: options.storeOnNAS)
-            unzip(zipFile: options.streamingPathAndroid.split("/")[-1])
+            unzip(zipFile: "android_${options.androidTestingBuildName}.zip")
             utils.removeFile(this, "Windows", "app-arm.apk")
             utils.renameFile(this, "Windows", "app-${options.androidTestingBuildName}.apk", "app-arm.apk")
             break
