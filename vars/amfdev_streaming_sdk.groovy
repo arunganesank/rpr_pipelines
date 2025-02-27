@@ -1434,7 +1434,7 @@ def executeBuildWindows(Map options, String osName) {
                 dir("drivers\\amf\\stable\\protected\\samples") {
                     bat """
                         set msbuild="${msBuildPath}"
-                        %msbuild% LatancyTest_vs2019.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
+                        %msbuild% LatancyTest_vs2022.sln /target:build /maxcpucount /nodeReuse:false /property:Configuration=${winBuildConf};Platform=x64 >> ..\\..\\..\\..\\..\\..\\${logNameLatencyTool} 2>&1
                     """
                 }
 
