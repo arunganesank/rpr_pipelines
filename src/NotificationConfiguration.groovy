@@ -19,6 +19,15 @@ public class NotificationConfiguration {
         ]
     ]
 
+    def static HYBRIDPRO_PERF_HISTORY_NOT_FOUND = [
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Required HybirdPro perf history not found. Please, use HybridPro commit that has tested by HybridPro-SDK-Auto in the master branch.", 
+                "rethrow": ExceptionThrowType.RETHROW, "scope": ProblemMessageManager.SPECIFIC
+            ]
+        ]
+    ]
+
     def static INITIALIZATION = [
         "exceptions": [
             [
@@ -36,6 +45,12 @@ public class NotificationConfiguration {
                 "class": Exception, "problemMessage": "Merge conflict detected. Please, contact the developers.",
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
                 "getMessage": ["Not mergeable"], "abort": true,
+                "githubNotification": ["status": "failure"]
+            ],
+            [
+                "class": Exception, "problemMessage": "Some submodule commits are missing. Please, contact the developers.",
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC,
+                "getCauseMessage": ["it did not contain"], "abort": true,
                 "githubNotification": ["status": "failure"]
             ],
             [
@@ -330,6 +345,17 @@ public class NotificationConfiguration {
             [
                 "class": Exception, "problemMessage": "Failed to download tests repository.", 
                 "rethrow": ExceptionThrowType.THROW_IN_WRAPPER, "scope": ProblemMessageManager.SPECIFIC
+            ]
+        ]
+    ]
+
+    def static PREPARE_DRIVERS = [
+        "begin": ["message": "Preparing drivers."],
+
+        "exceptions": [
+            [
+                "class": Exception, "problemMessage": "Failed to prepare drivers.", 
+                "rethrow": ExceptionThrowType.THROW_IN_WRAPPER,
             ]
         ]
     ]
@@ -766,6 +792,8 @@ public class NotificationConfiguration {
     def static FAILED_FT_TESTS = "Some functional tests were marked as failed"
 
     def static FAILED_UNIT_TESTS = "Some unit tests were marked as failed"
+
+    def static SOME_SCENARIOS_CRASHED = "Some scenarios crashed"
 
 
     // messages for validation problems

@@ -9,6 +9,7 @@ public class ReportUpdater {
     def env
     def options
     def reportType
+    def jobsLauncherPath
 
     // locks for each report (to prevent updating of report by two parallel branches of build)
     Map locks = [:]
@@ -25,6 +26,7 @@ public class ReportUpdater {
         this.env = env
         this.options = options
         this.reportType = reportType
+        this.jobsLauncherPath = options.containsKey("jobsLauncherPath") ? options["jobsLauncherPath"] : "jobs_launcher"
     }
 
     /**
@@ -42,7 +44,7 @@ public class ReportUpdater {
             context.string(credentialsId: "matLibUrl", variable: "MATLIB_URL")
         ]) {
             String testRepo = options.testRepo.contains("git@github.com:") ? options.testRepo.replace("git@github.com:", "https://github.com/") : options.testRepo
-            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${testRepo} ${options.testsBranch} ")
+            context.bat('%CIS_TOOLS%\\clone_test_repo.bat' + ' %REMOTE_HOST% %SSH_PORT%' + " ${remotePath} ${testRepo} ${options.testsBranch} ${jobsLauncherPath}")
             matLibUrl = context.MATLIB_URL
         }
 
@@ -62,6 +64,8 @@ public class ReportUpdater {
                 throw Exception("Unknown report type: ${reportType}")
         }
 
+        String publishReportFiles = options.containsKey("reportFiles") ? options["reportFiles"] : "summary_report.html, performance_report.html, compare_report.html"
+        String publishReportTitles = options.containsKey("reportTitles") ? options["reportTitles"] : "Summary Report, Performance Report, Compare Report"
 
         if (options.testProfiles) {
             options.testProfiles.each { profile ->
@@ -75,23 +79,24 @@ public class ReportUpdater {
 
                 String reportName = "Test Report ${profileName}"
 
-                if (options.testProfiles.size() > 1) {
+                if (options.testProfiles.size() > 1  || options.streamingTools) {
                     // publish, but do not create links to reports (they'll be accessible through overview report)
-                    context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                        reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                    context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", publishReportFiles, \
+                        reportName, publishReportTitles, options.storeOnNAS, \
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName, "updatable": true])
                 } else {
                     // pass links for builds with only one profile
-                    context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                        reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+                    context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", publishReportFiles, \
+                        reportName, publishReportTitles, options.storeOnNAS, \
                         ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
                 }
 
                 String rebuildScriptCopy = rebuiltScript
 
                 rebuildScriptCopy = rebuildScriptCopy.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
-                    .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(profileName, options)) \
-                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                    .replace("<report_path>", ("../" * (jobsLauncherPath.split("/").length + 1)) + reportName.replace(" ", "_")) \
+                    .replace("<build_script_args>", buildArgsFunc(profileName, options)) \
+                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", context.env.JENKINS_URL) \
                     .replace("<matlib_url>", matLibUrl)
 
                 // replace DOS EOF by Unix EOF
@@ -99,7 +104,7 @@ public class ReportUpdater {
 
                 context.writeFile(file: "update_report_${profile}.sh", text: rebuildScriptCopy)
 
-                context.uploadFiles("update_report_${profile}.sh", "${remotePath}/jobs_test_repo/jobs_launcher")
+                context.uploadFiles("update_report_${profile}.sh", "${remotePath}/jobs_test_repo/${jobsLauncherPath}")
 
                 locks[profile] = new AtomicBoolean(false)
 
@@ -113,7 +118,8 @@ public class ReportUpdater {
             }
 
             // do not build an overview report for builds with only one profile
-            if (options.testProfiles.size() > 1) {
+            // exception: StreamingSDK Latency reports
+            if (options.testProfiles.size() > 1 || options.streamingTools) {
                 context.println("[INFO] Publish overview report")
 
                 // add overview report
@@ -123,20 +129,26 @@ public class ReportUpdater {
                     reportName, reportFilesNames, options.storeOnNAS, \
                     ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
 
-                rebuiltScript = context.libraryResource(resource: "update_overview_report_template.sh")
+                if (options.streamingTools) {
+                    rebuiltScript = context.libraryResource(resource: "update_overview_latency_report_template.sh")
+                } else {
+                    rebuiltScript = context.libraryResource(resource: "update_overview_report_template.sh")
+                }
+
                 // take only first 4 arguments: tool name, commit sha, project branch name and commit message
                 String buildScriptArgs = (buildArgsFunc("", options ).split() as List).subList(0, 4).join(" ")
 
                 rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
-                    .replace("<report_name>", reportName.replace(" ", "_")).replace("<locations>", locations).replace("<build_script_args>", buildScriptArgs) \
-                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL).replace("<credentials>", "none")
+                    .replace("<report_path>", ("../" * (jobsLauncherPath.split("/").length + 1)) + reportName.replace(" ", "_")) \
+                    .replace("<locations>", locations).replace("<build_script_args>", buildScriptArgs) \
+                    .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", context.env.JENKINS_URL).replace("<credentials>", "none")
 
                 // replace DOS EOF by Unix EOF
                 rebuiltScript = rebuiltScript.replaceAll("\r\n", "\n")
 
                 context.writeFile(file: "update_report.sh", text: rebuiltScript)
 
-                context.uploadFiles("update_report.sh", "${remotePath}/jobs_test_repo/jobs_launcher")
+                context.uploadFiles("update_report.sh", "${remotePath}/jobs_test_repo/${jobsLauncherPath}")
 
                 locks["default"] = new AtomicBoolean(false)
 
@@ -145,13 +157,13 @@ public class ReportUpdater {
         } else {
             String reportName = "Test Report"
 
-            context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", "summary_report.html, performance_report.html, compare_report.html", \
-                reportName, "Summary Report, Performance Report, Compare Report" , options.storeOnNAS, \
+            context.utils.publishReport(context, "${context.BUILD_URL}", "summaryTestResults", publishReportFiles, \
+                reportName, publishReportTitles, options.storeOnNAS, \
                 ["jenkinsBuildUrl": context.BUILD_URL, "jenkinsBuildName": context.currentBuild.displayName])
 
             rebuiltScript = rebuiltScript.replace("<jobs_started_time>", options.JOB_STARTED_TIME).replace("<build_name>", options.baseBuildName) \
-                .replace("<report_name>", reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(options)) \
-                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", env.JENKINS_URL) \
+                .replace("<report_path>", ("../" * (jobsLauncherPath.split("/").length + 1)) + reportName.replace(" ", "_")).replace("<build_script_args>", buildArgsFunc(options)) \
+                .replace("<build_id>", env.BUILD_ID).replace("<job_name>", env.JOB_NAME).replace("<jenkins_url>", context.env.JENKINS_URL) \
                 .replace("<matlib_url>", matLibUrl)
 
             // replace DOS EOF by Unix EOF
@@ -159,7 +171,7 @@ public class ReportUpdater {
 
             context.writeFile(file: "update_report.sh", text: rebuiltScript)
 
-            context.uploadFiles("update_report.sh", "${remotePath}/jobs_test_repo/jobs_launcher")
+            context.uploadFiles("update_report.sh", "${remotePath}/jobs_test_repo/${jobsLauncherPath}")
 
             locks["default"] = new AtomicBoolean(false)
 
@@ -175,7 +187,7 @@ public class ReportUpdater {
      */
     def updateReport(String profile = "", Boolean updateOverviewReport = true) {
         String lockKey = profile ?: "default"
-        String remotePath = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/jobs_test_repo/jobs_launcher".replace(" ", "_")
+        String remotePath = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/jobs_test_repo/${jobsLauncherPath}".replace(" ", "_")
 
         try {
             if (locks[lockKey].compareAndSet(false, true)) {
@@ -201,7 +213,7 @@ public class ReportUpdater {
             locks[lockKey].getAndSet(false)
         }
 
-        if (profile && options.testProfiles.size() > 1 && updateOverviewReport) {
+        if (profile && (options.testProfiles.size() > 1 || options.streamingTools) && updateOverviewReport) {
             // update overview report
             updateReport()
         }

@@ -4,8 +4,17 @@ def shoudBreakRetries(labels) {
 }
 
 def abortOldBuilds(Map options) {
-    if (env.JOB_NAME.contains("Auto") && options.containsKey("abortOldAutoBuilds") && options["abortOldAutoBuilds"]) {
-        if (currentBuild.getNextBuild()) {
+    if (env.CHANGE_URL) {
+        String[] jobParts = env.JOB_NAME.split("/")
+        def item = Jenkins.instance
+
+        for (part in jobParts) {
+            item = item.getItem(part)
+        }
+
+        def lastBuild = item.lastBuild
+
+        if (lastBuild.number > (env.BUILD_NUMBER as int)) {
             currentBuild.build().@result = Result.fromString("ABORTED")
             throw new Exception("Aborted by new commit")
         }
@@ -48,7 +57,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
         tries = maxNumberOfRetries
     }
 
-    Boolean successCurrentNode = false
+    Boolean successCurrentNode = false   
 
     String title = ""
     if (stageName == "Build") {
@@ -62,6 +71,11 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
     }
 
     String statusCheckStageName = options.containsKey("customStageName") ? options["customStageName"] : stageName
+
+    // add flexible labels if it's necessary
+    String combinedLabels = labels
+
+    boolean preconditionFailed = false
 
     for (int i = 0; i < tries; i++) {
         successCurrentNode = false
@@ -83,46 +97,83 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                     labelsParts.removeAt(labelsParts.size() - 1)
                     labels = labelsParts.join("&&")
                     tries = i + 2
+                    println("Do last try")
                     continue
                 }
             }
 
-            // check that there is some condition which should be true before take node
-            if (stageName == "Test" && options.containsKey("testsPreCondition")) {
-                while (!options["testsPreCondition"](options)) {
-                    sleep(60)
-                }
-            }
-
-            // check that there is some condition which should be true before take node
-            if (stageName == "Deploy" && options.containsKey("deployPreCondition")) {
-                while (!options["deployPreCondition"](options)) {
-                    sleep(60)
-                }
-            }
-
-            node(labels) {
-                timeout(time: "${stageTimeout}", unit: 'MINUTES') {
-                    String stageNameWS = stageName == "PreBuild" ? "Build" : stageName
-
-                    ws("WS/${options.PRJ_NAME}_${stageNameWS}") {
-                        abortOldBuilds(options)
-
-                        nodeName = env.NODE_NAME
-                        retringFunction(nodesList, i)
-                        successCurrentNode = true
-
-                        if (stageName != 'Test' && options.problemMessageManager) {
-                            options.problemMessageManager.clearErrorReasons(stageName, osName) 
-                        }
-
-                        if (stageName == 'Build') {
-                            if (options.containsKey("finishedBuildStages")) {
-                                options["finishedBuildStages"][osName] = [successfully: true]
-                            }
-                        }
+            try {
+                if (stageName == "Test" && options.containsKey("testsPreCondition")) {
+                    while (!options["testsPreCondition"](options)) {
+                        sleep(60)
                     }
                 }
+
+                if (stageName == "Deploy" && options.containsKey("deployPreCondition")) {
+                    while (!options["deployPreCondition"](options)) {
+                        sleep(60)
+                    }
+                }
+            } catch (e) {
+                preconditionFailed = true
+                throw e
+            }
+
+            if (options.containsKey("getFlexibleLabels")) {
+                String flexibleLabels = options["getFlexibleLabels"](options)
+                if (flexibleLabels) {
+                    combinedLabels += " && ${flexibleLabels}"
+                }
+            }
+
+            abortOldBuilds(options)
+
+            def findNode = {
+                node(combinedLabels) {
+                    try {
+                        timeout(time: "${stageTimeout}", unit: 'MINUTES') {
+                            String stageNameWS = stageName == "PreBuild" ? "Build" : stageName
+
+                            ws("WS/${options.PRJ_NAME}_${stageNameWS}") {
+                                abortOldBuilds(options)
+
+                                nodeName = env.NODE_NAME
+                                retringFunction(nodesList, i)
+                                successCurrentNode = true
+
+                                if (stageName != 'Test' && options.problemMessageManager) {
+                                    options.problemMessageManager.clearErrorReasons(stageName, osName) 
+                                }
+
+                                if (stageName == 'Build') {
+                                    if (options.containsKey("finishedBuildStages")) {
+                                        options["finishedBuildStages"][osName] = [successfully: true]
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        if (stageName == "Build" && !options["ignoreBuildStageCleanWS"]) {
+                            print("[INFO] cleanWS due to failed Build stage")
+                            cleanWS(osName)
+                        }
+
+                        throw e
+                    }
+                }
+            }
+
+            List requiredLock = null
+            if (stageName == "Test" && options["requiredLock"]) {
+                requiredLock = options["requiredLock"](options)
+            }
+
+            if (requiredLock) {
+                lock(label: requiredLock[0], quantity: requiredLock[1], resource : null, skipIfLocked: true, variable: "LIVE_MODE_LOCK") {
+                    findNode()
+                }
+            } else {
+                findNode()
             }
         } catch(Exception e) {
             Boolean isExceptionAllowed = !checkIsExceptionAllowed
@@ -214,8 +265,13 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                 GithubNotificator.updateStatus(statusCheckStageName, title, "timed_out", options, NotificationConfiguration.STAGE_TIMEOUT_EXCEEDED)
             }
 
-            if (!isExceptionAllowed) {
-                println("[INFO] Exception isn't allowed")
+            if (!isExceptionAllowed || preconditionFailed) {
+                if (!isExceptionAllowed) {
+                    println("[INFO] Exception isn't allowed")
+                } else {
+                    println("[INFO] PreCondition failed")
+                }
+
                 if (options.problemMessageManager) {
                     if (stageName == 'Test') {
                         options.problemMessageManager.saveGeneralFailReason(NotificationConfiguration.SOME_TESTS_FAILED, stageName, osName)
@@ -259,7 +315,7 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
                         options["finishedBuildStages"][osName] = [successfully: false]
                     }
                 }
-                println "[ERROR] All nodes on ${stageName} stage with labels ${labels} failed."
+                println "[ERROR] All nodes on ${stageName} stage with labels ${combinedLabels} failed."
                 if (setBuildStatus) {
                     currentBuild.result = "FAILURE"
                 }
@@ -271,8 +327,8 @@ def call(String labels, def stageTimeout, def retringFunction, Boolean reuseLast
             i = tries + 1
         // exclude label of failed machine only if it isn't necessary to reuse last node and if it isn't last try
         } else if (!(reuseLastNode && i == nodesCount + closedChannelRetries - 1) && nodeName) {
-            println "[EXCLUDE] ${nodeName} from nodes pool (Labels: ${labels})"
-            labels += " && !${nodeName}"
+            println "[EXCLUDE] ${nodeName} from nodes pool (Labels: ${combinedLabels})"
+            combinedLabels += " && !${nodeName}"
         } else if (!nodeName) {
             // if ClosedChannelException appeared on 'node' block - add additional try
             tries++

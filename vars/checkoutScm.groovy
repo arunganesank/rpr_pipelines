@@ -18,6 +18,7 @@ import hudson.AbortException
  *     prRepoName - PR repository url for mergePR function (option for manual jobs)
  *     prBranchName - PR braanch name for mergePR function (option for manual jobs)
  *     cleanCheckout - clear all untracked files or not (default - true)
+ *     isGerritMainRepo - is used to mark main repo stored in Gerrit. This parameter is necessary to process env.GERRIT_REFSPEC param
  */
 
 def call(Map checkoutOptions) {
@@ -31,6 +32,7 @@ def call(Map checkoutOptions) {
     checkoutOptions['submoduleDepth'] = checkoutOptions['submoduleDepth'] ?: 2
 
     checkoutOptions['useLFS'] = checkoutOptions['useLFS'] ?: false
+    checkoutOptions['isGerritMainRepo'] = checkoutOptions['isGerritMainRepo'] ?: false
 
     checkoutOptions['prBranchName'] = checkoutOptions['prBranchName'] ?: ''
     checkoutOptions['prRepoName'] = checkoutOptions['prRepoName'] ?: ''
@@ -80,10 +82,19 @@ def checkoutGitScm(Map checkoutOptions, Boolean cleanCheckout=true) {
         println "[INFO] PR repository: ${checkoutOptions['prRepoName']}"
     }
 
-    List configs = [[credentialsId: checkoutOptions['credentialsId'], url: checkoutOptions['repositoryUrl']]]
+    List configs = null
+    if (env.GERRIT_REFSPEC && checkoutOptions["isGerritMainRepo"]) {
+        configs = [[credentialsId: checkoutOptions['credentialsId'],
+                    url: checkoutOptions['repositoryUrl'],
+                    refspec: "${env.GERRIT_REFSPEC}:${env.GERRIT_REFSPEC}"]]
+    } else {
+        configs = [[credentialsId: checkoutOptions['credentialsId'],
+                    url: checkoutOptions['repositoryUrl']]]
+    }
+
     def checkoutExtensions = [
             [$class: 'PruneStaleBranch'],
-            [$class: 'CheckoutOption', timeout: 30],
+            [$class: 'CheckoutOption', timeout: 60],
             [$class: 'AuthorInChangelog'],
             [$class: 'CloneOption', timeout: 120, noTags: false],
             [$class: 'SubmoduleOption', disableSubmodules: checkoutOptions['disableSubmodules'],

@@ -25,12 +25,15 @@ def call(Map params) {
                 randomString = utils.generateRandomString(this, 32) + "/"
             }
 
-            String path = "/volume1/web/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/${randomString}"
+            // process slash in name of artifacts
+            String jobName = env.JOB_NAME.replace("%2F", "/")
+
+            String path = "/volume1/web/${jobName}/${env.BUILD_NUMBER}/Artifacts/${randomString}"
             makeStash(includes: artifactName, name: artifactName, allowEmpty: true, customLocation: path, preZip: false, postUnzip: false, storeOnNAS: true)
 
             withCredentials([string(credentialsId: "nasURL", variable: "REMOTE_HOST"),
                 string(credentialsId: "nasURLFrontend", variable: "REMOTE_URL")]) {
-                artifactURL = "${REMOTE_URL}/${env.JOB_NAME}/${env.BUILD_NUMBER}/Artifacts/${randomString}${artifactName}"
+                artifactURL = "${REMOTE_URL}/${jobName}/${env.BUILD_NUMBER}/Artifacts/${randomString}${artifactName}"
             }
 
             if (createLink) {
